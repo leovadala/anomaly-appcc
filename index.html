@@ -265,6 +265,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div class="sec"><div class="sec-t">Stock activo — FIFO</div>
 <div class="f"><input id="ss" placeholder="Buscar..." oninput="rS()"></div>
 <div class="note" id="sc"></div><div id="sl"></div></div>
+<div class="sec"><div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">Historial de salidas <span id="sh-count" style="font-size:11px;font-weight:400;color:var(--muted,#999)"></span></div>
+<div class="f"><input id="sh-search" placeholder="Buscar en historial..." oninput="renderSH()"></div>
+<div id="sh-list"></div></div>
 </div>
 
 <!-- V3: APPCC -->
@@ -577,7 +580,7 @@ async function savePinSup(){const p=$('cfg-pin-sup').value.trim();if(!/^\d{4}$/.
 
 function autoGenREHE(){const fechaStr=$('af').value;if(!fechaStr)return;const[year,month,day]=fechaStr.split('-');const dd=String(day).padStart(2,'0');const mm=String(month).padStart(2,'0');const cnt=H.filter(r=>r.fecha===fechaStr).length+1;const rehe='REHE-'+dd+mm+'-'+String(cnt).padStart(3,'0');$('adr').value=rehe}
 
-function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2)rS();if(n===3){uIngrSelect();renderSaborSelect();autoGenREHE();$('ar').value=currentUser;if(!$('af').value)$('af').valueAsDate=new Date()};if(n===5){initHorarios()};if(n===7)renderDashboard();window.scrollTo(0,0)}
+function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();autoGenREHE();$('ar').value=currentUser;if(!$('af').value)$('af').valueAsDate=new Date()};if(n===5){initHorarios()};if(n===7)renderDashboard();window.scrollTo(0,0)}
 
 function addTag(){const v=$('ppi').value.trim();if(!v||cTags.includes(v))return;cTags.push(v);rTags();$('ppi').value='';$('ppi').focus()}
 function rmT(i){cTags.splice(i,1);rTags()}
@@ -641,7 +644,8 @@ async function toggleSabor(i){const nv=!sabores[i].activo;const{error}=await sb.
 
 async function rmSabor(i){if(!confirm('¿Eliminar sabor "'+sabores[i].nombre+'"?'))return;const{error}=await sb.from('sabores').delete().eq('id',sabores[i].id);if(error){alert('Error: '+error.message);return}sabores.splice(i,1);renderSabores();renderSaborSelect()}
 
-async function archiveStock(idx,motivo){const labels={consumo:'¿Marcar como consumido?',caducado:'¿Marcar como caducado/vencido?'};if(!confirm(labels[motivo]||'¿Archivar este lote?'))return;const id=S[idx].id;const{error}=await sb.from('recepciones').update({estado:motivo,fecha_salida:hoy,motivo_salida:motivo}).eq('id',id);if(error){alert('Error: '+error.message);return}const item={...S[idx],estado:motivo,fecha_salida:hoy};SH.push(item);S.splice(idx,1);rS()}
+function renderSH(){const q=($('sh-search').value||'').toLowerCase();const f=SH.filter(i=>i.producto.toLowerCase().includes(q)||i.lote.toLowerCase().includes(q)||(i.proveedor||'').toLowerCase().includes(q)).sort((a,b)=>(b.fecha_salida||b.fecha).localeCompare(a.fecha_salida||a.fecha));$('sh-count').textContent=f.length+' registro'+(f.length!==1?'s':'');const e=$('sh-list');if(!f.length){e.innerHTML='<div class="empty">Sin registros</div>';return}e.innerHTML=f.map(i=>{const esCad=i.estado==='caducado';const color=esCad?'#e74c3c':'#27ae60';const label=esCad?'Caducado':'Consumido';return`<div class="card" style="border-left:3px solid ${color};opacity:0.85"><div class="card-top"><span class="card-nm">${i.producto}</span><div style="display:flex;align-items:center;gap:6px"><span class="badge" style="background:${color};color:#fff">${label}</span><span class="badge">${i.frio?'Frío':'Amb.'}</span></div></div><div class="card-row"><div><div class="card-l">Lote</div><div class="card-v">${i.lote}</div></div><div><div class="card-l">Ingreso</div><div class="card-v">${i.fecha}</div></div><div><div class="card-l">Salida</div><div class="card-v" style="color:${color};font-weight:bold">${i.fecha_salida||'—'}</div></div><div><div class="card-l">Venc.</div><div class="card-v">${i.vencimiento||'—'}</div></div><div><div class="card-l">Proveedor</div><div class="card-v">${i.proveedor||'—'}</div></div>${i.albaran?`<div><div class="card-l">Albarán</div><div class="card-v">${i.albaran}</div></div>`:''}</div></div>`}).join('')}
+async function archiveStock(idx,motivo){const labels={consumo:'¿Marcar como consumido?',caducado:'¿Marcar como caducado/vencido?'};if(!confirm(labels[motivo]||'¿Archivar este lote?'))return;const id=S[idx].id;const{error}=await sb.from('recepciones').update({estado:motivo,fecha_salida:hoy,motivo_salida:motivo}).eq('id',id);if(error){alert('Error: '+error.message);return}const item={...S[idx],estado:motivo,fecha_salida:hoy};SH.push(item);S.splice(idx,1);rS();renderSH()}
 
 function genR(){const tipo=$('rty').value,d1=$('rd1').value,d2=$('rd2').value;$('bpdf').style.display='block';
 let h='<div class="rp"><h4>ANOMALY</h4><div class="rp-s">Gelato &amp; Specialty Coffee \u2014 Control APPCC</div><div class="rp-s">Per\u00edodo: '+d1+' a '+d2+'</div>';
@@ -1114,51 +1118,4 @@ function exportHorPNG(){
     const nombre=emp.nombre||'';
     const esch=sch[nombre]||{};
     const rowBg=idx%2===0?'#ffffff':'#faf9f6';
-    tableHTML+=`<tr><td style="border:1px solid #ddd;padding:8px 12px;background:${rowBg};font-weight:600;font-size:12px;color:#1a1a1a;white-space:nowrap">${nombre}</td>`;
-    days.forEach((d,i)=>{
-      const s=esch[i]||'';
-      const fest=esFestivo(d)&&s&&s!=='OFF';
-      const noct=nocturnasHoras(s)>0;
-      const cellStyle=shiftExportStyle(s);
-      const festBorder=fest?'border-bottom:3px solid #b8860b;':'';
-      const noctBorder=noct?'border-bottom:3px solid #4a3a99;':'';
-      const border=festBorder||noctBorder;
-      tableHTML+=`<td style="border:1px solid #ddd;padding:7px 8px;text-align:center;${cellStyle};${border};font-weight:500;letter-spacing:.3px">${s||'—'}</td>`;
-    });
-    tableHTML+='</tr>';
-  });
-  tableHTML+='</tbody></table>';
-
-  const wrap=document.createElement('div');
-  wrap.style.cssText='position:fixed;left:-9999px;top:0;background:#f5f3ee;padding:20px 20px 24px;font-family:DM Sans,sans-serif;display:inline-block';
-  const title=document.createElement('div');
-  title.style.cssText='font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#666;margin-bottom:14px';
-  title.textContent='ANOMALY — HORARIOS · '+weekStr.toUpperCase();
-  wrap.appendChild(title);
-  const tableWrap=document.createElement('div');
-  tableWrap.innerHTML=tableHTML;
-  wrap.appendChild(tableWrap);
-  document.body.appendChild(wrap);
-
-  const loadScript=()=>new Promise(res=>{
-    if(window.html2canvas){res();return}
-    const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-    s.onload=res;document.head.appendChild(s);
-  });
-
-  loadScript().then(()=>{
-    html2canvas(wrap,{scale:2.5,backgroundColor:'#f5f3ee',useCORS:true,logging:false}).then(canvas=>{
-      document.body.removeChild(wrap);
-      canvas.toBlob(blob=>{
-        const url=URL.createObjectURL(blob);
-        const a=document.createElement('a');a.href=url;a.download='horarios-anomaly.png';a.click();
-        setTimeout(()=>URL.revokeObjectURL(url),2000);
-      },'image/png');
-    }).catch(()=>{document.body.removeChild(wrap);alert('Error al generar imagen')});
-  });
-}
-// ─── END HORARIOS MODULE ──────────────────────────────────────────────────────
-</script>
-</body>
-</html>
+    tableHTML+=`<tr><td style="border:1px solid #ddd;padding:8px 12px;background:${rowBg};font-weight:60
