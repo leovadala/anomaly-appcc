@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>ANOMALY — APPCC</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -170,6 +171,17 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .hor-badge{display:inline-block;padding:1px 5px;font-size:10px;font-family:var(--mono)}
 .hb-ok{color:#2d6a2d}.hb-comp{color:#8a1a4a}.hb-low{color:#b33}
 .hor-festivo-dot{display:inline-block;width:4px;height:4px;border-radius:50%;background:#b8860b;margin-left:2px;vertical-align:middle}
+.ocr-modal{position:fixed;inset:0;background:rgba(26,26,26,.6);z-index:1000;display:flex;align-items:flex-end;justify-content:center}
+.ocr-box{background:var(--surface);border-top:.5px solid var(--border);width:100%;max-width:640px;padding:1.5rem 1rem 2.5rem;max-height:85vh;overflow-y:auto}
+.ocr-title{font-size:11px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+.ocr-preview{width:100%;max-height:180px;object-fit:contain;border:.5px solid var(--border);margin-bottom:1rem;display:none}
+.ocr-status{font-size:12px;color:var(--hint);padding:1rem 0;text-align:center;display:none}
+.ocr-results{margin-top:.5rem}
+.ocr-field{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:.5px solid var(--border);gap:8px}
+.ocr-field-label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);width:90px;flex-shrink:0}
+.ocr-field-val{font-size:13px;font-family:var(--mono);color:var(--black);flex:1}
+.ocr-field-btn{padding:4px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase;border:.5px solid var(--black);background:transparent;color:var(--black);cursor:pointer;white-space:nowrap}
+.ocr-field-btn.applied{background:var(--black);color:var(--surface)}
 .shift-modal{position:fixed;inset:0;background:rgba(26,26,26,.5);z-index:999;display:flex;align-items:flex-end;justify-content:center}
 .shift-modal-box{background:var(--surface);border-top:.5px solid var(--border);width:100%;max-width:640px;padding:1.5rem 1rem 2rem}
 .shift-modal-title{font-size:12px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
@@ -223,6 +235,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <button onclick="go(5)">Horarios</button>
 <button onclick="go(6)">Configuración</button>
 <button onclick="go(7)">Dashboard</button>
+<button onclick="go(8)">Egresos</button>
 </div>
 
 <!-- V0: PROVEEDORES -->
@@ -242,7 +255,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 
 <!-- V1: RECEPCIÓN -->
 <div class="view" id="v1">
-<div class="sec"><div class="sec-t">Nueva recepción</div>
+<div class="sec"><div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">Nueva recepción <button type="button" class="btn-d" onclick="openOcrModal()" style="font-size:10px;padding:5px 10px;letter-spacing:1px">📷 Escanear albarán</button></div>
 <div class="r2"><div class="f"><label>Fecha recepción</label><input type="date" id="rfecha"></div><div class="f"><label>Hora</label><input type="time" id="rhora"></div></div>
 <div class="f"><label>Proveedor</label><select id="rp"><option value="">Seleccionar...</option></select></div>
 <div class="f"><label>Producto</label><select id="rpd"><option value="">Primero seleccioná proveedor</option></select><input id="rpdc" placeholder="Especificar" style="display:none;margin-top:4px"></div>
@@ -324,6 +337,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   <button class="hor-maintab on" id="hmtab-grilla"   onclick="horMainTab('grilla')">Grilla</button>
   <button class="hor-maintab"    id="hmtab-empleados" onclick="horMainTab('empleados')">Empleados</button>
   <button class="hor-maintab"    id="hmtab-resumen"   onclick="horMainTab('resumen')">Resumen</button>
+  <button class="hor-maintab"    id="hmtab-vacaciones" onclick="horMainTab('vacaciones')">Vacaciones</button>
   <button class="hor-maintab"    id="hmtab-liquidar"  onclick="horMainTab('liquidar')">Liquidación</button>
 </div>
 
@@ -346,6 +360,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     <span class="hor-leg"><span style="background:#8a1a4a"></span>Parcial</span>
     <span class="hor-leg"><span style="background:#b8860b;border-radius:50%"></span>Festivo</span>
     <span class="hor-leg"><span style="border-bottom:2px solid #4a3a99;background:transparent;width:12px;height:0;margin-top:4px"></span>Nocturno</span>
+    <span class="hor-leg"><span style="background:#27ae60;opacity:.5"></span>Vacaciones</span>
   </div>
   <div id="hor-table-wrap">
     <table class="hor-table" id="hor-table"></table>
@@ -365,6 +380,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     </div>
     <div class="r2">
       <div class="f"><label>Horas contrato / semana</label><input id="hemp-horas" type="number" min="0" max="40" step="1" placeholder="Ej: 20"></div>
+      <div class="f"><label>Días vacaciones / año</label><input id="hemp-vacdays" type="number" min="0" max="60" step="1" placeholder="Ej: 22" value="22"></div>
+    </div>
+    <div class="r2">
+      <div class="f"><label>Fecha de ingreso</label><input id="hemp-ingreso" type="date"></div>
     </div>
     <div class="r2">
       <div class="f"><label>Tipo jornada</label>
@@ -386,6 +405,29 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   <div id="hemp-list"></div>
 </div>
 
+<!-- ── VACACIONES ── -->
+<div id="hpanel-vacaciones" style="display:none">
+  <div class="sec-t" style="margin-bottom:1.2rem">Asignación de vacaciones</div>
+
+  <div class="sec">
+    <div class="sec-t" id="hvac-sec-t">Nuevo período</div>
+    <div class="r2">
+      <div class="f"><label>Empleado</label>
+        <select id="hvac-emp" style="-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2710%27 height=%2710%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23999%27 stroke-width=%272%27%3E%3Cpath d=%27M6 9l6 6 6-6%27/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 2px center;cursor:pointer"></select>
+      </div>
+    </div>
+    <div class="r2">
+      <div class="f"><label>Fecha inicio</label><input id="hvac-inicio" type="date"></div>
+      <div class="f"><label>Fecha fin</label><input id="hvac-fin" type="date"></div>
+    </div>
+    <div class="f"><label>Nota (opcional)</label><input id="hvac-nota" placeholder="Ej: Vacaciones de verano"></div>
+    <button type="button" class="btn-s" onclick="saveVacacion()" style="margin-top:.5rem">Guardar período</button>
+  </div>
+
+  <div id="hvac-stats" style="margin-top:1rem"></div>
+  <div id="hvac-list" style="margin-top:.5rem"></div>
+</div>
+
 <!-- ── RESUMEN ── -->
 <div id="hpanel-resumen" style="display:none">
   <div class="hor-nav" style="margin-bottom:1rem">
@@ -402,11 +444,25 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     <div class="f" style="margin:0;flex:1;max-width:200px">
       <select id="hor-liq-mes" onchange="renderLiquidacion()" style="width:100%;padding:.5rem 0;border:none;border-bottom:.5px solid var(--border);font-size:14px;font-family:var(--font);background:transparent;color:var(--black);outline:none;border-radius:0;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2710%27 height=%2710%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23999%27 stroke-width=%272%27%3E%3Cpath d=%27M6 9l6 6 6-6%27/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 2px center;cursor:pointer"></select>
     </div>
+    <button class="btn-s" onclick="exportLiquidacionPDF()" style="padding:6px 14px;font-size:10px">↓ Exportar PDF</button>
   </div>
   <div id="hor-liquidacion"></div>
 </div>
 
 </div><!-- /v5 -->
+
+<!-- OCR modal -->
+<div class="ocr-modal" id="ocr-modal" style="display:none" onclick="closeOcrModal(event)">
+<div class="ocr-box" onclick="event.stopPropagation()">
+  <div class="ocr-title">Escanear albarán / factura</div>
+  <input type="file" id="ocr-input" accept="image/*" capture="environment" style="display:none" onchange="handleOcrImage(event)">
+  <button type="button" class="btn" onclick="$('ocr-input').click()" style="width:100%;margin-bottom:1rem">📷 Seleccionar / Sacar foto</button>
+  <img id="ocr-preview" class="ocr-preview" alt="preview">
+  <div id="ocr-status" class="ocr-status">Procesando imagen...</div>
+  <div id="ocr-results" class="ocr-results"></div>
+  <button type="button" class="btn-d" onclick="closeOcrModal()" style="width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;margin-top:1rem">Cerrar</button>
+</div>
+</div>
 
 <!-- Shift modal -->
 <div class="shift-modal" id="shift-modal" style="display:none" onclick="closeShiftModal(event)">
@@ -467,11 +523,35 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 </div>
 </div>
 
+<!-- V8: EGRESOS -->
+<div class="view" id="v8">
+<div class="sec"><div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">Nuevo egreso <button type="button" class="btn-d" onclick="openEgrOcr()" style="font-size:10px;padding:5px 10px;letter-spacing:1px">📷 Escanear factura</button></div>
+<div class="r2"><div class="f"><label>Fecha</label><input type="date" id="eg-fecha"></div><div class="f"><label>Importe (€)</label><input type="number" id="eg-importe" step="0.01" min="0" placeholder="0.00"></div></div>
+<div class="f"><label>Proveedor / emisor</label><input id="eg-prov" placeholder="Ej: Mercadona, Telefónica..."></div>
+<div class="f"><label>Concepto</label><input id="eg-concepto" placeholder="Descripción del gasto"></div>
+<div class="r2"><div class="f"><label>Categoría</label><select id="eg-cat"><option value="Suministros">Suministros</option><option value="Servicios">Servicios</option><option value="Alquiler">Alquiler</option><option value="Personal">Personal</option><option value="Mantenimiento">Mantenimiento</option><option value="Impuestos">Impuestos</option><option value="Otros">Otros</option></select></div><div class="f"><label>Nº Factura / Ticket</label><input id="eg-nfact" placeholder="Nº factura"></div></div>
+<div class="f"><label>Foto del comprobante</label><div style="display:flex;gap:8px;align-items:center"><input type="file" id="eg-foto-input" accept="image/*" capture="environment" style="display:none" onchange="previewEgFoto(event)"><button type="button" class="btn-d" onclick="$('eg-foto-input').click()" style="font-size:10px;padding:6px 10px;letter-spacing:1px">📎 Adjuntar foto</button><span id="eg-foto-name" style="font-size:11px;color:var(--muted)">Sin foto</span></div><img id="eg-foto-preview" style="display:none;max-height:100px;margin-top:8px;border:.5px solid var(--border)" alt="preview"></div>
+<div class="f"><label>Notas</label><input id="eg-notas" placeholder="Observaciones..."></div>
+<button type="button" class="btn" onclick="saveEgreso()">Registrar egreso</button>
+<button type="button" class="btn-d" id="btn-eg-cancel" onclick="cancelEgreso()" style="display:none;margin-top:8px;width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
+</div>
+
+<div class="sec"><div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">Egresos <div style="display:flex;gap:6px;align-items:center"><select id="eg-filter-mes" onchange="renderEgresos()" style="font-size:11px;padding:4px 6px;border:.5px solid var(--border);background:transparent"></select><span id="eg-total-mes" style="font-size:11px;font-weight:500"></span></div></div>
+<div id="eg-list"></div>
+</div>
+
+<div class="sec"><div class="sec-t">Distribución por categoría</div>
+<div id="eg-chart" style="display:flex;justify-content:center;padding:1rem 0"></div>
+<div id="eg-legend" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:.5rem"></div>
+</div>
+</div><!-- /v8 -->
+
 </div><!-- /main -->
 </div><!-- /app -->
 
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 const SB_URL='https://mknqxqkjtjogbjrlpzbj.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rbnF4cWtqdGpvZ2JqcmxwemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMDY4NjEsImV4cCI6MjA5MzU4Mjg2MX0.47JXMAtPvK2QVDGJoMMUFNX86-zmpRGCcmhddthNEr0';
@@ -580,7 +660,7 @@ async function savePinSup(){const p=$('cfg-pin-sup').value.trim();if(!/^\d{4}$/.
 
 function autoGenREHE(){const fechaStr=$('af').value;if(!fechaStr)return;const[year,month,day]=fechaStr.split('-');const dd=String(day).padStart(2,'0');const mm=String(month).padStart(2,'0');const cnt=H.filter(r=>r.fecha===fechaStr).length+1;const rehe='REHE-'+dd+mm+'-'+String(cnt).padStart(3,'0');$('adr').value=rehe}
 
-function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();autoGenREHE();$('ar').value=currentUser;if(!$('af').value)$('af').valueAsDate=new Date()};if(n===5){initHorarios()};if(n===7)renderDashboard();window.scrollTo(0,0)}
+function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();autoGenREHE();$('ar').value=currentUser;if(!$('af').value)$('af').valueAsDate=new Date()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();window.scrollTo(0,0)}
 
 function addTag(){const v=$('ppi').value.trim();if(!v||cTags.includes(v))return;cTags.push(v);rTags();$('ppi').value='';$('ppi').focus()}
 function rmT(i){cTags.splice(i,1);rTags()}
@@ -606,6 +686,133 @@ function cancelEditRec(){editingRecIdx=null;['rl','rt','rq','ro','ra'].forEach(x
 
 async function saveRec(){const pi=$('rp').value;const prod=$('rpd').value==='otro'?$('rpdc').value:$('rpd').value;const l=$('rl').value,t=$('rt').value;if(!prod||!l||!t){alert('Completa: producto, lote, temperatura');return}const provN=pi!==''?P[+pi].nombre:'';const fRec=$('rfecha').value||new Date().toISOString().split('T')[0];const hRec=$('rhora').value||new Date().toTimeString().slice(0,5);if(editingRecIdx!==null){const id=S[editingRecIdx].id;const row={producto:prod,lote:l,temperatura:parseFloat(t),proveedor:provN||null,vencimiento:$('rv').value||null,requiere_frio:$('rf').checked,cantidad:$('rq').value||null,observaciones:$('ro').value||null,nro_albaran:$('ra').value||null,fecha:fRec,hora:hRec};const{error}=await sb.from('recepciones').update(row).eq('id',id);if(error){alert('Error: '+error.message);return}S[editingRecIdx]={id,producto:prod,lote:l,temp:t,proveedor:provN,vencimiento:$('rv').value,frio:$('rf').checked,cantidad:$('rq').value,obs:$('ro').value,albaran:$('ra').value,fecha:fRec,hora:hRec.slice(0,5)};cancelEditRec();rRH();rS()}else{const row={producto:prod,lote:l,temperatura:parseFloat(t),proveedor:provN||null,vencimiento:$('rv').value||null,requiere_frio:$('rf').checked,cantidad:$('rq').value||null,observaciones:$('ro').value||null,nro_albaran:$('ra').value||null,fecha:fRec,hora:hRec};const{data}=await sb.from('recepciones').insert(row).select();if(data&&data[0])S.push({id:data[0].id,producto:prod,lote:l,temp:t,proveedor:provN,vencimiento:$('rv').value,frio:$('rf').checked,cantidad:$('rq').value,obs:$('ro').value,albaran:$('ra').value,fecha:fRec,hora:hRec.slice(0,5)});['rl','rt','rq','ro','ra'].forEach(x=>$(x).value='');$('rpd').value='';$('rpdc').value='';$('rv').value='';$('rf').checked=false;initRecDate();rRH()}}
 function initRecDate(){const now=new Date();$('rfecha').value=now.toISOString().split('T')[0];$('rhora').value=now.toTimeString().slice(0,5)}
+
+// ─── OCR SCANNER ─────────────────────────────────────────────
+function openOcrModal(){
+  $('ocr-modal').style.display='flex';$('ocr-preview').style.display='none';$('ocr-status').style.display='none';$('ocr-results').innerHTML='';$('ocr-input').value='';
+  window._ocrMode='recepcion';
+  $('ocr-input').onchange=handleOcrImage;
+}
+
+function handleOcrImage(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=$('ocr-preview');
+    img.src=ev.target.result;img.style.display='block';
+    $('ocr-status').style.display='block';
+    $('ocr-status').textContent='Procesando imagen... esto puede tardar unos segundos.';
+    $('ocr-results').innerHTML='';
+    // Si modo egresos, también preview en el form
+    if(window._ocrMode==='egresos'&&egFotoFile===file){
+      const ep=$('eg-foto-preview');ep.src=ev.target.result;ep.style.display='block';
+    }
+    const resultFn=window._ocrMode==='egresos'?renderEgOcrResults:renderOcrResults;
+    Tesseract.recognize(ev.target.result,'spa+eng',{logger:m=>{if(m.status==='recognizing text'){$('ocr-status').textContent='Reconociendo texto... '+Math.round(m.progress*100)+'%'}}}).then(({data:{text}})=>{
+      $('ocr-status').style.display='none';
+      resultFn(text);
+    }).catch(err=>{$('ocr-status').textContent='Error al procesar imagen.';console.error(err)});
+  };
+  reader.readAsDataURL(file);
+}
+
+function parseOcrText(text){
+  const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const joined=lines.join(' ');
+  const result={};
+
+  // Nº Albarán: busca patrones tipo "Alb", "Albarán", "ALBARAN", "Nº", seguidos de número
+  const albMatch=joined.match(/(?:albar[aá]n|alb\.?|n[uú]m\.?|n[oº]\.?)\s*:?\s*([A-Z0-9\/\-]{3,20})/i);
+  if(albMatch)result.albaran=albMatch[1].trim();
+
+  // Lote: busca "Lote", "Lot", "L/" seguido de alfanumérico
+  const loteMatch=joined.match(/(?:lote|lot\.?|l\/)\s*:?\s*([A-Z0-9\/\-\.]{3,20})/i);
+  if(loteMatch)result.lote=loteMatch[1].trim();
+
+  // Fecha vencimiento: busca "cad", "venc", "best before", fechas tipo dd/mm/yyyy o dd-mm-yyyy
+  const vencMatch=joined.match(/(?:cad(?:ucidad)?|venc(?:imiento)?|best before|consume before|bb|exp)[^\d]*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
+  if(vencMatch){result.vencimiento=parseOcrDate(vencMatch[1])}
+  else{
+    // busca cualquier fecha como último recurso
+    const fechas=joined.match(/\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})\b/g);
+    if(fechas&&fechas.length){
+      // filtra fechas futuras (posibles vencimientos)
+      const futuras=fechas.map(f=>parseOcrDate(f)).filter(d=>d&&d>new Date().toISOString().split('T')[0]);
+      if(futuras.length)result.vencimiento=futuras[futuras.length-1];
+    }
+  }
+
+  // Cantidad: busca números seguidos de unidades
+  const cantMatch=joined.match(/(?:cantidad|cant\.?|qty\.?|unidades|kg|kgs|litros?|lts?|lbs?|uds?\.?)\s*:?\s*([\d\.,]+\s*(?:kg|kgs|lt|lts?|l|lb|uds?|unidades?|cajas?|bolsas?)?)/i);
+  if(cantMatch)result.cantidad=cantMatch[1].trim();
+  else{
+    const cantMatch2=joined.match(/([\d\.,]+\s*(?:kg|kgs|litros?|lts?|uds?|cajas?|bolsas?))/i);
+    if(cantMatch2)result.cantidad=cantMatch2[1].trim();
+  }
+
+  // Proveedor: intenta encontrar nombre de proveedor conocido en el texto
+  const textUp=joined.toUpperCase();
+  const provFound=P.find(p=>textUp.includes(p.nombre.toUpperCase()));
+  if(provFound)result.proveedor=provFound.nombre;
+
+  return result;
+}
+
+function parseOcrDate(str){
+  if(!str)return null;
+  const parts=str.split(/[\/\-\.]/);
+  if(parts.length!==3)return null;
+  let[d,m,y]=parts.map(Number);
+  if(y<100)y+=2000;
+  if(y>1000&&d>1000){[d,y]=[y,d]}// podría ser yyyy/mm/dd
+  if(!d||!m||!y||m>12||d>31)return null;
+  return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+function renderOcrResults(text){
+  const data=parseOcrText(text);
+  const fields=[
+    {key:'albaran',label:'Nº Albarán',apply:v=>{$('ra').value=v}},
+    {key:'lote',label:'Lote',apply:v=>{$('rl').value=v}},
+    {key:'vencimiento',label:'Vencimiento',apply:v=>{$('rv').value=v}},
+    {key:'cantidad',label:'Cantidad',apply:v=>{$('rq').value=v}},
+    {key:'proveedor',label:'Proveedor',apply:v=>{const pi=P.findIndex(p=>p.nombre===v);if(pi>=0){$('rp').value=pi;$('rp').dispatchEvent(new Event('change'))}}},
+  ];
+
+  const found=fields.filter(f=>data[f.key]);
+  if(!found.length){
+    $('ocr-results').innerHTML='<div style="font-size:12px;color:var(--hint);padding:1rem 0;text-align:center">No se detectaron datos reconocibles.<br>Intentá con una foto más nítida y bien iluminada.</div>';
+    // mostrar texto crudo por si acaso
+    $('ocr-results').innerHTML+=`<details style="margin-top:1rem"><summary style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer">Ver texto extraído</summary><pre style="font-size:10px;white-space:pre-wrap;margin-top:.5rem;padding:.5rem;border:.5px dashed var(--border);max-height:150px;overflow-y:auto">${text.replace(/</g,'&lt;')}</pre></details>`;
+    return;
+  }
+
+  let html='';
+  found.forEach((f,i)=>{
+    html+=`<div class="ocr-field">
+      <span class="ocr-field-label">${f.label}</span>
+      <span class="ocr-field-val">${data[f.key]}</span>
+      <button class="ocr-field-btn" id="ocr-btn-${i}" onclick="applyOcrField(${i},'${f.key.replace(/'/g,"\\'")}')">Aplicar</button>
+    </div>`;
+  });
+  html+=`<button type="button" class="btn" onclick="applyAllOcr()" style="width:100%;margin-top:1rem">Aplicar todo</button>`;
+  html+=`<details style="margin-top:1rem"><summary style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer">Ver texto extraído</summary><pre style="font-size:10px;white-space:pre-wrap;margin-top:.5rem;padding:.5rem;border:.5px dashed var(--border);max-height:150px;overflow-y:auto">${text.replace(/</g,'&lt;')}</pre></details>`;
+  $('ocr-results').innerHTML=html;
+  // guardar parsed para applyAll
+  window._ocrData=data;window._ocrFields=found;
+}
+
+function applyOcrField(i,key){
+  if(!window._ocrFields)return;
+  const f=window._ocrFields.find(x=>x.key===key);
+  if(f){f.apply(window._ocrData[key]);const btn=document.getElementById('ocr-btn-'+i);if(btn){btn.textContent='✓';btn.classList.add('applied')}}
+}
+
+function applyAllOcr(){
+  if(!window._ocrFields)return;
+  window._ocrFields.forEach((f,i)=>{f.apply(window._ocrData[f.key]);const btn=document.getElementById('ocr-btn-'+i);if(btn){btn.textContent='✓';btn.classList.add('applied')}});
+  setTimeout(()=>closeOcrModal(),600);
+}
 function renderHistorial(){const e=$('rhist');const d7=new Date();d7.setDate(d7.getDate()-7);const d7s=d7.toISOString().split('T')[0];const older=S.filter(s=>s.fecha<d7s);if(!older.length){e.innerHTML='<div class="empty">Sin historial anterior</div>';return}e.innerHTML='<table style="font-size:10px"><tr><th>Fecha</th><th>Producto</th><th>Lote</th><th>Temp</th><th>Venc.</th><th>Prov.</th></tr>'+older.map(s=>`<tr><td>${s.fecha}</td><td>${s.producto}</td><td>${s.lote}</td><td>${s.temp}°C</td><td>${s.vencimiento||'—'}</td><td>${s.proveedor||'—'}</td></tr>`).join('')+'</table>'}
 
 function rRH(){const r=[],e=$('rli');const d7=new Date();d7.setDate(d7.getDate()-7);const d7s=d7.toISOString().split('T')[0];S.forEach((s,idx)=>{if(s.fecha>=d7s)r.push({...s,_idx:idx})});r.sort((a,b)=>b.fecha.localeCompare(a.fecha)||((b.hora||'').localeCompare(a.hora||'')));if(!r.length){e.innerHTML='<div class="empty">Sin recepciones recientes</div>';return}e.innerHTML=r.map(i=>`<div class="card"><div class="card-top"><span class="card-nm">${i.producto}</span><div style="display:flex;align-items:center;gap:6px"><span class="card-meta">${i.fecha} ${i.hora||''}</span><span class="badge">${i.frio?'Fr\u00edo':'Amb.'}</span><button type="button" class="btn-d" onclick="editRec(${i._idx})">Editar</button></div></div><div class="card-row"><div><div class="card-l">Lote</div><div class="card-v">${i.lote}</div></div><div><div class="card-l">Temp.</div><div class="card-v">${i.temp}\u00b0C</div></div><div><div class="card-l">Venc.</div><div class="card-v">${i.vencimiento||'\u2014'}</div></div><div><div class="card-l">Prov.</div><div class="card-v">${i.proveedor||'\u2014'}</div></div></div></div>`).join('')}
@@ -760,6 +967,7 @@ async function initHorarios(){
   const wk=getScheduleKey();
   await loadHorariosSemana(wk, true); // always fresh on open
   await loadHorEmpleados();
+  await loadVacaciones();
   renderHorSummary();renderHorGrilla();
   populateMesSel();populateLiqMesSel();
   renderHempList();
@@ -772,13 +980,14 @@ function horWeek(dir){
   loadHorariosSemana(wk,true).then(()=>{renderHorSummary();renderHorGrilla()});
 }
 
-const HOR_PANELS=['grilla','empleados','resumen','liquidar'];
+const HOR_PANELS=['grilla','empleados','vacaciones','resumen','liquidar'];
 function horMainTab(tab){
   HOR_PANELS.forEach(p=>{
     const el=$('hpanel-'+p);if(el)el.style.display=p===tab?'block':'none';
     const btn=$('hmtab-'+p);if(btn)btn.classList.toggle('on',p===tab);
   });
   if(tab==='resumen'){populateMesSel();renderHorReporteMes()}
+  if(tab==='vacaciones'){renderVacPanel()}
   if(tab==='liquidar'){populateLiqMesSel();renderLiquidacion()}
 }
 
@@ -807,13 +1016,14 @@ let horEmpEditIdx=null;
 
 async function loadHorEmpleados(){
   const{data}=await sb.from('hor_empleados').select('*').order('nombre');
-  horEmpleados=(data||[]).map(r=>({id:r.id,nombre:r.nombre,cargo:r.cargo||'',horas_contrato:r.horas_contrato||0,tipo_contrato:r.tipo_contrato||'parcial',salario_hora:r.salario_hora||0,noct_pct:r.noct_pct||25,fest_pct:r.fest_pct||75}));
+  horEmpleados=(data||[]).map(r=>({id:r.id,nombre:r.nombre,cargo:r.cargo||'',horas_contrato:r.horas_contrato||0,tipo_contrato:r.tipo_contrato||'parcial',salario_hora:r.salario_hora||0,noct_pct:r.noct_pct||25,fest_pct:r.fest_pct||75,dias_vacaciones:r.dias_vacaciones||22,fecha_ingreso:r.fecha_ingreso||''}));
 }
 
 async function saveHorEmpleado(){
   const nombre=$('hemp-name').value.trim();
   if(!nombre){alert('Nombre requerido');return}
-  const row={nombre,cargo:$('hemp-cargo').value.trim(),horas_contrato:parseInt($('hemp-horas').value)||0,tipo_contrato:$('hemp-tipo').value,salario_hora:parseFloat($('hemp-salario').value)||0,noct_pct:parseInt($('hemp-noct-pct').value)||25,fest_pct:parseInt($('hemp-fest-pct').value)||75};
+  const ingresoVal=$('hemp-ingreso').value;
+  const row={nombre,cargo:$('hemp-cargo').value.trim(),horas_contrato:parseInt($('hemp-horas').value)||0,tipo_contrato:$('hemp-tipo').value,salario_hora:parseFloat($('hemp-salario').value)||0,noct_pct:parseInt($('hemp-noct-pct').value)||25,fest_pct:parseInt($('hemp-fest-pct').value)||75,dias_vacaciones:parseInt($('hemp-vacdays').value)||22,fecha_ingreso:ingresoVal||null};
   if(horEmpEditIdx!==null){
     const id=horEmpleados[horEmpEditIdx].id;
     const{error}=await sb.from('hor_empleados').update(row).eq('id',id);
@@ -824,8 +1034,8 @@ async function saveHorEmpleado(){
     const{data,error}=await sb.from('hor_empleados').insert(row).select();
     if(error){alert('Error: '+error.message);return}
     if(data&&data[0])horEmpleados.push({id:data[0].id,...row});
-    ['hemp-name','hemp-cargo','hemp-horas','hemp-salario'].forEach(x=>{$(x).value=''});
-    $('hemp-noct-pct').value='25';$('hemp-fest-pct').value='75';$('hemp-tipo').value='parcial';
+    ['hemp-name','hemp-cargo','hemp-horas','hemp-salario','hemp-ingreso'].forEach(x=>{$(x).value=''});
+    $('hemp-noct-pct').value='25';$('hemp-fest-pct').value='75';$('hemp-tipo').value='parcial';$('hemp-vacdays').value='22';
   }
   renderHempList();renderHorGrilla();renderHorSummary();
 }
@@ -835,13 +1045,14 @@ function editHorEmpleado(i){
   $('hemp-name').value=e.nombre;$('hemp-cargo').value=e.cargo||'';$('hemp-horas').value=e.horas_contrato||'';
   $('hemp-tipo').value=e.tipo_contrato||'parcial';$('hemp-salario').value=e.salario_hora||'';
   $('hemp-noct-pct').value=e.noct_pct||25;$('hemp-fest-pct').value=e.fest_pct||75;
+  $('hemp-vacdays').value=e.dias_vacaciones||22;$('hemp-ingreso').value=e.fecha_ingreso||'';
   $('hemp-sec-t').textContent='Editar empleado';$('btn-hemp').textContent='Actualizar';
   $('btn-hemp-cancel').style.display='inline-block';$('hemp-name').focus();window.scrollTo({top:0,behavior:'smooth'});
 }
 
 function cancelHorEmpleado(){
-  horEmpEditIdx=null;['hemp-name','hemp-cargo','hemp-horas','hemp-salario'].forEach(x=>{$(x).value=''});
-  $('hemp-noct-pct').value='25';$('hemp-fest-pct').value='75';$('hemp-tipo').value='parcial';
+  horEmpEditIdx=null;['hemp-name','hemp-cargo','hemp-horas','hemp-salario','hemp-ingreso'].forEach(x=>{$(x).value=''});
+  $('hemp-noct-pct').value='25';$('hemp-fest-pct').value='75';$('hemp-tipo').value='parcial';$('hemp-vacdays').value='22';
   $('hemp-sec-t').textContent='Nuevo empleado';$('btn-hemp').textContent='Agregar empleado';$('btn-hemp-cancel').style.display='none';
 }
 
@@ -863,6 +1074,8 @@ function renderHempList(){
           ${e.salario_hora?'<span>'+e.salario_hora+'€/h</span>':''}
           <span>Noct +${e.noct_pct||25}%</span>
           <span>Fest +${e.fest_pct||75}%</span>
+          <span>${e.dias_vacaciones||22}d vacac.</span>
+          ${e.fecha_ingreso?'<span>Ingreso: '+e.fecha_ingreso+'</span>':''}
         </div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
@@ -870,6 +1083,110 @@ function renderHempList(){
         <button type="button" class="btn-d" onclick="deleteHorEmpleado(${i})">Eliminar</button>
       </div>
     </div>`).join('');
+}
+
+// ─── VACACIONES ──────────────────────────────────────────────────────────────
+let horVacaciones=[];
+
+async function loadVacaciones(){
+  const{data}=await sb.from('hor_vacaciones').select('*').order('fecha_inicio');
+  horVacaciones=(data||[]);
+}
+
+// Returns count of working days (Mon-Fri) in a date range
+function countWorkingDays(inicio,fin){
+  let count=0;const d=new Date(inicio);const e=new Date(fin);
+  while(d<=e){const dw=d.getDay();if(dw>=1&&dw<=5)count++;d.setDate(d.getDate()+1)}
+  return count;
+}
+
+// Returns total vacation days used by empleado across all assigned periods
+function getVacDiasUsados(nombre){
+  return horVacaciones.filter(v=>v.empleado===nombre).reduce((s,v)=>s+countWorkingDays(v.fecha_inicio,v.fecha_fin),0);
+}
+
+// Returns set of date strings (YYYY-MM-DD) that are vacation for an empleado
+function getVacDateSet(nombre){
+  const s=new Set();
+  horVacaciones.filter(v=>v.empleado===nombre).forEach(v=>{
+    const d=new Date(v.fecha_inicio);const e=new Date(v.fecha_fin);
+    while(d<=e){s.add(d.toISOString().split('T')[0]);d.setDate(d.getDate()+1)}
+  });
+  return s;
+}
+
+function isVacDay(nombre,date){
+  const key=date.toISOString().split('T')[0];
+  return horVacaciones.some(v=>v.empleado===nombre&&key>=v.fecha_inicio&&key<=v.fecha_fin);
+}
+
+async function renderVacPanel(){
+  if(!horEmpleados.length){
+    $('hvac-stats').innerHTML='<div class="empty">Configurá empleados primero en la pestaña Empleados</div>';
+    $('hvac-list').innerHTML='';return;
+  }
+  await loadVacaciones();
+  // Populate employee select
+  const sel=$('hvac-emp');
+  if(sel&&(!sel.options.length||sel.options[0].value!==horEmpleados[0]?.nombre)){
+    sel.innerHTML=horEmpleados.map(e=>`<option value="${e.nombre}">${e.nombre}</option>`).join('');
+  }
+  // Stats per employee
+  let statsHtml='';
+  horEmpleados.forEach(e=>{
+    const usados=getVacDiasUsados(e.nombre);
+    const total=e.dias_vacaciones||22;
+    const restantes=Math.max(0,total-usados);
+    const pct=Math.min(100,Math.round(usados/total*100));
+    statsHtml+=`<div class="liq-card" style="margin-bottom:8px">
+      <div class="liq-name">${e.nombre}</div>
+      <div class="liq-row"><span class="liq-label">Días asignados / año</span><span class="liq-val">${total}</span></div>
+      <div class="liq-row"><span class="liq-label">Días usados</span><span class="liq-val" style="color:${usados>total?'#e74c3c':'#27ae60'}">${usados}</span></div>
+      <div class="liq-row"><span class="liq-label">Días restantes</span><span class="liq-val">${restantes}</span></div>
+      <div style="margin-top:6px;height:4px;background:var(--border);border-radius:2px"><div style="height:4px;border-radius:2px;background:${usados>total?'#e74c3c':'#27ae60'};width:${pct}%"></div></div>
+    </div>`;
+  });
+  $('hvac-stats').innerHTML=statsHtml;
+  // List all vacation periods
+  let listHtml='<div class="sec-t" style="margin-bottom:.8rem;margin-top:1rem">Períodos registrados</div>';
+  if(!horVacaciones.length){listHtml+='<div class="empty">Sin períodos asignados</div>';}
+  else{
+    listHtml+=horVacaciones.map((v,i)=>{
+      const dias=countWorkingDays(v.fecha_inicio,v.fecha_fin);
+      return`<div class="hemp-item">
+        <div>
+          <div class="hemp-name">${v.empleado}</div>
+          <div class="hemp-meta">
+            <span>${v.fecha_inicio} → ${v.fecha_fin}</span>
+            <span>${dias} día${dias!==1?'s':''} hábiles</span>
+            ${v.nota?'<span>'+v.nota+'</span>':''}
+          </div>
+        </div>
+        <button type="button" class="btn-d" onclick="deleteVacacion('${v.id}',${i})">Eliminar</button>
+      </div>`;
+    }).join('');
+  }
+  $('hvac-list').innerHTML=listHtml;
+}
+
+async function saveVacacion(){
+  const empleado=($('hvac-emp')||{}).value;
+  const inicio=$('hvac-inicio').value;const fin=$('hvac-fin').value;
+  if(!empleado||!inicio||!fin){alert('Completá empleado y fechas');return}
+  if(fin<inicio){alert('La fecha fin debe ser posterior al inicio');return}
+  const nota=$('hvac-nota').value.trim();
+  const{data,error}=await sb.from('hor_vacaciones').insert({empleado,fecha_inicio:inicio,fecha_fin:fin,nota:nota||null}).select();
+  if(error){alert('Error: '+error.message);return}
+  if(data&&data[0])horVacaciones.push(data[0]);
+  $('hvac-inicio').value='';$('hvac-fin').value='';$('hvac-nota').value='';
+  renderVacPanel();renderHorGrilla();
+}
+
+async function deleteVacacion(id,i){
+  if(!confirm('¿Eliminar este período de vacaciones?'))return;
+  await sb.from('hor_vacaciones').delete().eq('id',id);
+  horVacaciones.splice(i,1);
+  renderVacPanel();renderHorGrilla();
 }
 
 // ─── LIQUIDACIÓN ─────────────────────────────────────────────────────────────
@@ -889,13 +1206,13 @@ async function renderLiquidacion(){
   const weeksInMonth=getAllWeeksForMonth(yr,moIdx);
   await Promise.all(weeksInMonth.map(wk=>loadHorariosSemana(wk)));
   await loadExtrasmes(selVal);
+  await loadVacaciones();
   const mesNom=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][moIdx];
   let html=`<div class="sec-t" style="margin-bottom:1rem">Liquidación — ${mesNom} ${yr}</div>`;
   activeTeam.forEach(emp=>{
     let totalH=0,totalNoct=0,totalFest=0;
     weeksInMonth.forEach(wk=>{
       const sch=(horSchedules[wk]||{})[emp.nombre]||{};
-      const days=getWeekDates(0);
       Object.entries(sch).forEach(([di,s])=>{
         if(!s||s==='OFF')return;
         totalH+=parseShiftHours(s);totalNoct+=nocturnasHoras(s);
@@ -907,6 +1224,15 @@ async function renderLiquidacion(){
       const sch=(horSchedules[wk]||{})[emp.nombre]||{};
       wkDays.forEach((d,i)=>{if(sch[i]&&sch[i]!=='OFF'&&esFestivo(d))totalFest++});
     });
+    // Count vacation days used in this month
+    const mesInicio=new Date(yr,moIdx,1);const mesFin=new Date(yr,moIdx+1,0);
+    let vacDiasMes=0;
+    horVacaciones.filter(v=>v.empleado===emp.nombre).forEach(v=>{
+      const vi=new Date(v.fecha_inicio)>mesInicio?new Date(v.fecha_inicio):mesInicio;
+      const vf=new Date(v.fecha_fin)<mesFin?new Date(v.fecha_fin):mesFin;
+      if(vi<=vf)vacDiasMes+=countWorkingDays(vi.toISOString().split('T')[0],vf.toISOString().split('T')[0]);
+    });
+    const vacTotal=getVacDiasUsados(emp.nombre);
     const contratoMes=(emp.horas_contrato||0)*weeksInMonth.length;
     const comp=Math.max(0,totalH-contratoMes);
     const extraKey=selVal+'-'+emp.nombre;
@@ -923,17 +1249,47 @@ async function renderLiquidacion(){
     const festImporte=totalFest*festExtra;
     const total=baseImporte+compImporte+extrasImporte+noctImporte+festImporte;
     const hasImporte=sh>0;
+    const diasVacAno=emp.dias_vacaciones||22;
     html+=`<div class="liq-card">
       <div class="liq-name">${emp.nombre} ${emp.cargo?`<span style="font-size:10px;font-weight:400;color:var(--muted);font-family:var(--mono)">${emp.cargo}</span>`:''} <span style="font-size:10px;font-weight:400;color:var(--hint);font-family:var(--mono)">${emp.horas_contrato||0}h/sem · ${emp.tipo_contrato||'parcial'}</span></div>
-      <div class="liq-row"><span class="liq-label">Horas contrato (${contratoMes}h × ${sh>0?sh+'€':'?€'})</span><span class="liq-val">${baseH}h${hasImporte?' · '+baseImporte.toFixed(2)+'€':''}</span></div>
-      ${compH>0?`<div class="liq-row"><span class="liq-label">Complementarias</span><span class="liq-val" style="color:#8a1a4a">${compH}h${hasImporte?' · '+compImporte.toFixed(2)+'€':''}</span></div>`:''}
-      ${extras>0?`<div class="liq-row"><span class="liq-label">Horas extra</span><span class="liq-val">${extras}h${hasImporte?' · '+extrasImporte.toFixed(2)+'€':''}</span></div>`:''}
-      <div class="liq-row"><span class="liq-label">Nocturnidad (${totalNoct}h × +${emp.noct_pct||25}%)</span><span class="liq-val" style="color:#4a3a99">${totalNoct}h${hasImporte?' · '+noctImporte.toFixed(2)+'€':''}</span></div>
-      <div class="liq-row"><span class="liq-label">Festivos trabajados (${totalFest} turnos × +${emp.fest_pct||75}%)</span><span class="liq-val" style="color:#b8860b">${totalFest}${hasImporte?' · '+festImporte.toFixed(2)+'€':''}</span></div>
-      ${hasImporte?`<div class="liq-total"><span>Total estimado</span><span style="font-family:var(--mono)">${total.toFixed(2)} €</span></div>`:'<div style="font-size:10px;color:var(--hint);margin-top:8px">Configurá el salario/hora para ver importes</div>'}
+      <div class="liq-row"><span class="liq-label">Horas trabajadas este mes</span><span class="liq-val">${totalH}h</span></div>
+      <div class="liq-row"><span class="liq-label">Horas contrato este mes</span><span class="liq-val">${contratoMes}h</span></div>
+      ${compH>0?`<div class="liq-row"><span class="liq-label">Horas complementarias</span><span class="liq-val" style="color:#8a1a4a">${compH}h</span></div>`:''}
+      ${extras>0?`<div class="liq-row"><span class="liq-label">Horas extra</span><span class="liq-val">${extras}h</span></div>`:''}
+      <div class="liq-row"><span class="liq-label">Horas nocturnas</span><span class="liq-val" style="color:#4a3a99">${totalNoct}h</span></div>
+      <div class="liq-row"><span class="liq-label">Festivos trabajados</span><span class="liq-val" style="color:#b8860b">${totalFest} turno${totalFest!==1?'s':''}</span></div>
+      <div class="liq-row" style="border-top:.5px solid var(--border);margin-top:4px;padding-top:6px"><span class="liq-label">Vacaciones este mes</span><span class="liq-val" style="color:#27ae60">${vacDiasMes} día${vacDiasMes!==1?'s':''}</span></div>
+      <div class="liq-row"><span class="liq-label">Vacaciones usadas (total año)</span><span class="liq-val">${vacTotal} / ${diasVacAno} días</span></div>
+      ${hasImporte?`<div style="margin-top:8px;font-size:10px;color:var(--hint)">Estimado: base ${baseImporte.toFixed(2)}€ + comp ${compImporte.toFixed(2)}€ + extras ${extrasImporte.toFixed(2)}€ + noct ${noctImporte.toFixed(2)}€ + fest ${festImporte.toFixed(2)}€ = <strong>${total.toFixed(2)} €</strong></div>`:'<div style="font-size:10px;color:var(--hint);margin-top:8px">Configurá el salario/hora en Empleados para ver importes estimados</div>'}
     </div>`;
   });
   $('hor-liquidacion').innerHTML=html;
+}
+
+function exportLiquidacionPDF(){
+  const content=$('hor-liquidacion');
+  if(!content||!content.innerHTML.trim()){alert('Generá una liquidación primero');return}
+  const mes=($('hor-liq-mes')||{}).options?.[($('hor-liq-mes')||{}).selectedIndex]?.text||'';
+  const w=window.open('','_blank','width=800,height=600');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Liquidación ${mes}</title>
+  <style>
+    body{font-family:system-ui,sans-serif;font-size:13px;color:#1a1a1a;margin:0;padding:24px}
+    h1{font-size:16px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin:0 0 20px;border-bottom:1px solid #ccc;padding-bottom:8px}
+    .liq-card{border:1px solid #ddd;padding:14px;margin-bottom:12px;break-inside:avoid}
+    .liq-name{font-size:13px;font-weight:600;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #eee}
+    .liq-row{display:flex;justify-content:space-between;padding:3px 0;font-size:12px}
+    .liq-label{color:#666}
+    .liq-val{font-family:monospace;font-weight:500}
+    @media print{@page{margin:1cm}}
+  </style></head><body>
+  <h1>Liquidación — ${mes}</h1>
+  ${content.innerHTML}
+  <div style="margin-top:20px;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:8px">
+    Generado: ${new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'})} · ANOMALY
+  </div>
+  </body></html>`);
+  w.document.close();
+  setTimeout(()=>w.print(),500);
 }
 
 function getWeekDaysFromKey(wk){
@@ -997,125 +1353,299 @@ function renderHorGrilla(){
       const s=esch[i]||'';totalH+=parseShiftHours(s);
       const noct=nocturnasHoras(s)>0;const fest=esFestivo(d)&&s&&s!=='OFF';
       const escapedName=nombre.replace(/'/g,"\\'");
-      rowHTML+=`<td class="${fest?'ht-festivo':''}"><span class="shift-cell ${shiftClass(s)}${noct?' sc-nocturno':''}" onclick="openShiftModal('${escapedName}',${i},'${s}')" title="${s||'—'}">${s||'—'}</span></td>`;
+      const isVac=isVacDay(nombre,d);
+      if(isVac&&!s){
+        rowHTML+=`<td style="background:rgba(39,174,96,.12)"><span class="shift-cell" style="background:#27ae60;color:#fff;opacity:.7;font-size:9px" title="Vacaciones">VAC</span></td>`;
+      } else {
+        rowHTML+=`<td class="${fest?'ht-festivo':''}"${isVac?' style="background:rgba(39,174,96,.08)"':''}><span class="shift-cell ${shiftClass(s)}${noct?' sc-nocturno':''}" onclick="openShiftModal('${escapedName}',${i},'${s}')" title="${s||'—'}">${s||'—'}</span></td>`;
+      }
     });
-    let bc='hb-ok';let compLabel='';
-    if(contrato>0){const c=Math.max(0,totalH-contrato);if(totalH<contrato)bc='hb-low';else if(c>0){bc='hb-comp';compLabel=`+${c}c`}}
-    const totalCell=compLabel
-      ?`<td style="width:36px;min-width:36px;white-space:nowrap;text-align:center;padding:3px 2px"><span class="hor-badge ${bc}" style="display:block;font-size:9px">${totalH}h</span><span style="font-size:8px;color:#8a1a4a;display:block;text-align:center">${compLabel}</span></td>`
-      :`<td style="width:36px;min-width:36px;white-space:nowrap;text-align:center;padding:3px 2px"><span class="hor-badge ${bc}">${totalH}h</span></td>`;
-    rowHTML+=totalCell+'</tr>';
+    rowHTML+=`<td style="text-align:center;font-size:10px;font-weight:500">${totalH||''}</td></tr>`;
     html+=rowHTML;
   });
-  html+='</tbody>';tbl.innerHTML=html;
-}
-
-function openShiftModal(name,dayIdx,current){
-  horShiftTarget={name,dayIdx};
-  const days=getWeekDates(horCurrentWeekOffset);const d=days[dayIdx];
-  $('smod-title').textContent=name+' · '+dayLabel(d)+(esFestivo(d)?' · Festivo':'');
-  $('smod-opts').innerHTML=HOR_PRESETS.map(p=>`<button class="shift-opt${p===current?' so-sel':''}${p==='OFF'?' so-off':''}" onclick="applyPresetShift('${p}')">${p||'—'}</button>`).join('');
-  $('smod-custom').value='';$('shift-modal').style.display='flex';
-}
-function closeShiftModal(e){if(!e||e.target===$('shift-modal'))$('shift-modal').style.display='none'}
-function applyPresetShift(val){if(!horShiftTarget)return;setShift(horShiftTarget.name,horShiftTarget.dayIdx,val);$('shift-modal').style.display='none'}
-function applyCustomShift(){if(!horShiftTarget)return;let v=$('smod-custom').value.trim().toUpperCase().replace(/\s+/g,'');if(!v){alert('Ingresá el turno, ej: 10A18');return}setShift(horShiftTarget.name,horShiftTarget.dayIdx,v);$('shift-modal').style.display='none'}
-
-function populateMesSel(){
-  const sel=$('hor-mes-sel');const mo=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];const now=new Date();let opts='';
-  for(let i=0;i<6;i++){const d=new Date(now.getFullYear(),now.getMonth()-i,1);const val=d.getFullYear()+'-'+String(d.getMonth()).padStart(2,'0');opts+=`<option value="${val}"${i===0?' selected':''}>${mo[d.getMonth()]} ${d.getFullYear()}</option>`}
-  sel.innerHTML=opts;
-}
-
-async function renderHorReporteMes(){
-  const selVal=($('hor-mes-sel')||{}).value||'';if(!selVal){$('hor-reporte').innerHTML='';return}
-  const[yr,moIdx]=selVal.split('-').map(Number);
-  const mesNom=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][moIdx];
-  const activeTeam=horEmpleados;
-  if(!activeTeam.length){$('hor-reporte').innerHTML='<div class="empty">Sin empleados configurados</div>';return}
-  $('hor-reporte').innerHTML='<div style="padding:1rem;text-align:center;font-size:12px;color:var(--hint)">Cargando...</div>';
-  const weeksInMonth=getAllWeeksForMonth(yr,moIdx);
-  await Promise.all(weeksInMonth.map(wk=>loadHorariosSemana(wk)));
-  await loadExtrasmes(selVal);
-  let html=`<div class="sec-t" style="margin-bottom:1rem">${mesNom} ${yr}</div>`;
-  html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr>
-    <th style="border:.5px solid var(--border);padding:6px 8px;background:var(--bg);text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--hint)">Empleado</th>
-    <th style="border:.5px solid var(--border);padding:6px 8px;background:var(--bg);text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--hint)">Contrato</th>
-    <th style="border:.5px solid var(--border);padding:6px 8px;background:var(--bg);text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--hint)">Trabajadas</th>
-    <th style="border:.5px solid var(--border);padding:6px 8px;background:var(--bg);text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--hint)">Complement.</th>
-    <th style="border:.5px solid var(--border);padding:6px 8px;background:var(--bg);text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--hint)">Extras</th>
-    <th style="border:.5px solid var(--border);padding:6px 8px;background:var(--bg);text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--hint)">Nocturnas</th>
-    <th style="border:.5px solid var(--border);padding:6px 8px;background:var(--bg);text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--hint)">Festivos</th>
-  </tr></thead><tbody>`;
-  activeTeam.forEach(emp=>{
-    const nombre=emp.nombre||emp.name||'';
-    let totalH=0,totalNoct=0,totalFest=0;
-    weeksInMonth.forEach(wk=>{
-      const sch=(horSchedules[wk]||{})[nombre]||{};
-      Object.entries(sch).forEach(([di,s])=>{if(!s||s==='OFF')return;totalH+=parseShiftHours(s);totalNoct+=nocturnasHoras(s)});
-    });
-    weeksInMonth.forEach(wk=>{
-      const wkDays=getWeekDaysFromKey(wk);
-      const sch=(horSchedules[wk]||{})[nombre]||{};
-      wkDays.forEach((d,i)=>{if(sch[i]&&sch[i]!=='OFF'&&esFestivo(d))totalFest++});
-    });
-    const contratoMes=(emp.horas_contrato||0)*weeksInMonth.length;
-    const comp=Math.max(0,totalH-contratoMes);
-    const extraKey=selVal+'-'+nombre;
-    const extras=horExtras[extraKey]||0;
-    const cl=emp.horas_contrato?(emp.horas_contrato+'h/sem'):'-';
-    html+=`<tr>
-      <td style="border:.5px solid var(--border);padding:6px 8px;font-weight:500">${nombre}</td>
-      <td style="border:.5px solid var(--border);padding:6px 8px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted)">${cl}</td>
-      <td style="border:.5px solid var(--border);padding:6px 8px;text-align:center;font-family:var(--mono);font-weight:500">${totalH}h</td>
-      <td style="border:.5px solid var(--border);padding:6px 8px;text-align:center;font-family:var(--mono);color:${comp>0?'#8a1a4a':'var(--hint)'}">${comp>0?comp+'h':'—'}</td>
-      <td style="border:.5px solid var(--border);padding:5px 8px;text-align:center"><div style="display:flex;align-items:center;gap:4px;justify-content:center"><input type="number" min="0" step="0.5" value="${extras}" style="width:44px;border:none;border-bottom:.5px solid var(--border);text-align:center;font-family:var(--mono);font-size:12px;background:transparent;outline:none;padding:2px 0" onchange="setExtra('${selVal}-${nombre}',this.value)"><span style="font-size:10px;color:var(--hint)">h</span></div></td>
-      <td style="border:.5px solid var(--border);padding:6px 8px;text-align:center;font-family:var(--mono);color:${totalNoct>0?'#4a3a99':'var(--hint)'}">${totalNoct>0?totalNoct+'h':'—'}</td>
-      <td style="border:.5px solid var(--border);padding:6px 8px;text-align:center;font-family:var(--mono);color:${totalFest>0?'#b8860b':'var(--hint)'}">${totalFest>0?totalFest:'—'}</td>
-    </tr>`;
-  });
   html+='</tbody></table></div>';
-  $('hor-reporte').innerHTML=html;
+  $('hor-grilla').innerHTML=html;
 }
 
-function getAllWeeksForMonth(yr,moIdx){
-  const weeks=[];const lastDay=new Date(yr,moIdx+1,0);let d=new Date(yr,moIdx,1);
-  const dow=d.getDay()===0?6:d.getDay()-1;d.setDate(d.getDate()-dow);
-  while(d<=lastDay){const wk=d.getFullYear()+'-W'+String(d.getDate()).padStart(2,'0')+String(d.getMonth()).padStart(2,'0');if(!weeks.includes(wk))weeks.push(wk);d.setDate(d.getDate()+7)}
-  return weeks;
+// ─── EGRESOS ─────────────────────────────────────────────────
+const EG_CATS=['Suministros','Servicios','Alquiler','Personal','Mantenimiento','Impuestos','Otros'];
+const EG_COLORS=['#3498db','#9b59b6','#e67e22','#e74c3c','#27ae60','#f39c12','#95a5a6'];
+let Egresos=[],editingEgIdx=null,egFotoFile=null;
+
+async function initEgresos(){
+  if(!Egresos.length){
+    const{data}=await sb.from('egresos').select('*').order('fecha',{ascending:false});
+    Egresos=data||[];
+  }
+  const now=new Date();
+  $('eg-fecha').value=now.toISOString().split('T')[0];
+  buildEgMesFiltro();
+  renderEgresos();
 }
 
-function shiftExportStyle(s){
-  if(!s||s==='OFF'||s==='')return 'background:#efefef;color:#999';
-  s=s.toUpperCase();
-  if(s==='P')return 'background:#d4edda;color:#1a5c2e';
-  const m=s.match(/^(\d+)A/);if(!m)return 'background:#efefef;color:#999';
-  const h=parseInt(m[1]);
-  if(h<15) return 'background:#d4edda;color:#1a5c2e';
-  return 'background:#d0e8f7;color:#0d4a72';
+function buildEgMesFiltro(){
+  const meses=new Set();
+  const now=new Date();
+  // always include current month
+  meses.add(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
+  Egresos.forEach(e=>meses.add(e.fecha.substring(0,7)));
+  const sorted=[...meses].sort((a,b)=>b.localeCompare(a));
+  $('eg-filter-mes').innerHTML=sorted.map(m=>{
+    const[y,mo]=m.split('-');
+    const label=new Date(+y,+mo-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+    return`<option value="${m}">${label}</option>`;
+  }).join('');
 }
 
-function exportHorPNG(){
-  const days=getWeekDates(horCurrentWeekOffset);
-  const sch=getSchedule();
-  const activeTeam=horEmpleados;
-  if(!activeTeam.length){alert('Sin empleados cargados');return}
+function renderEgresos(){
+  const mes=$('eg-filter-mes').value;
+  const filtered=Egresos.filter(e=>e.fecha.startsWith(mes));
+  const total=filtered.reduce((s,e)=>s+(+e.importe||0),0);
+  $('eg-total-mes').textContent=filtered.length?`Total: ${total.toFixed(2)} €`:'';
 
-  const mo=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-  const weekStr=days[0].getDate()+' '+mo[days[0].getMonth()]+' – '+days[6].getDate()+' '+mo[days[6].getMonth()]+' '+days[6].getFullYear();
-  const dayNames=['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+  // List
+  const el=$('eg-list');
+  if(!filtered.length){el.innerHTML='<div class="empty">Sin egresos este mes</div>';$('eg-chart').innerHTML='';$('eg-legend').innerHTML='';return}
+  el.innerHTML=filtered.map((e,i)=>{
+    const idx=Egresos.indexOf(e);
+    const color=EG_COLORS[EG_CATS.indexOf(e.categoria)%EG_COLORS.length]||'#95a5a6';
+    return`<div class="card"><div class="card-top">
+      <span class="card-nm">${e.concepto||e.proveedor||'Egreso'}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:14px;font-weight:600">${(+e.importe).toFixed(2)} €</span>
+        <button type="button" class="btn-d" onclick="editEgreso(${idx})">Editar</button>
+        <button type="button" class="btn-d" onclick="deleteEgreso(${idx})" style="color:#e74c3c">Borrar</button>
+      </div></div>
+      <div class="card-row">
+        <div><div class="card-l">Fecha</div><div class="card-v">${e.fecha}</div></div>
+        <div><div class="card-l">Proveedor</div><div class="card-v">${e.proveedor||'—'}</div></div>
+        <div><div class="card-l">Categoría</div><div class="card-v"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:3px"></span>${e.categoria}</div></div>
+        <div><div class="card-l">Factura</div><div class="card-v">${e.nro_factura||'—'}</div></div>
+      </div>
+      ${e.foto_url?`<div style="margin-top:6px"><a href="${e.foto_url}" target="_blank" style="font-size:10px;color:var(--muted);text-decoration:none">📎 Ver comprobante</a></div>`:''}
+      ${e.notas?`<div style="font-size:11px;color:var(--hint);margin-top:4px">${e.notas}</div>`:''}
+    </div>`;
+  }).join('');
 
-  let tableHTML='<table style="border-collapse:collapse;font-family:DM Mono,monospace;font-size:13px;width:100%">';
-  tableHTML+='<thead><tr><th style="border:1px solid #ddd;padding:8px 12px;background:#e8e4dc;text-align:left;font-size:10px;letter-spacing:1px;color:#666;min-width:100px">EMPLEADO</th>';
-  days.forEach(d=>{
-    const dd=dayNames[d.getDay()];const dt=d.getDate()+'/'+String(d.getMonth()+1).padStart(2,'0');
-    const fest=esFestivo(d);
-    tableHTML+=`<th style="border:1px solid #ddd;padding:8px 10px;background:${fest?'#fff3cd':'#e8e4dc'};text-align:center;font-size:10px;letter-spacing:.5px;color:${fest?'#b8860b':'#666'};min-width:72px">${dd}<br><span style="font-size:9px;font-weight:400">${dt}${fest?' ★':''}</span></th>`;
+  // Chart
+  renderEgChart(filtered);
+}
+
+function renderEgChart(filtered){
+  const bycat={};
+  EG_CATS.forEach(c=>bycat[c]=0);
+  filtered.forEach(e=>{bycat[e.categoria]=(bycat[e.categoria]||0)+(+e.importe||0)});
+  const total=Object.values(bycat).reduce((a,b)=>a+b,0);
+  if(!total){$('eg-chart').innerHTML='';$('eg-legend').innerHTML='';return}
+
+  // SVG donut
+  const r=60,cx=75,cy=75,stroke=22;
+  const circ=2*Math.PI*r;
+  let offset=0;
+  let paths='';
+  const active=EG_CATS.filter(c=>bycat[c]>0);
+  active.forEach((c,i)=>{
+    const pct=bycat[c]/total;
+    const dash=pct*circ;
+    const color=EG_COLORS[EG_CATS.indexOf(c)%EG_COLORS.length];
+    paths+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-dasharray="${dash} ${circ-dash}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})" opacity=".9"/>`;
+    offset+=dash;
   });
-  tableHTML+='</tr></thead><tbody>';
 
-  activeTeam.forEach((emp,idx)=>{
-    const nombre=emp.nombre||'';
-    const esch=sch[nombre]||{};
-    const rowBg=idx%2===0?'#ffffff':'#faf9f6';
-    tableHTML+=`<tr><td style="border:1px solid #ddd;padding:8px 12px;background:${rowBg};font-weight:60
+  $('eg-chart').innerHTML=`<svg width="150" height="150" viewBox="0 0 150 150">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${stroke}"/>
+    ${paths}
+    <text x="${cx}" y="${cy-6}" text-anchor="middle" font-size="10" fill="var(--muted)">Total</text>
+    <text x="${cx}" y="${cy+10}" text-anchor="middle" font-size="13" font-weight="600" fill="var(--black)">${total.toFixed(0)} €</text>
+  </svg>`;
+
+  $('eg-legend').innerHTML=active.map(c=>{
+    const color=EG_COLORS[EG_CATS.indexOf(c)%EG_COLORS.length];
+    const pct=Math.round(bycat[c]/total*100);
+    return`<div style="display:flex;align-items:center;gap:6px;font-size:11px">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></span>
+      <span>${c}</span>
+      <span style="margin-left:auto;color:var(--muted)">${bycat[c].toFixed(2)} € (${pct}%)</span>
+    </div>`;
+  }).join('');
+}
+
+function previewEgFoto(e){
+  const file=e.target.files[0];if(!file)return;
+  egFotoFile=file;
+  $('eg-foto-name').textContent=file.name;
+  const reader=new FileReader();
+  reader.onload=ev=>{const img=$('eg-foto-preview');img.src=ev.target.result;img.style.display='block'};
+  reader.readAsDataURL(file);
+}
+
+async function uploadEgFoto(file){
+  if(!file)return null;
+  const ext=file.name.split('.').pop();
+  const name=`${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const{error}=await sb.storage.from('facturas').upload(name,file,{contentType:file.type});
+  if(error){console.error('Upload error',error);return null}
+  return sb.storage.from('facturas').getPublicUrl(name).data.publicUrl;
+}
+
+async function saveEgreso(){
+  const imp=parseFloat($('eg-importe').value);
+  if(!imp||imp<=0){alert('Ingresá un importe válido');return}
+  const foto_url=egFotoFile?await uploadEgFoto(egFotoFile):
+    (editingEgIdx!==null?Egresos[editingEgIdx].foto_url:null);
+  const row={
+    fecha:$('eg-fecha').value||new Date().toISOString().split('T')[0],
+    proveedor:$('eg-prov').value||null,
+    concepto:$('eg-concepto').value||null,
+    importe:imp,
+    categoria:$('eg-cat').value||'Otros',
+    nro_factura:$('eg-nfact').value||null,
+    foto_url,
+    notas:$('eg-notas').value||null
+  };
+  if(editingEgIdx!==null){
+    const id=Egresos[editingEgIdx].id;
+    const{error}=await sb.from('egresos').update(row).eq('id',id);
+    if(error){alert('Error: '+error.message);return}
+    Egresos[editingEgIdx]={id,...row};
+    cancelEgreso();
+  } else {
+    const{data}=await sb.from('egresos').insert(row).select();
+    if(data&&data[0])Egresos.unshift(data[0]);
+    resetEgForm();
+  }
+  buildEgMesFiltro();
+  renderEgresos();
+}
+
+function resetEgForm(){
+  ['eg-prov','eg-concepto','eg-nfact','eg-notas','eg-importe'].forEach(x=>$(x).value='');
+  $('eg-cat').value='Suministros';
+  $('eg-foto-input').value='';$('eg-foto-name').textContent='Sin foto';
+  $('eg-foto-preview').style.display='none';
+  egFotoFile=null;
+  const now=new Date();$('eg-fecha').value=now.toISOString().split('T')[0];
+}
+
+function editEgreso(idx){
+  editingEgIdx=idx;
+  const e=Egresos[idx];
+  $('eg-fecha').value=e.fecha||'';
+  $('eg-prov').value=e.proveedor||'';
+  $('eg-concepto').value=e.concepto||'';
+  $('eg-importe').value=e.importe||'';
+  $('eg-cat').value=e.categoria||'Otros';
+  $('eg-nfact').value=e.nro_factura||'';
+  $('eg-notas').value=e.notas||'';
+  $('eg-foto-name').textContent=e.foto_url?'Foto guardada':'Sin foto';
+  if(e.foto_url){$('eg-foto-preview').src=e.foto_url;$('eg-foto-preview').style.display='block'}
+  egFotoFile=null;
+  $('btn-eg-cancel').style.display='block';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function cancelEgreso(){
+  editingEgIdx=null;
+  resetEgForm();
+  $('btn-eg-cancel').style.display='none';
+}
+
+async function deleteEgreso(idx){
+  if(!confirm('¿Eliminar este egreso?'))return;
+  const id=Egresos[idx].id;
+  await sb.from('egresos').delete().eq('id',id);
+  Egresos.splice(idx,1);
+  buildEgMesFiltro();
+  renderEgresos();
+}
+
+// Reusar OCR de recepciones para facturas de egresos
+function openEgrOcr(){
+  $('ocr-modal').style.display='flex';
+  $('ocr-preview').style.display='none';
+  $('ocr-status').style.display='none';
+  $('ocr-results').innerHTML='';
+  $('ocr-input').value='';
+  window._ocrMode='egresos';
+  // When image is selected, also capture file for egresos
+  $('ocr-input').onchange=function(ev){
+    const f=ev.target.files[0];if(!f)return;
+    egFotoFile=f;
+    $('eg-foto-name').textContent=f.name;
+    handleOcrImage(ev);
+  };
+}
+
+function closeOcrModal(e){
+  if(!e||e.target===$('ocr-modal')){
+    $('ocr-modal').style.display='none';
+    window._ocrMode=null;
+    // restore original handler
+    $('ocr-input').onchange=handleOcrImage;
+  }
+}
+
+// handleOcrImage handles both recepcion and egresos modes (see function above)
+
+function renderEgOcrResults(text){
+  const joined=text.split('\n').map(l=>l.trim()).filter(Boolean).join(' ');
+  const data={};
+
+  // Importe: busca totales con €, EUR, "total", "importe"
+  const impMatch=joined.match(/(?:total|importe|a pagar|base imp(?:onible)?)[^\d]*(\d+[\.,]\d{2})/i)
+    ||joined.match(/(\d+[\.,]\d{2})\s*€/);
+  if(impMatch)data.importe=impMatch[1].replace(',','.');
+
+  // Nº factura
+  const factMatch=joined.match(/(?:factura|fra\.?|f\.?|nº\.?)\s*:?\s*([A-Z0-9\/\-]{3,20})/i);
+  if(factMatch)data.nro_factura=factMatch[1].trim();
+
+  // Proveedor: primera línea con >3 letras (heurística)
+  const lines=text.split('\n').map(l=>l.trim()).filter(l=>l.length>3&&!/^\d/.test(l));
+  if(lines.length)data.proveedor=lines[0].substring(0,50);
+
+  // Fecha de la factura
+  const fechaMatch=joined.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
+  if(fechaMatch){
+    let[,d,m,y]=fechaMatch;if(+y<100)y=2000+(+y);
+    data.fecha=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
+
+  const fields=[
+    {key:'proveedor',label:'Proveedor',apply:v=>{$('eg-prov').value=v}},
+    {key:'importe',label:'Importe (€)',apply:v=>{$('eg-importe').value=v}},
+    {key:'nro_factura',label:'Nº Factura',apply:v=>{$('eg-nfact').value=v}},
+    {key:'fecha',label:'Fecha',apply:v=>{$('eg-fecha').value=v}},
+  ];
+  const found=fields.filter(f=>data[f.key]);
+  if(!found.length){
+    $('ocr-results').innerHTML='<div style="font-size:12px;color:var(--hint);padding:1rem 0;text-align:center">No se detectaron datos.<br>Intentá con foto más nítida.</div>';
+    return;
+  }
+  let html='';
+  found.forEach((f,i)=>{
+    html+=`<div class="ocr-field">
+      <span class="ocr-field-label">${f.label}</span>
+      <span class="ocr-field-val">${data[f.key]}</span>
+      <button class="ocr-field-btn" id="ocr-btn-${i}" onclick="applyEgOcr(${i},'${f.key}')">Aplicar</button>
+    </div>`;
+  });
+  html+=`<button type="button" class="btn" onclick="applyAllEgOcr()" style="width:100%;margin-top:1rem">Aplicar todo y cerrar</button>`;
+  $('ocr-results').innerHTML=html;
+  window._egOcrData=data;window._egOcrFields=found;
+}
+
+function applyEgOcr(i,key){
+  if(!window._egOcrFields)return;
+  const f=window._egOcrFields.find(x=>x.key===key);
+  if(f){f.apply(window._egOcrData[key]);const btn=document.getElementById('ocr-btn-'+i);if(btn){btn.textContent='✓';btn.classList.add('applied')}}
+}
+
+function applyAllEgOcr(){
+  if(!window._egOcrFields)return;
+  window._egOcrFields.forEach((f,i)=>{f.apply(window._egOcrData[f.key]);const btn=document.getElementById('ocr-btn-'+i);if(btn){btn.textContent='✓';btn.classList.add('applied')}});
+  setTimeout(()=>{$('ocr-modal').style.display='none';window._ocrMode=null},600);
+}
+</script>
+</body>
+</html>
