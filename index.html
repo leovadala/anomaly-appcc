@@ -1327,13 +1327,11 @@ function renderHorGrilla(){
   const n=activeTeam.length;
   const fs=n<=6?11:n<=9?10:9;
   const totalColW=36; // px fijo para columna H
-  tbl.style.fontSize=fs+'px';
-
   // Use percentage for name+days, fixed px for total
   const empPct=n<=6?20:n<=9?17:14;
   const dayPct=Math.floor((100-empPct)/7);
 
-  let html=`<colgroup><col style="width:${empPct}%">`;
+  let html=`<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="hor-table" style="font-size:${fs}px"><colgroup><col style="width:${empPct}%">`;
   for(let i=0;i<7;i++)html+=`<col style="width:${dayPct}%">`;
   html+=`<col style="width:${totalColW}px;min-width:${totalColW}px"></colgroup>`;
   html+='<thead><tr><th class="ht-emp">Empleado</th>';
