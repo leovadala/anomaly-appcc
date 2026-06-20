@@ -1331,7 +1331,8 @@ function renderHorGrilla(){
   const empPct=n<=6?20:n<=9?17:14;
   const dayPct=Math.floor((100-empPct)/7);
 
-  let html=`<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="hor-table" style="font-size:${fs}px"><colgroup><col style="width:${empPct}%">`;
+  tbl.style.fontSize=fs+'px';
+  let html=`<colgroup><col style="width:${empPct}%">`;
   for(let i=0;i<7;i++)html+=`<col style="width:${dayPct}%">`;
   html+=`<col style="width:${totalColW}px;min-width:${totalColW}px"></colgroup>`;
   html+='<thead><tr><th class="ht-emp">Empleado</th>';
@@ -1361,8 +1362,8 @@ function renderHorGrilla(){
     rowHTML+=`<td style="text-align:center;font-size:10px;font-weight:500">${totalH||''}</td></tr>`;
     html+=rowHTML;
   });
-  html+='</tbody></table></div>';
-  $('hor-grilla').innerHTML=html;
+  html+='</tbody>';
+  tbl.innerHTML=html;
 }
 
 // ─── EGRESOS ─────────────────────────────────────────────────
