@@ -948,7 +948,7 @@ async function loadExtrasmes(mesKey){
   horExtras[mesKey+'_loaded']=true;
 }
 
-async async function setShift(name,dayIdx,val){
+async function setShift(name,dayIdx,val){
   const wk=getScheduleKey();
   if(!horSchedules[wk])horSchedules[wk]={};
   if(!horSchedules[wk][name])horSchedules[wk][name]={};
@@ -1035,13 +1035,6 @@ async function initHorarios(){
   renderHorSummary();renderHorGrilla();
   populateMesSel();populateLiqMesSel();
   renderHempList();
-}
-
-function horWeek(dir){
-  horCurrentWeekOffset+=dir;updateWeekLabel();
-  const wk=getScheduleKey();
-  $('hor-table').innerHTML='<tr><td colspan="9" style="text-align:center;padding:1.5rem;color:var(--hint);font-size:12px;letter-spacing:.5px">Cargando...</td></tr>';
-  loadHorariosSemana(wk,true).then(()=>{renderHorSummary();renderHorGrilla()});
 }
 
 const HOR_PANELS=['grilla','empleados','vacaciones','resumen','liquidar'];
