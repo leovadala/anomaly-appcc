@@ -1707,7 +1707,7 @@ function applyEgOcr(i,key){
 function applyAllEgOcr(){
   if(!window._egOcrFields)return;
   window._egOcrFields.forEach((f,i)=>{f.apply(window._egOcrData[f.key]);const btn=document.getElementById('ocr-btn-'+i);if(btn){btn.textContent='✓';btn.classList.add('applied')}});
-  setTimeout(()=>{$('ocr-modal').style.display='none';w
+  setTimeout(()=>{$('ocr-modal').style.display='none';window._ocrMode=null},600);
 }
 </script>
 </body>
