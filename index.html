@@ -562,6 +562,7 @@ const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 const sb=window.supabase.createClient(SB_URL,SB_KEY);
 
 let P=[],S=[],SH=[],H=[],cTags=[],cPDFs=[];
+let AB=[],PP=[];
 let team=[],sabores=[];
 let currentUser='';
 let editingProvIdx=null;
@@ -574,18 +575,22 @@ const hoy=new Date().toISOString().split('T')[0];
 const $=id=>document.getElementById(id);
 
 async function loadAll(){
-  const[t,p,s,h,sab,cfg]=await Promise.all([
+  const[t,p,s,h,sab,cfg,alb,pp]=await Promise.all([
     sb.from('team').select('*').order('created_at'),
     sb.from('proveedores').select('*').order('created_at'),
     sb.from('recepciones').select('*').order('created_at'),
     sb.from('registros_appcc').select('*').order('created_at'),
     sb.from('sabores').select('*').order('nombre'),
-    sb.from('config').select('*')
+    sb.from('config').select('*'),
+    sb.from('albaranes').select('*').order('fecha',{ascending:false}),
+    sb.from('proveedor_productos').select('*').order('descripcion')
   ]);
   team=(t.data||[]).map(r=>({id:r.id,nombre:r.nombre,pin:r.pin||'',horas_contrato:r.horas_contrato||0,tipo_contrato:r.tipo_contrato||'parcial'}));
   P=(p.data||[]).map(r=>({id:r.id,nombre:r.nombre,cif:r.cif||'',tel:r.telefono||'',rs:r.registro_sanitario||'',productos:r.productos||[],notas:r.notas||'',pdfs:[]}));
   const allRec=(s.data||[]).map(r=>({id:r.id,producto:r.producto,lote:r.lote,temp:r.temperatura,proveedor:r.proveedor||'',vencimiento:r.vencimiento||'',frio:r.requiere_frio,cantidad:r.cantidad||'',obs:r.observaciones||'',albaran:r.nro_albaran||'',fecha:r.fecha,hora:(r.hora||'').slice(0,5),estado:r.estado||'activo',fecha_salida:r.fecha_salida||'',motivo_salida:r.motivo_salida||''}));
   S=allRec.filter(r=>r.estado==='activo');SH=allRec.filter(r=>r.estado!=='activo');
+  AB=(alb.data||[]).map(r=>({id:r.id,proveedor_nombre:r.proveedor_nombre,proveedor_id:r.proveedor_id,num_albaran:r.num_albaran,fecha:r.fecha,forma_pago:r.forma_pago||'',n_bultos:r.n_bultos,total:r.total}));
+  PP=(pp.data||[]).map(r=>({id:r.id,proveedor_id:r.proveedor_id,ref:r.ref||'',descripcion:r.descripcion,ultimo_precio:r.ultimo_precio,ultima_fecha:r.ultima_fecha}));
   H=(h.data||[]).map(r=>({id:r.id,fecha:r.fecha,hora:(r.hora||'').slice(0,5),responsable:r.responsable,producto:r.producto,ingredientes:r.ingredientes||'',lote_prov:r.lote_proveedor||'',proveedor:r.proveedor||'',cant:r.cantidad_pesada||'',rehe:r.doc_rehe||'',obs:r.observaciones||'',pcc1:{t:r.pcc1_temp,m:r.pcc1_tiempo},roh1:{t:r.roh1_temp,v:r.roh1_vida_util||'',m:r.roh1_tiempo||''},roh3:{t:r.roh3_temp,m:r.roh3_tiempo||''},lote:r.lote_final||'',baldes:r.baldes,kg:r.kg,roh4:{i:r.roh4_identificacion||'',c:r.roh4_cantidad||''},roh5:{c:r.roh5_camara||'',t:r.roh5_temp,m:r.roh5_tiempo,e:(r.roh5_hora_entrada||'').slice(0,5),s:(r.roh5_hora_salida||'').slice(0,5)},litros:r.litros_final,pac:r.nro_pac||'',temps:{a1:r.temp_armario_1,a2:r.temp_armario_2,a3:r.temp_armario_3,p1:r.temp_pozzetti_1,p2:r.temp_pozzetti_2,p3:r.temp_pozzetti_3},ver:{e:r.verificacion_etapa||'',d:r.verificacion_descripcion||'',r:r.verificacion_resultado||''}}));
   sabores=(sab.data||[]).map(r=>({id:r.id,nombre:r.nombre,codigo:r.codigo,activo:r.activo}));
   const cfgData=cfg.data||[];const pinRow=cfgData.find(r=>r.key==='pin_supervisor');if(pinRow)pinSupervisor=pinRow.value;
@@ -681,7 +686,34 @@ function editProv(i){editingProvIdx=i;const p=P[i];$('pn').value=p.nombre;$('pc'
 function cancelEditProv(){editingProvIdx=null;['pn','pc','pt','pr','pno'].forEach(x=>$(x).value='');cTags=[];cPDFs=[];rTags();rPDFs();$('btn-prov').textContent='Guardar proveedor';$('btn-prov-cancel').style.display='none';document.querySelector('#v0 .sec-t').textContent='Nuevo proveedor'}
 
 async function saveProv(){const n=$('pn').value.trim();if(!n){alert('Nombre requerido');return}const row={nombre:n,cif:$('pc').value||null,telefono:$('pt').value||null,registro_sanitario:$('pr').value||null,productos:cTags.length?[...cTags]:null,notas:$('pno').value||null};if(editingProvIdx!==null){const id=P[editingProvIdx].id;const{error}=await sb.from('proveedores').update(row).eq('id',id);if(error){alert('Error: '+error.message);return}P[editingProvIdx]={id,nombre:n,cif:$('pc').value,tel:$('pt').value,rs:$('pr').value,productos:[...cTags],notas:$('pno').value,pdfs:[...cPDFs]};cancelEditProv();rPL()}else{const{data}=await sb.from('proveedores').insert(row).select();if(data&&data[0])P.push({id:data[0].id,nombre:n,cif:$('pc').value,tel:$('pt').value,rs:$('pr').value,productos:[...cTags],notas:$('pno').value,pdfs:[...cPDFs]});['pn','pc','pt','pr','pno'].forEach(x=>$(x).value='');cTags=[];cPDFs=[];rTags();rPDFs();rPL()}}
-function rPL(){const e=$('pl');if(!P.length){e.innerHTML='<div class="empty">Sin proveedores</div>';return}e.innerHTML=P.map((p,i)=>`<div class="card"><div class="card-top"><span class="card-nm">${p.nombre}</span><div style="display:flex;gap:6px"><button type="button" class="btn-d" onclick="editProv(${i})">Editar</button><button type="button" class="btn-d" onclick="rmProv(${i})">Eliminar</button></div></div><div class="card-meta">${[p.cif,p.rs,p.tel].filter(Boolean).join(' \u00b7 ')}</div>${p.productos&&p.productos.length?'<div class="tags" style="margin-top:5px">'+p.productos.map(x=>`<span class="tg">${x}</span>`).join('')+'</div>':''}${p.notas?'<div style="font-size:11px;color:var(--hint);margin-top:4px">'+p.notas+'</div>':''}</div>`).join('')}
+function rPL(){
+  const e=$('pl');
+  if(!P.length){e.innerHTML='<div class="empty">Sin proveedores</div>';return}
+  e.innerHTML=P.map((p,i)=>{
+    const provProd=PP.filter(x=>x.proveedor_id===p.id).sort((a,b)=>(a.ref||'zzz').localeCompare(b.ref||'zzz'));
+    const provAlb=AB.filter(x=>x.proveedor_id===p.id).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    const totalComprado=provAlb.reduce((s,a)=>s+(a.total||0),0);
+    // Catálogo tabla
+    let catalogHtml='';
+    if(provProd.length){
+      catalogHtml+='<div style="margin-top:10px"><div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px">Catálogo de productos</div>';
+      catalogHtml+='<div style="overflow-x:auto"><table style="width:100%;font-size:11px;border-collapse:collapse">';
+      catalogHtml+='<tr style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)"><th style="padding:3px 4px;text-align:left">Ref</th><th style="padding:3px 4px;text-align:left">Descripción</th><th style="padding:3px 4px;text-align:right">Último precio</th><th style="padding:3px 4px;text-align:center">Última entrega</th></tr>';
+      catalogHtml+=provProd.map(x=>`<tr style="border-top:1px solid var(--border,#eee)"><td style="padding:3px 4px;color:var(--muted);font-family:monospace;font-size:10px">${x.ref||'—'}</td><td style="padding:3px 4px">${x.descripcion}</td><td style="padding:3px 4px;text-align:right;font-variant-numeric:tabular-nums">${x.ultimo_precio!=null?x.ultimo_precio.toFixed(3)+' €':'—'}</td><td style="padding:3px 4px;text-align:center;color:var(--muted)">${x.ultima_fecha||'—'}</td></tr>`).join('');
+      catalogHtml+='</table></div></div>';
+    }
+    // Historial albaránes
+    let albHtml='';
+    if(provAlb.length){
+      albHtml+='<div style="margin-top:10px"><div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px">Historial albaránes — Total: '+totalComprado.toFixed(2)+' €</div>';
+      albHtml+='<div style="overflow-x:auto"><table style="width:100%;font-size:11px;border-collapse:collapse">';
+      albHtml+='<tr style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)"><th style="padding:3px 4px;text-align:left">Nº Albarán</th><th style="padding:3px 4px;text-align:center">Fecha</th><th style="padding:3px 4px;text-align:right">Total</th><th style="padding:3px 4px;text-align:left">Pago</th></tr>';
+      albHtml+=provAlb.slice(0,10).map(a=>`<tr style="border-top:1px solid var(--border,#eee)"><td style="padding:3px 4px;font-family:monospace;font-size:10px">${a.num_albaran}</td><td style="padding:3px 4px;text-align:center">${a.fecha}</td><td style="padding:3px 4px;text-align:right;font-variant-numeric:tabular-nums">${a.total!=null?a.total.toFixed(2)+' €':'—'}</td><td style="padding:3px 4px;color:var(--muted);font-size:10px">${(a.forma_pago||'').substring(0,30)||'—'}</td></tr>`).join('');
+      albHtml+='</table></div></div>';
+    }
+    return `<div class="card"><div class="card-top"><span class="card-nm">${p.nombre}</span><div style="display:flex;gap:6px"><button type="button" class="btn-d" onclick="editProv(${i})">Editar</button><button type="button" class="btn-d" onclick="rmProv(${i})">Eliminar</button></div></div><div class="card-meta">${[p.cif,p.rs,p.tel].filter(Boolean).join(' · ')}</div>${p.notas?'<div style="font-size:11px;color:var(--hint);margin-top:4px">'+p.notas+'</div>':''}${catalogHtml}${albHtml}</div>`;
+  }).join('');
+}
 
 function uSP(){const sp=[...P.map((p,i)=>({...p,_i:i}))].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));$('rp').innerHTML='<option value="">Seleccionar...</option>'+sp.map(p=>`<option value="${p._i}">${p.nombre}</option>`).join('')}
 function editRec(idx){const i=S[idx];editingRecIdx=idx;$('rfecha').value=i.fecha||'';$('rhora').value=i.hora||'';const pi=P.findIndex(p=>p.nombre===i.proveedor);$('rp').value=pi>=0?pi:'';$('rp').dispatchEvent(new Event('change'));setTimeout(()=>{if(i.producto){const opts=$('rpd').options;let found=false;for(let o=0;o<opts.length;o++){if(opts[o].value===i.producto||opts[o].textContent===i.producto){$('rpd').value=opts[o].value;found=true;break}}if(!found){$('rpd').value='otro';$('rpdc').style.display='block';$('rpdc').value=i.producto}$('rpd').dispatchEvent(new Event('change'))}},50);$('rl').value=i.lote;$('rt').value=i.temp;$('rq').value=i.cantidad||'';$('rv').value=i.vencimiento||'';$('rf').checked=i.frio;$('ro').value=i.obs||'';$('ra').value=i.albaran||'';$('btn-rec').textContent='Actualizar recepción';$('btn-rec-cancel').style.display='block';document.querySelector('#v1 .sec-t').textContent='Editar recepción';window.scrollTo({top:0,behavior:'smooth'})}
@@ -722,90 +754,80 @@ function handleOcrImage(e){
 
 function isNifCif(s){return /^[A-Z]\d{7}[A-Z0-9]$/i.test(s.replace(/[\s\.\-]/g,''))}
 
+// Convierte número con coma decimal (ej: "13,454" o "13.454,00") a float
+function pNum(s){if(!s)return null;const t=s.trim();// si tiene coma Y punto, el punto es separador de miles
+if(t.includes(',')&&t.includes('.'))return parseFloat(t.replace(/\./g,'').replace(',','.'));
+return parseFloat(t.replace(',','.'));}
+
 function parseOcrText(text){
   const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
   const joined=lines.join(' ');
-  const result={};
-
-  // === Nº ALBARÁN ===
-  // Solo acepta keyword explícita "albarán/alb" — excluye NIFs y patrones genéricos
-  const albPatterns=[
-    /albar[aá]n\s*(?:de\s+\w+\s*)?(?:n[uúoº°]\.?\s*)?:?\s*([A-Z0-9][A-Z0-9\/\-\.]{1,18})/i,
-    /\balb(?:ar[aá]n)?\.?\s*n?[oº°]?\.?\s*:?\s*([A-Z0-9][A-Z0-9\/\-\.]{1,18})/i,
-    /(?:delivery\s*note|note\s*no\.?)\s*:?\s*([A-Z0-9\/\-\.]{3,18})/i,
-  ];
-  for(const pat of albPatterns){
-    const m=joined.match(pat);
-    if(m&&m[1]&&!isNifCif(m[1])){result.albaran=m[1].trim();break}
-  }
-
-  // === LOTE ===
-  const lotePatterns=[
-    /(?:lote|lot\.?)\s*(?:n[uúoº°]\.?\s*)?:?\s*([A-Z0-9][A-Z0-9\/\-\.]{1,20})/i,
-    /\bl[\/\-]\s*([A-Z0-9][A-Z0-9\/\-\.]{1,20})/i,
-    /(?:batch|b\.?\s*no\.?|lot\s*code)\s*:?\s*([A-Z0-9\/\-\.]{3,20})/i,
-  ];
-  for(const pat of lotePatterns){
-    const m=joined.match(pat);
-    if(m&&m[1]&&!isNifCif(m[1])){result.lote=m[1].trim();break}
-  }
-  if(!result.lote){
-    for(const line of lines){
-      const m=line.match(/^(?:lote|lot\.?|batch)\s*:?\s*([A-Z0-9][A-Z0-9\/\-\.]{2,20})$/i);
-      if(m&&!isNifCif(m[1])){result.lote=m[1].trim();break}
-    }
-  }
-
-  // === FECHA VENCIMIENTO ===
-  const vencMatch=joined.match(/(?:cad(?:ucidad)?\.?|venc(?:imiento)?\.?|best\s*before|cons(?:umir)?\s*antes|exp(?:iry|\.)?|use\s*by|bb)\s*:?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
-  if(vencMatch){result.vencimiento=parseOcrDate(vencMatch[1])}
-  else{
-    const todasFechas=[...joined.matchAll(/\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})\b/g)].map(m=>m[0]);
-    const hoyStr=new Date().toISOString().split('T')[0];
-    const futuras=todasFechas.map(f=>parseOcrDate(f)).filter(d=>d&&d>hoyStr);
-    if(futuras.length)result.vencimiento=futuras[futuras.length-1];
-  }
-
-  // === FECHA ALBARÁN ===
-  const fechaAlbM=joined.match(/(?:fecha\s*(?:entrega|albar[aá]n|pedido|emisi[oó]n)?)\s*:?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
-  if(fechaAlbM){
-    const p=parseOcrDate(fechaAlbM[1]);
-    if(p&&p<=new Date().toISOString().split('T')[0])result.fecha=p;
-  }
-
-  // === CANTIDAD ===
-  const cantPatterns=[
-    /(?:cantidad|cant\.?|qty\.?)\s*:?\s*([\d\.,]+\s*(?:kg|kgs?|lt?s?|litros?|lb|uds?|unidades?|cajas?|bolsas?|piezas?|g|gr|gramos?)?)/i,
-    /([\d\.,]+\s*(?:kg|kgs?|litros?|lt?s?|lbs?|gramos?|g\b))\b/i,
-    /([\d]+\s*(?:uds?|unidades?|cajas?|bolsas?|piezas?|bultos?))\b/i,
-  ];
-  for(const pat of cantPatterns){
-    const m=joined.match(pat);
-    if(m&&m[1]){result.cantidad=m[1].trim();break}
-  }
-
-  // === TEMPERATURA ===
-  const tempM=joined.match(/(?:temp(?:eratura)?\.?|t\.)\s*(?:recepci[oó]n|recibida|entrada)?\s*:?\s*(-?\d+(?:[.,]\d+)?)\s*°?\s*[Cc]/);
-  if(tempM)result.temperatura=tempM[1].replace(',','.');
+  const result={cabecera:{},lineas:[]};
 
   // === PROVEEDOR ===
   const textUp=joined.toUpperCase();
-  // 1. Primero busca en lista de proveedores conocidos
   const provFound=P.find(p=>p.nombre&&p.nombre.length>2&&textUp.includes(p.nombre.toUpperCase()));
-  if(provFound){
-    result.proveedor=provFound.nombre;
-  } else {
-    // 2. Heurística: primera línea significativa que NO sea NIF/CIF/dirección/teléfono
-    const skipPat=/^(?:nif|cif|dni|iva|tel|tlf|fax|www|http|email|c\.|calle|av\.|plaza|pol\.|c\.p\.|apdo)/i;
-    const provLine=lines.find(l=>
-      l.length>3&&l.length<80&&
-      !/^[\d\s\.\-\/\+\(\)€]+$/.test(l)&&
-      !skipPat.test(l)&&
-      !isNifCif(l.replace(/\s/g,''))
-    );
-    if(provLine)result.proveedor=provLine.substring(0,60).trim();
+  if(provFound){result.cabecera.proveedor=provFound.nombre;result.cabecera.proveedor_id=provFound.id;}
+  else{
+    const skipPat=/^(?:nif|cif|dni|iva|tel|tlf|fax|www|http|email|c\.|calle|av\.|plaza|pol\.|c\.p\.|apdo|pag|b\d)/i;
+    const provLine=lines.find(l=>l.length>3&&l.length<80&&!/^[\d\s\.\-\/\+\(\)€]+$/.test(l)&&!skipPat.test(l)&&!isNifCif(l.replace(/\s/g,'')));
+    if(provLine)result.cabecera.proveedor=provLine.substring(0,60).trim();
   }
 
+  // === Nº ALBARÁN ===
+  const albPats=[
+    /albar[aá]n\s*(?:n[uúoº°]\.?\s*)?:?\s*([A-Z0-9][A-Z0-9\/\-\.]{2,18})/i,
+    /\balb\.?\s*:?\s*([A-Z0-9][A-Z0-9\/\-\.]{2,18})/i,
+  ];
+  for(const pat of albPats){const m=joined.match(pat);if(m&&m[1]&&!isNifCif(m[1])){result.cabecera.num_albaran=m[1].trim();break}}
+
+  // === FECHA ALBARÁN ===
+  const fechaAlbM=joined.match(/fecha\s*albar[aá]n\s*:?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
+  if(fechaAlbM){result.cabecera.fecha=parseOcrDate(fechaAlbM[1]);}
+  else{
+    const allDates=[...joined.matchAll(/\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})\b/g)].map(m=>m[0]);
+    const past=allDates.map(d=>parseOcrDate(d)).filter(d=>d&&d<=hoy);
+    if(past.length)result.cabecera.fecha=past[0];
+  }
+
+  // === FORMA PAGO ===
+  const pagoM=joined.match(/(?:domiciliado|transferencia|efectivo|contado|quincenal|mensual)[^\n\.]{0,60}/i);
+  if(pagoM)result.cabecera.forma_pago=pagoM[0].trim().substring(0,80);
+
+  // === N. BULTOS ===
+  const bultosM=joined.match(/n[uú]?\.\s*bultos?\s*:?\s*(\d+)/i);
+  if(bultosM)result.cabecera.n_bultos=parseInt(bultosM[1]);
+
+  // === TOTAL ===
+  const totalM=joined.match(/total\s*[:\s]*([\d\.,]+)\s*€/i)||joined.match(/([\d\.,]+)\s*€\s*$/);
+  if(totalM)result.cabecera.total=pNum(totalM[1]);
+
+  // === LÍNEAS DE PRODUCTOS ===
+  // Cada fila: REF(5 dígitos) DESCRIPCION LOTE CAD(fecha) UNID [KG] PRECIO IVA IMPORTE
+  const dateRx=/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/;
+  for(const line of lines){
+    const refM=line.match(/^(\d{5})\s+(.+)/);
+    if(!refM)continue;
+    const ref=refM[1],rest=refM[2];
+    const dM=rest.match(dateRx);
+    if(!dM)continue;
+    const dateIdx=rest.indexOf(dM[0]);
+    const beforeDate=rest.substring(0,dateIdx).trim();
+    const afterDate=rest.substring(dateIdx+dM[0].length).trim();
+    // Antes de la fecha: "DESC LOTE" — lote es el último token
+    const bt=beforeDate.split(/\s+/);
+    const lote=bt.pop()||'';
+    const desc=bt.join(' ').trim();
+    // Después de la fecha: UNID [KG] PRECIO IVA IMPORTE
+    const nums=(afterDate.match(/[\d\.,]+/g)||[]);
+    let unidades=null,kg=null,precio=null,iva=null,importe=null;
+    if(nums.length>=5){unidades=parseInt(nums[0]);kg=pNum(nums[1]);precio=pNum(nums[2]);iva=parseInt(nums[3]);importe=pNum(nums[4]);}
+    else if(nums.length===4){unidades=parseInt(nums[0]);precio=pNum(nums[1]);iva=parseInt(nums[2]);importe=pNum(nums[3]);}
+    else if(nums.length===3){unidades=parseInt(nums[0]);precio=pNum(nums[1]);importe=pNum(nums[2]);}
+    if(desc||lote){
+      result.lineas.push({ref,descripcion:desc||rest.substring(0,40),lote,vencimiento:parseOcrDate(dM[0]),unidades,kg,precio_unitario:precio,iva,importe,requiere_frio:false});
+    }
+  }
   return result;
 }
 
@@ -822,38 +844,91 @@ function parseOcrDate(str){
 
 function renderOcrResults(text){
   const data=parseOcrText(text);
-  const fields=[
-    {key:'albaran',label:'Nº Albarán',apply:v=>{$('ra').value=v}},
-    {key:'lote',label:'Lote',apply:v=>{$('rl').value=v}},
-    {key:'vencimiento',label:'Vencimiento',apply:v=>{$('rv').value=v}},
-    {key:'fecha',label:'Fecha entrega',apply:v=>{$('rfecha').value=v}},
-    {key:'cantidad',label:'Cantidad',apply:v=>{$('rq').value=v}},
-    {key:'temperatura',label:'Temperatura',apply:v=>{$('rt').value=v}},
-    {key:'proveedor',label:'Proveedor',apply:v=>{const pi=P.findIndex(p=>p.nombre===v);if(pi>=0){$('rp').value=pi;$('rp').dispatchEvent(new Event('change'))}}},
-  ];
-
+  window._ocrAlbaran=data;
+  const c=data.cabecera,ls=data.lineas;
   const rawHtml=`<details style="margin-top:1rem"><summary style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer">Ver texto extraído</summary><pre style="font-size:10px;white-space:pre-wrap;margin-top:.5rem;padding:.5rem;border:.5px dashed var(--border);max-height:150px;overflow-y:auto">${text.replace(/</g,'&lt;')}</pre></details>`;
 
-  const found=fields.filter(f=>data[f.key]);
-  if(!found.length){
-    $('ocr-results').innerHTML='<div style="font-size:12px;color:var(--hint);padding:1rem 0;text-align:center">No se detectaron datos reconocibles.<br>Intentá con una foto más nítida y bien iluminada.</div>'+rawHtml;
-    return;
-  }
+  // — CABECERA —
+  let html=`<div style="background:var(--card,#fff);border:1px solid var(--border,#eee);border-radius:8px;padding:12px;margin-bottom:12px">`;
+  html+=`<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px">Cabecera</div>`;
+  html+=`<div class="r2" style="gap:8px"><div class="f"><label style="font-size:9px">Proveedor</label><input id="ocr-prov" value="${(c.proveedor||'').replace(/"/g,'&quot;')}" placeholder="Proveedor"></div>`;
+  html+=`<div class="f"><label style="font-size:9px">Nº Albarán</label><input id="ocr-alb" value="${(c.num_albaran||'').replace(/"/g,'&quot;')}" placeholder="Nº albarán"></div></div>`;
+  html+=`<div class="r2" style="gap:8px"><div class="f"><label style="font-size:9px">Fecha</label><input type="date" id="ocr-fecha" value="${c.fecha||hoy}"></div>`;
+  html+=`<div class="f"><label style="font-size:9px">Total €</label><input id="ocr-total" value="${c.total||''}" placeholder="502.53"></div></div>`;
+  html+=`<div class="f"><label style="font-size:9px">Forma de pago</label><input id="ocr-pago" value="${(c.forma_pago||'').replace(/"/g,'&quot;')}" placeholder="Domiciliado, transferencia..."></div>`;
+  html+=`</div>`;
 
-  let html='';
-  found.forEach((f,i)=>{
-    html+=`<div class="ocr-field">
-      <span class="ocr-field-label">${f.label}</span>
-      <span class="ocr-field-val">${data[f.key]}</span>
-      <button class="ocr-field-btn" id="ocr-btn-${i}" onclick="applyOcrField(${i},'${f.key.replace(/'/g,"\\'")}')">Aplicar</button>
-    </div>`;
-  });
-  html+=`<button type="button" class="btn" onclick="applyAllOcr()" style="width:100%;margin-top:1rem">Aplicar todo</button>`;
+  // — TABLA DE LÍNEAS —
+  if(ls.length){
+    html+=`<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">${ls.length} línea${ls.length!==1?'s':''} detectada${ls.length!==1?'s':''} — editá si hay errores</div>`;
+    html+=`<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:10px">`;
+    html+=`<table style="width:100%;font-size:11px;border-collapse:collapse;min-width:580px">`;
+    html+=`<tr style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">`;
+    html+=`<th style="padding:4px 3px;text-align:left;min-width:130px">Descripción</th><th style="padding:4px 3px;min-width:80px">Lote</th><th style="padding:4px 3px;min-width:100px">Venc.</th><th style="padding:4px 3px;min-width:45px">Uds</th><th style="padding:4px 3px;min-width:65px">Precio</th><th style="padding:4px 3px;min-width:65px">Importe</th><th style="padding:4px 3px">Frío</th></tr>`;
+    ls.forEach((l,i)=>{
+      html+=`<tr style="border-top:1px solid var(--border,#eee)">`;
+      html+=`<td style="padding:3px"><input style="font-size:11px;width:100%;min-width:120px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${(l.descripcion||'').replace(/"/g,'&quot;')}" oninput="window._ocrAlbaran.lineas[${i}].descripcion=this.value"></td>`;
+      html+=`<td style="padding:3px"><input style="font-size:11px;width:80px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${(l.lote||'').replace(/"/g,'&quot;')}" oninput="window._ocrAlbaran.lineas[${i}].lote=this.value"></td>`;
+      html+=`<td style="padding:3px"><input type="date" style="font-size:11px;width:110px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.vencimiento||''}" oninput="window._ocrAlbaran.lineas[${i}].vencimiento=this.value"></td>`;
+      html+=`<td style="padding:3px"><input type="number" style="font-size:11px;width:45px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.unidades!=null?l.unidades:''}" oninput="window._ocrAlbaran.lineas[${i}].unidades=parseInt(this.value)||null"></td>`;
+      html+=`<td style="padding:3px"><input type="number" step="0.001" style="font-size:11px;width:65px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.precio_unitario!=null?l.precio_unitario:''}" oninput="window._ocrAlbaran.lineas[${i}].precio_unitario=parseFloat(this.value)||null"></td>`;
+      html+=`<td style="padding:3px"><input type="number" step="0.01" style="font-size:11px;width:65px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.importe!=null?l.importe:''}" oninput="window._ocrAlbaran.lineas[${i}].importe=parseFloat(this.value)||null"></td>`;
+      html+=`<td style="padding:3px;text-align:center"><input type="checkbox" ${l.requiere_frio?'checked':''} onchange="window._ocrAlbaran.lineas[${i}].requiere_frio=this.checked"></td>`;
+      html+=`</tr>`;
+    });
+    html+=`</table></div>`;
+    html+=`<div class="r2" style="gap:8px"><div class="f"><label style="font-size:9px">Temp. recibida (°C)</label><input type="number" id="ocr-temp" step="0.1" placeholder="°C"></div><div class="f"><label style="font-size:9px">Observaciones</label><input id="ocr-obs" placeholder="Estado, sellos..."></div></div>`;
+    html+=`<button type="button" class="btn" onclick="saveAlbaranRecepcion()" style="width:100%;margin-top:12px">✓ Confirmar recepción completa (${ls.length} productos)</button>`;
+  } else {
+    html+=`<div style="font-size:12px;color:var(--hint);padding:.8rem 0;text-align:center">No se detectaron líneas de productos.<br>Usá el formulario manual o intentá con foto más nítida.</div>`;
+  }
   html+=rawHtml;
   $('ocr-results').innerHTML=html;
-  window._ocrData=data;window._ocrFields=found;
 }
 
+async function saveAlbaranRecepcion(){
+  const data=window._ocrAlbaran;if(!data)return;
+  // Sync inputs de cabecera al objeto
+  data.cabecera.proveedor=($('ocr-prov').value||'').trim()||data.cabecera.proveedor||'';
+  data.cabecera.num_albaran=($('ocr-alb').value||'').trim()||data.cabecera.num_albaran||'';
+  data.cabecera.fecha=$('ocr-fecha').value||hoy;
+  data.cabecera.total=parseFloat($('ocr-total').value)||data.cabecera.total||null;
+  data.cabecera.forma_pago=($('ocr-pago').value||'').trim()||data.cabecera.forma_pago||null;
+  const provNombre=data.cabecera.proveedor;
+  const provObj=P.find(p=>p.nombre===provNombre);
+  const provId=data.cabecera.proveedor_id||(provObj?provObj.id:null);
+  const temp=parseFloat($('ocr-temp').value)||null;
+  const obs=($('ocr-obs').value||'').trim()||null;
+  if(!provNombre){alert('Indicá el proveedor antes de confirmar');return}
+  if(!data.cabecera.num_albaran){alert('Indicá el Nº de albarán');return}
+  if(!data.lineas.length){alert('No hay líneas de productos detectadas');return}
+  // 1. Insert albarán cabecera
+  const albRow={proveedor_id:provId||null,proveedor_nombre:provNombre,num_albaran:data.cabecera.num_albaran,fecha:data.cabecera.fecha,forma_pago:data.cabecera.forma_pago||null,n_bultos:data.cabecera.n_bultos||null,total:data.cabecera.total||null};
+  const{data:albData,error:albErr}=await sb.from('albaranes').insert(albRow).select();
+  if(albErr){alert('Error guardando albarán: '+albErr.message);return}
+  const albId=albData[0].id;
+  // 2. Insert recepciones (una por línea)
+  const recRows=data.lineas.map(l=>({albaran_id:albId,proveedor:provNombre,producto:l.descripcion||'Sin descripción',lote:l.lote||'S/L',vencimiento:l.vencimiento||null,cantidad:l.unidades!=null?String(l.unidades)+(l.kg?' ('+l.kg+'kg)':''):null,precio_unitario:l.precio_unitario||null,importe:l.importe||null,ref_proveedor:l.ref||null,temperatura:temp,requiere_frio:l.requiere_frio||false,nro_albaran:data.cabecera.num_albaran,fecha:data.cabecera.fecha,hora:new Date().toTimeString().slice(0,5),observaciones:obs,estado:'activo'}));
+  const{error:recErr}=await sb.from('recepciones').insert(recRows);
+  if(recErr){alert('Error guardando recepciones: '+recErr.message);return}
+  // 3. Upsert proveedor_productos (catálogo)
+  if(provId){
+    const withRef=data.lineas.filter(l=>l.ref&&l.descripcion).map(l=>({proveedor_id:provId,ref:l.ref,descripcion:l.descripcion,ultimo_precio:l.precio_unitario||null,ultima_fecha:data.cabecera.fecha,updated_at:new Date().toISOString()}));
+    const noRef=data.lineas.filter(l=>!l.ref&&l.descripcion).map(l=>({proveedor_id:provId,ref:null,descripcion:l.descripcion,ultimo_precio:l.precio_unitario||null,ultima_fecha:data.cabecera.fecha,updated_at:new Date().toISOString()}));
+    if(withRef.length)await sb.from('proveedor_productos').upsert(withRef,{onConflict:'proveedor_id,ref',ignoreDuplicates:false});
+    if(noRef.length)await sb.from('proveedor_productos').insert(noRef).select();
+  }
+  // 4. Recargar datos
+  const{data:freshRecs}=await sb.from('recepciones').select('*').eq('albaran_id',albId);
+  if(freshRecs)freshRecs.forEach(r=>S.push({id:r.id,producto:r.producto,lote:r.lote,temp:r.temperatura,proveedor:r.proveedor||'',vencimiento:r.vencimiento||'',frio:r.requiere_frio,cantidad:r.cantidad||'',obs:r.observaciones||'',albaran:r.nro_albaran||'',fecha:r.fecha,hora:(r.hora||'').slice(0,5),estado:'activo',fecha_salida:'',motivo_salida:''}));
+  AB.push({id:albId,...albRow});
+  if(provId){const{data:ppData}=await sb.from('proveedor_productos').select('*').eq('proveedor_id',provId);if(ppData){PP=PP.filter(p=>p.proveedor_id!==provId);ppData.forEach(p=>PP.push({id:p.id,proveedor_id:p.proveedor_id,ref:p.ref||'',descripcion:p.descripcion,ultimo_precio:p.ultimo_precio,ultima_fecha:p.ultima_fecha}));}}
+  rRH();rS();rPL();
+  closeOcrModal();
+  alert(`✓ Albarán ${data.cabecera.num_albaran} registrado — ${data.lineas.length} producto${data.lineas.length!==1?'s':''} añadido${data.lineas.length!==1?'s':''} al stock`);
+}
+
+// Compatibilidad: applyOcrField y applyAllOcr siguen existiendo para egresos OCR
 function applyOcrField(i,key){
   if(!window._ocrFields)return;
   const f=window._ocrFields.find(x=>x.key===key);
