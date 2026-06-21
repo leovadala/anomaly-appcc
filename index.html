@@ -720,44 +720,91 @@ function handleOcrImage(e){
   reader.readAsDataURL(file);
 }
 
+function isNifCif(s){return /^[A-Z]\d{7}[A-Z0-9]$/i.test(s.replace(/[\s\.\-]/g,''))}
+
 function parseOcrText(text){
   const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
   const joined=lines.join(' ');
   const result={};
 
-  // Nº Albarán: busca patrones tipo "Alb", "Albarán", "ALBARAN", "Nº", seguidos de número
-  const albMatch=joined.match(/(?:albar[aá]n|alb\.?|n[uú]m\.?|n[oº]\.?)\s*:?\s*([A-Z0-9\/\-]{3,20})/i);
-  if(albMatch)result.albaran=albMatch[1].trim();
+  // === Nº ALBARÁN ===
+  // Solo acepta keyword explícita "albarán/alb" — excluye NIFs y patrones genéricos
+  const albPatterns=[
+    /albar[aá]n\s*(?:de\s+\w+\s*)?(?:n[uúoº°]\.?\s*)?:?\s*([A-Z0-9][A-Z0-9\/\-\.]{1,18})/i,
+    /\balb(?:ar[aá]n)?\.?\s*n?[oº°]?\.?\s*:?\s*([A-Z0-9][A-Z0-9\/\-\.]{1,18})/i,
+    /(?:delivery\s*note|note\s*no\.?)\s*:?\s*([A-Z0-9\/\-\.]{3,18})/i,
+  ];
+  for(const pat of albPatterns){
+    const m=joined.match(pat);
+    if(m&&m[1]&&!isNifCif(m[1])){result.albaran=m[1].trim();break}
+  }
 
-  // Lote: busca "Lote", "Lot", "L/" seguido de alfanumérico
-  const loteMatch=joined.match(/(?:lote|lot\.?|l\/)\s*:?\s*([A-Z0-9\/\-\.]{3,20})/i);
-  if(loteMatch)result.lote=loteMatch[1].trim();
-
-  // Fecha vencimiento: busca "cad", "venc", "best before", fechas tipo dd/mm/yyyy o dd-mm-yyyy
-  const vencMatch=joined.match(/(?:cad(?:ucidad)?|venc(?:imiento)?|best before|consume before|bb|exp)[^\d]*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
-  if(vencMatch){result.vencimiento=parseOcrDate(vencMatch[1])}
-  else{
-    // busca cualquier fecha como último recurso
-    const fechas=joined.match(/\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})\b/g);
-    if(fechas&&fechas.length){
-      // filtra fechas futuras (posibles vencimientos)
-      const futuras=fechas.map(f=>parseOcrDate(f)).filter(d=>d&&d>new Date().toISOString().split('T')[0]);
-      if(futuras.length)result.vencimiento=futuras[futuras.length-1];
+  // === LOTE ===
+  const lotePatterns=[
+    /(?:lote|lot\.?)\s*(?:n[uúoº°]\.?\s*)?:?\s*([A-Z0-9][A-Z0-9\/\-\.]{1,20})/i,
+    /\bl[\/\-]\s*([A-Z0-9][A-Z0-9\/\-\.]{1,20})/i,
+    /(?:batch|b\.?\s*no\.?|lot\s*code)\s*:?\s*([A-Z0-9\/\-\.]{3,20})/i,
+  ];
+  for(const pat of lotePatterns){
+    const m=joined.match(pat);
+    if(m&&m[1]&&!isNifCif(m[1])){result.lote=m[1].trim();break}
+  }
+  if(!result.lote){
+    for(const line of lines){
+      const m=line.match(/^(?:lote|lot\.?|batch)\s*:?\s*([A-Z0-9][A-Z0-9\/\-\.]{2,20})$/i);
+      if(m&&!isNifCif(m[1])){result.lote=m[1].trim();break}
     }
   }
 
-  // Cantidad: busca números seguidos de unidades
-  const cantMatch=joined.match(/(?:cantidad|cant\.?|qty\.?|unidades|kg|kgs|litros?|lts?|lbs?|uds?\.?)\s*:?\s*([\d\.,]+\s*(?:kg|kgs|lt|lts?|l|lb|uds?|unidades?|cajas?|bolsas?)?)/i);
-  if(cantMatch)result.cantidad=cantMatch[1].trim();
+  // === FECHA VENCIMIENTO ===
+  const vencMatch=joined.match(/(?:cad(?:ucidad)?\.?|venc(?:imiento)?\.?|best\s*before|cons(?:umir)?\s*antes|exp(?:iry|\.)?|use\s*by|bb)\s*:?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
+  if(vencMatch){result.vencimiento=parseOcrDate(vencMatch[1])}
   else{
-    const cantMatch2=joined.match(/([\d\.,]+\s*(?:kg|kgs|litros?|lts?|uds?|cajas?|bolsas?))/i);
-    if(cantMatch2)result.cantidad=cantMatch2[1].trim();
+    const todasFechas=[...joined.matchAll(/\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})\b/g)].map(m=>m[0]);
+    const hoyStr=new Date().toISOString().split('T')[0];
+    const futuras=todasFechas.map(f=>parseOcrDate(f)).filter(d=>d&&d>hoyStr);
+    if(futuras.length)result.vencimiento=futuras[futuras.length-1];
   }
 
-  // Proveedor: intenta encontrar nombre de proveedor conocido en el texto
+  // === FECHA ALBARÁN ===
+  const fechaAlbM=joined.match(/(?:fecha\s*(?:entrega|albar[aá]n|pedido|emisi[oó]n)?)\s*:?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
+  if(fechaAlbM){
+    const p=parseOcrDate(fechaAlbM[1]);
+    if(p&&p<=new Date().toISOString().split('T')[0])result.fecha=p;
+  }
+
+  // === CANTIDAD ===
+  const cantPatterns=[
+    /(?:cantidad|cant\.?|qty\.?)\s*:?\s*([\d\.,]+\s*(?:kg|kgs?|lt?s?|litros?|lb|uds?|unidades?|cajas?|bolsas?|piezas?|g|gr|gramos?)?)/i,
+    /([\d\.,]+\s*(?:kg|kgs?|litros?|lt?s?|lbs?|gramos?|g\b))\b/i,
+    /([\d]+\s*(?:uds?|unidades?|cajas?|bolsas?|piezas?|bultos?))\b/i,
+  ];
+  for(const pat of cantPatterns){
+    const m=joined.match(pat);
+    if(m&&m[1]){result.cantidad=m[1].trim();break}
+  }
+
+  // === TEMPERATURA ===
+  const tempM=joined.match(/(?:temp(?:eratura)?\.?|t\.)\s*(?:recepci[oó]n|recibida|entrada)?\s*:?\s*(-?\d+(?:[.,]\d+)?)\s*°?\s*[Cc]/);
+  if(tempM)result.temperatura=tempM[1].replace(',','.');
+
+  // === PROVEEDOR ===
   const textUp=joined.toUpperCase();
-  const provFound=P.find(p=>textUp.includes(p.nombre.toUpperCase()));
-  if(provFound)result.proveedor=provFound.nombre;
+  // 1. Primero busca en lista de proveedores conocidos
+  const provFound=P.find(p=>p.nombre&&p.nombre.length>2&&textUp.includes(p.nombre.toUpperCase()));
+  if(provFound){
+    result.proveedor=provFound.nombre;
+  } else {
+    // 2. Heurística: primera línea significativa que NO sea NIF/CIF/dirección/teléfono
+    const skipPat=/^(?:nif|cif|dni|iva|tel|tlf|fax|www|http|email|c\.|calle|av\.|plaza|pol\.|c\.p\.|apdo)/i;
+    const provLine=lines.find(l=>
+      l.length>3&&l.length<80&&
+      !/^[\d\s\.\-\/\+\(\)€]+$/.test(l)&&
+      !skipPat.test(l)&&
+      !isNifCif(l.replace(/\s/g,''))
+    );
+    if(provLine)result.proveedor=provLine.substring(0,60).trim();
+  }
 
   return result;
 }
@@ -779,15 +826,17 @@ function renderOcrResults(text){
     {key:'albaran',label:'Nº Albarán',apply:v=>{$('ra').value=v}},
     {key:'lote',label:'Lote',apply:v=>{$('rl').value=v}},
     {key:'vencimiento',label:'Vencimiento',apply:v=>{$('rv').value=v}},
+    {key:'fecha',label:'Fecha entrega',apply:v=>{$('rfecha').value=v}},
     {key:'cantidad',label:'Cantidad',apply:v=>{$('rq').value=v}},
+    {key:'temperatura',label:'Temperatura',apply:v=>{$('rt').value=v}},
     {key:'proveedor',label:'Proveedor',apply:v=>{const pi=P.findIndex(p=>p.nombre===v);if(pi>=0){$('rp').value=pi;$('rp').dispatchEvent(new Event('change'))}}},
   ];
 
+  const rawHtml=`<details style="margin-top:1rem"><summary style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer">Ver texto extraído</summary><pre style="font-size:10px;white-space:pre-wrap;margin-top:.5rem;padding:.5rem;border:.5px dashed var(--border);max-height:150px;overflow-y:auto">${text.replace(/</g,'&lt;')}</pre></details>`;
+
   const found=fields.filter(f=>data[f.key]);
   if(!found.length){
-    $('ocr-results').innerHTML='<div style="font-size:12px;color:var(--hint);padding:1rem 0;text-align:center">No se detectaron datos reconocibles.<br>Intentá con una foto más nítida y bien iluminada.</div>';
-    // mostrar texto crudo por si acaso
-    $('ocr-results').innerHTML+=`<details style="margin-top:1rem"><summary style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer">Ver texto extraído</summary><pre style="font-size:10px;white-space:pre-wrap;margin-top:.5rem;padding:.5rem;border:.5px dashed var(--border);max-height:150px;overflow-y:auto">${text.replace(/</g,'&lt;')}</pre></details>`;
+    $('ocr-results').innerHTML='<div style="font-size:12px;color:var(--hint);padding:1rem 0;text-align:center">No se detectaron datos reconocibles.<br>Intentá con una foto más nítida y bien iluminada.</div>'+rawHtml;
     return;
   }
 
@@ -800,9 +849,8 @@ function renderOcrResults(text){
     </div>`;
   });
   html+=`<button type="button" class="btn" onclick="applyAllOcr()" style="width:100%;margin-top:1rem">Aplicar todo</button>`;
-  html+=`<details style="margin-top:1rem"><summary style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer">Ver texto extraído</summary><pre style="font-size:10px;white-space:pre-wrap;margin-top:.5rem;padding:.5rem;border:.5px dashed var(--border);max-height:150px;overflow-y:auto">${text.replace(/</g,'&lt;')}</pre></details>`;
+  html+=rawHtml;
   $('ocr-results').innerHTML=html;
-  // guardar parsed para applyAll
   window._ocrData=data;window._ocrFields=found;
 }
 
