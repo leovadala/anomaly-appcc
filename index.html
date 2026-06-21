@@ -350,6 +350,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
       <button class="btn-d" onclick="horWeek(1)" style="padding:4px 10px">&#8594;</button>
     </div>
     <button class="btn-s" onclick="sendWhatsApp()">↓ WhatsApp</button>
+    <button class="btn-d" onclick="exportHorPNG()" style="padding:6px 12px">↓ PNG</button>
   </div>
   <div class="hor-summary" id="hor-summary"></div>
   <div class="hor-legend">
@@ -552,6 +553,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 const SB_URL='https://mknqxqkjtjogbjrlpzbj.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rbnF4cWtqdGpvZ2JqcmxwemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMDY4NjEsImV4cCI6MjA5MzU4Mjg2MX0.47JXMAtPvK2QVDGJoMMUFNX86-zmpRGCcmhddthNEr0';
@@ -979,6 +981,22 @@ async function applyCustomShift(){
   if(!horShiftTarget)return;
   await setShift(horShiftTarget.nombre,horShiftTarget.dayIdx,v);
   $('shift-modal').style.display='none';
+}
+
+async function exportHorPNG(){
+  const wrap=$('hor-table-wrap');
+  if(!wrap){alert('No hay grilla para exportar');return}
+  const days=getWeekDates(horCurrentWeekOffset);
+  const d0=days[0],d6=days[6];
+  const fmt=d=>d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'});
+  const nombre=`horario_${fmt(d0).replace('/','')}_${fmt(d6).replace('/','')}.png`;
+  try{
+    const canvas=await html2canvas(wrap,{backgroundColor:'#1a1a2e',scale:2,useCORS:true});
+    const a=document.createElement('a');
+    a.href=canvas.toDataURL('image/png');
+    a.download=nombre;
+    a.click();
+  }catch(e){alert('Error al generar PNG: '+e.message)}
 }
 
 function sendWhatsApp(){
