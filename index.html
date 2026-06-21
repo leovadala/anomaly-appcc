@@ -1653,4 +1653,60 @@ function renderEgOcrResults(text){
   const data={};
 
   // Importe: busca totales con €, EUR, "total", "importe"
-  const impMatch=joined.match(/(?:total|importe|a pagar|base imp(?:onible)?)[^\d]*(\d+[
+  const impMatch=joined.match(/(?:total|importe|a pagar|base imp(?:onible)?)[^\d]*(\d+[\.,]\d{2})/i)
+    ||joined.match(/(\d+[\.,]\d{2})\s*€/);
+  if(impMatch)data.importe=impMatch[1].replace(',','.');
+
+  // Nº factura
+  const factMatch=joined.match(/(?:factura|fra\.?|f\.?|nº\.?)\s*:?\s*([A-Z0-9\/\-]{3,20})/i);
+  if(factMatch)data.nro_factura=factMatch[1].trim();
+
+  // Proveedor: primera línea con >3 letras (heurística)
+  const lines=text.split('\n').map(l=>l.trim()).filter(l=>l.length>3&&!/^\d/.test(l));
+  if(lines.length)data.proveedor=lines[0].substring(0,50);
+
+  // Fecha de la factura
+  const fechaMatch=joined.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
+  if(fechaMatch){
+    let[,d,m,y]=fechaMatch;if(+y<100)y=2000+(+y);
+    data.fecha=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
+
+  const fields=[
+    {key:'proveedor',label:'Proveedor',apply:v=>{$('eg-prov').value=v}},
+    {key:'importe',label:'Importe (€)',apply:v=>{$('eg-importe').value=v}},
+    {key:'nro_factura',label:'Nº Factura',apply:v=>{$('eg-nfact').value=v}},
+    {key:'fecha',label:'Fecha',apply:v=>{$('eg-fecha').value=v}},
+  ];
+  const found=fields.filter(f=>data[f.key]);
+  if(!found.length){
+    $('ocr-results').innerHTML='<div style="font-size:12px;color:var(--hint);padding:1rem 0;text-align:center">No se detectaron datos.<br>Intentá con foto más nítida.</div>';
+    return;
+  }
+  let html='';
+  found.forEach((f,i)=>{
+    html+=`<div class="ocr-field">
+      <span class="ocr-field-label">${f.label}</span>
+      <span class="ocr-field-val">${data[f.key]}</span>
+      <button class="ocr-field-btn" id="ocr-btn-${i}" onclick="applyEgOcr(${i},'${f.key}')">Aplicar</button>
+    </div>`;
+  });
+  html+=`<button type="button" class="btn" onclick="applyAllEgOcr()" style="width:100%;margin-top:1rem">Aplicar todo y cerrar</button>`;
+  $('ocr-results').innerHTML=html;
+  window._egOcrData=data;window._egOcrFields=found;
+}
+
+function applyEgOcr(i,key){
+  if(!window._egOcrFields)return;
+  const f=window._egOcrFields.find(x=>x.key===key);
+  if(f){f.apply(window._egOcrData[key]);const btn=document.getElementById('ocr-btn-'+i);if(btn){btn.textContent='✓';btn.classList.add('applied')}}
+}
+
+function applyAllEgOcr(){
+  if(!window._egOcrFields)return;
+  window._egOcrFields.forEach((f,i)=>{f.apply(window._egOcrData[f.key]);const btn=document.getElementById('ocr-btn-'+i);if(btn){btn.textContent='✓';btn.classList.add('applied')}});
+  setTimeout(()=>{$('ocr-modal').style.display='none';window._ocrMode=null},600);
+}
+</script>
+</body>
+</html>
