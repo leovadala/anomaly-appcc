@@ -244,7 +244,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div class="f"><label>Nombre / Razón social</label><input id="pn" placeholder="Ej: Lácteos del Sur S.L."></div>
 <div class="r2"><div class="f"><label>CIF / NIF</label><input id="pc" placeholder="B12345678"></div><div class="f"><label>Teléfono</label><input id="pt" placeholder="+34 ..."></div></div>
 <div class="f"><label>Nº Registro Sanitario</label><input id="pr" placeholder="RGSEAA: 12.34567/AB"></div>
-<div class="f"><label>Productos que suministra</label><div class="tags" id="ptags"></div><div class="tg-row"><input id="ppi" placeholder="Producto + Enter o Agregar"><button type="button" class="btn-s" onclick="addTag()">Agregar</button></div></div>
+<div class="note" style="margin:4px 0 8px">Los productos y precios se actualizan automáticamente al registrar albaránes con el escáner.</div><div id="ptags" style="display:none"></div><input id="ppi" style="display:none">
 <div class="f"><label>Fichas técnicas</label><div class="pdf-z" onclick="this.querySelector('input').click()"><input type="file" id="ppdf" accept=".pdf" multiple onchange="upPDF(event)">Adjuntar PDF</div><div id="ppdfl"></div></div>
 <div class="f"><label>Notas</label><textarea id="pno" placeholder="Condiciones, alérgenos..."></textarea></div>
 <button type="button" class="btn" id="btn-prov" onclick="saveProv()">Guardar proveedor</button>
