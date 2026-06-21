@@ -944,13 +944,57 @@ async function loadExtrasmes(mesKey){
   horExtras[mesKey+'_loaded']=true;
 }
 
-async function setShift(name,dayIdx,val){
+async async function setShift(name,dayIdx,val){
   const wk=getScheduleKey();
   if(!horSchedules[wk])horSchedules[wk]={};
   if(!horSchedules[wk][name])horSchedules[wk][name]={};
   horSchedules[wk][name][dayIdx]=val;
   renderHorGrilla();renderHorSummary();
   await sb.from('horarios').upsert({week_key:wk,empleado:name,day_index:dayIdx,turno:val,updated_at:new Date().toISOString()},{onConflict:'week_key,empleado,day_index'});
+}
+
+function openShiftModal(nombre,dayIdx,current){
+  horShiftTarget={nombre,dayIdx};
+  const days=getWeekDates(horCurrentWeekOffset);
+  const d=days[dayIdx];
+  $('smod-title').textContent=nombre+' · '+dayLabel(d)+(esFestivo(d)?' · Festivo':'');
+  $('smod-opts').innerHTML=HOR_PRESETS.map(p=>`<button class="shift-opt${p===current?' so-sel':''}${p==='OFF'?' so-off':''}" onclick="applyPresetShift('${p}')">${p||'—'}</button>`).join('');
+  $('smod-custom').value='';
+  $('shift-modal').style.display='flex';
+}
+
+function closeShiftModal(e){
+  if(!e||e.target===$('shift-modal'))$('shift-modal').style.display='none';
+}
+
+async function applyPresetShift(preset){
+  if(!horShiftTarget)return;
+  await setShift(horShiftTarget.nombre,horShiftTarget.dayIdx,preset);
+  $('shift-modal').style.display='none';
+}
+
+async function applyCustomShift(){
+  const v=$('smod-custom').value.trim().toUpperCase();
+  if(!v){alert('Ingresá un turno');return}
+  if(!horShiftTarget)return;
+  await setShift(horShiftTarget.nombre,horShiftTarget.dayIdx,v);
+  $('shift-modal').style.display='none';
+}
+
+function sendWhatsApp(){
+  const days=getWeekDates(horCurrentWeekOffset);
+  const sch=getSchedule();
+  const d0=days[0],d6=days[6];
+  const fmt=d=>d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'});
+  let msg=`*Horario semana ${fmt(d0)} – ${fmt(d6)}*\n\n`;
+  horEmpleados.forEach(emp=>{
+    const nombre=emp.nombre||emp.name||'';
+    const esch=sch[nombre]||{};
+    const turnos=days.map((_,i)=>esch[i]||'—').join(' | ');
+    msg+=`${nombre}: ${turnos}\n`;
+  });
+  const url='https://wa.me/?text='+encodeURIComponent(msg);
+  window.open(url,'_blank');
 }
 
 async function setExtra(key,val){
