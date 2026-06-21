@@ -349,8 +349,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
       <span class="hor-week" id="hor-week-label"></span>
       <button class="btn-d" onclick="horWeek(1)" style="padding:4px 10px">&#8594;</button>
     </div>
-    <button class="btn-s" onclick="sendWhatsApp()">↓ WhatsApp</button>
-    <button class="btn-d" onclick="exportHorPNG()" style="padding:6px 12px">↓ PNG</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn-s" onclick="sendWhatsApp()">↓ WhatsApp</button>
+      <button class="btn-d" onclick="exportHorPNG()" style="padding:6px 12px">↓ PNG</button>
+    </div>
   </div>
   <div class="hor-summary" id="hor-summary"></div>
   <div class="hor-legend">
@@ -1705,7 +1707,7 @@ function applyEgOcr(i,key){
 function applyAllEgOcr(){
   if(!window._egOcrFields)return;
   window._egOcrFields.forEach((f,i)=>{f.apply(window._egOcrData[f.key]);const btn=document.getElementById('ocr-btn-'+i);if(btn){btn.textContent='✓';btn.classList.add('applied')}});
-  setTimeout(()=>{$('ocr-modal').style.display='none';window._ocrMode=null},600);
+  setTimeout(()=>{$('ocr-modal').style.display='none';w
 }
 </script>
 </body>
