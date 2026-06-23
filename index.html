@@ -909,7 +909,8 @@ function renderOcrResults(textOrData){
   const data=(textOrData&&typeof textOrData==='object'&&textOrData.cabecera)?textOrData:parseOcrText(textOrData||'');
   window._ocrAlbaran=data;
   const c=data.cabecera,ls=data.lineas;
-  const rawHtml=`<details style="margin-top:1rem"><summary style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer">Ver texto extraído</summary><pre style="font-size:10px;white-space:pre-wrap;margin-top:.5rem;padding:.5rem;border:.5px dashed var(--border);max-height:150px;overflow-y:auto">${text.replace(/</g,'&lt;')}</pre></details>`;
+  const _rawText=(typeof textOrData==='string')?textOrData:JSON.stringify(textOrData,null,2);
+  const rawHtml=`<details style="margin-top:1rem"><summary style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer">Ver datos extraídos</summary><pre style="font-size:10px;white-space:pre-wrap;margin-top:.5rem;padding:.5rem;border:.5px dashed var(--border);max-height:150px;overflow-y:auto">${_rawText.replace(/</g,'&lt;')}</pre></details>`;
 
   // — CABECERA —
   let html=`<div style="background:var(--card,#fff);border:1px solid var(--border,#eee);border-radius:8px;padding:12px;margin-bottom:12px">`;
