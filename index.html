@@ -848,6 +848,11 @@ Devuelve ÚNICAMENTE un JSON válido, sin markdown ni texto extra:
 
 COLUMNAS DE LA TABLA (orden típico): REF | DESCRIPCIÓN | LOTE | FECHA CAD | UDS | KG | PRECIO | %IVA | IMPORTE
 
+IDENTIFICACIÓN DEL PROVEEDOR:
+- El PROVEEDOR es la empresa que EMITE el albarán: su nombre/logo aparece en el encabezado o membrete del documento (arriba)
+- El CLIENTE/DESTINATARIO somos nosotros (quien recibe la mercancía): aparece como "Cliente:", "Entregar a:", "Destinatario:" etc. — NO es el proveedor
+- Si ves dos empresas, el proveedor es siempre quien firma/emite el documento, no quien lo recibe
+
 REGLAS:
 - Para LOTES y FECHAS: usa el texto OCR como fuente principal (más fiable para caracteres)
 - Para IMPORTES: lee el último valor numérico de cada fila; verifica que ≈ uds × precio
