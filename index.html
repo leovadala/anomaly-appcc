@@ -751,7 +751,7 @@ function handleOcrImage(e){
       }).catch(err=>{$('ocr-status').textContent='Error al procesar imagen.';console.error(err)});
     } else {
       // Recepciones: GPT-4o Vision
-      $('ocr-status').textContent='Analizando albarán con IA...';
+      $('ocr-status').textContent='Iniciando lectura...';
       ocrAlbaranConGPT(ev.target.result).then(data=>{
         $('ocr-status').style.display='none';
         renderOcrResults(data);
@@ -795,16 +795,33 @@ async function preprocessImageForGPT(imageDataUrl){
 }
 
 async function ocrAlbaranConGPT(imageDataUrl){
-  const processed=await preprocessImageForGPT(imageDataUrl);
+  // Paso 1: OCR de texto con Tesseract (preciso carácter a carácter)
+  $('ocr-status').textContent='Extrayendo texto (1/2)...';
+  const [processed, tessResult] = await Promise.all([
+    preprocessImageForGPT(imageDataUrl),
+    Tesseract.recognize(imageDataUrl,'spa+eng',{logger:m=>{
+      if(m.status==='recognizing text')
+        $('ocr-status').textContent='OCR '+(Math.round(m.progress*100))+'% — luego IA...';
+    }})
+  ]);
+  const rawText=tessResult.data.text||'';
   const base64=processed.split(',')[1];
-  const mime='image/jpeg';
-  const prompt=`Eres un experto en lectura de albaranes de distribución alimentaria española.
-Analiza la imagen del albarán y devuelve ÚNICAMENTE un JSON válido, sin markdown ni texto extra.
 
-ESTRUCTURA DE COLUMNAS DE LA TABLA (en este orden típico):
-REF | DESCRIPCIÓN DEL PRODUCTO | LOTE | FECHA CAD/VTO | UDS | KG | PRECIO UNIT | %IVA | IMPORTE
+  // Paso 2: GPT estructura el texto + usa imagen para contexto
+  $('ocr-status').textContent='Interpretando con IA (2/2)...';
+  const prompt=`Eres un experto en albaranes de distribución alimentaria española.
+Tienes DOS fuentes de información del mismo albarán:
+1. La IMAGEN (para entender la estructura de columnas y la posición de los datos)
+2. El TEXTO OCR (más preciso para leer caracteres individuales: números, letras, códigos)
 
-ESTRUCTURA JSON REQUERIDA:
+TEXTO OCR EXTRAÍDO:
+\`\`\`
+${rawText}
+\`\`\`
+
+Usa AMBAS fuentes: la imagen para entender qué columna es cada valor, el texto OCR para leer los valores exactos (especialmente lotes, fechas y números).
+
+Devuelve ÚNICAMENTE un JSON válido, sin markdown ni texto extra:
 {
   "cabecera": {
     "proveedor": "nombre completo",
@@ -817,8 +834,8 @@ ESTRUCTURA JSON REQUERIDA:
   "lineas": [
     {
       "ref": "código de referencia o null",
-      "descripcion": "nombre completo del producto sin abreviar",
-      "lote": "código alfanumérico exacto o null",
+      "descripcion": "nombre completo del producto",
+      "lote": "código alfanumérico exacto del texto OCR",
       "vencimiento": "YYYY-MM-DD o null",
       "unidades": número entero o null,
       "kg": número decimal o null,
@@ -829,32 +846,16 @@ ESTRUCTURA JSON REQUERIDA:
   ]
 }
 
-ATENCIÓN CON LOS LOTES — lee carácter por carácter:
-- Son códigos alfanuméricos: ej. 060926, 28B1960061, FX26120AB, N126056AA
-- Distingue: 0 vs O, 1 vs I vs l, B vs 8, S vs 5, Z vs 2, G vs 6
-- Cópialos exactamente, con mayúsculas donde corresponda
-
-ATENCIÓN CON LAS COLUMNAS NUMÉRICAS:
-- UDS (unidades) = entero pequeño (1-999), son bultos/cajas/unidades
-- KG = peso decimal en kilos (puede ser 0 o null si no aplica)
-- PRECIO UNIT = precio por unidad o kilo
-- IMPORTE = precio × cantidad de esa línea
-- El separador de miles es punto; el decimal es coma — en el JSON usa siempre punto decimal
-
-PROCESO DE EXTRACCIÓN — sigue este orden:
-1. Lee la cabecera: proveedor, nº albarán, fecha, total, forma de pago
-2. Identifica cuántas filas de producto hay en la tabla
-3. Para cada fila, lee de izquierda a derecha columna por columna
-4. Para el LOTE: deletrea cada carácter uno por uno antes de escribirlo
-5. Para el IMPORTE: lee el último número de la fila. Verifica que sea coherente con uds × precio
-6. Al terminar, verifica que la suma de importes sea ≈ al total de cabecera
+COLUMNAS DE LA TABLA (orden típico): REF | DESCRIPCIÓN | LOTE | FECHA CAD | UDS | KG | PRECIO | %IVA | IMPORTE
 
 REGLAS:
-- Extrae TODAS las filas en orden, sin omitir ninguna
+- Para LOTES y FECHAS: usa el texto OCR como fuente principal (más fiable para caracteres)
+- Para IMPORTES: lee el último valor numérico de cada fila; verifica que ≈ uds × precio
+- Extrae TODAS las filas de producto en orden, sin omitir ninguna
 - Ignora: mercancía no servida, condiciones legales, pie de página
-- Campos no visibles: null (no string vacío)
-- Fechas en YYYY-MM-DD
-- En los lotes: si ves un carácter ambiguo entre letra y número, elige según contexto del resto del código`;
+- Separador decimal en JSON: siempre punto
+- Campos no visibles: null`;
+
   const resp=await fetch('https://api.openai.com/v1/chat/completions',{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
@@ -864,7 +865,7 @@ REGLAS:
       temperature:0,
       messages:[{role:'user',content:[
         {type:'text',text:prompt},
-        {type:'image_url',image_url:{url:'data:'+mime+';base64,'+base64,detail:'high'}}
+        {type:'image_url',image_url:{url:'data:image/jpeg;base64,'+base64,detail:'high'}}
       ]}]
     })
   });
