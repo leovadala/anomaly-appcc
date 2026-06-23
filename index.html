@@ -236,6 +236,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <button onclick="go(6)">Configuración</button>
 <button onclick="go(7)">Dashboard</button>
 <button onclick="go(8)">Egresos</button>
+<button onclick="go(9)">Inventario</button>
 </div>
 
 <!-- V0: PROVEEDORES -->
@@ -588,7 +589,7 @@ async function loadAll(){
   ]);
   team=(t.data||[]).map(r=>({id:r.id,nombre:r.nombre,pin:r.pin||'',horas_contrato:r.horas_contrato||0,tipo_contrato:r.tipo_contrato||'parcial'}));
   P=(p.data||[]).map(r=>({id:r.id,nombre:r.nombre,cif:r.cif||'',tel:r.telefono||'',rs:r.registro_sanitario||'',productos:r.productos||[],notas:r.notas||'',pdfs:[]}));
-  const allRec=(s.data||[]).map(r=>({id:r.id,producto:r.producto,lote:r.lote,temp:r.temperatura,proveedor:r.proveedor||'',vencimiento:r.vencimiento||'',frio:r.requiere_frio,cantidad:r.cantidad||'',obs:r.observaciones||'',albaran:r.nro_albaran||'',fecha:r.fecha,hora:(r.hora||'').slice(0,5),estado:r.estado||'activo',fecha_salida:r.fecha_salida||'',motivo_salida:r.motivo_salida||''}));
+  const allRec=(s.data||[]).map(r=>({id:r.id,producto:r.producto,lote:r.lote,temp:r.temperatura,proveedor:r.proveedor||'',vencimiento:r.vencimiento||'',frio:r.requiere_frio,cantidad:r.cantidad||'',obs:r.observaciones||'',albaran:r.nro_albaran||'',fecha:r.fecha,hora:(r.hora||'').slice(0,5),estado:r.estado||'activo',fecha_salida:r.fecha_salida||'',motivo_salida:r.motivo_salida||'',precio_unitario:r.precio_unitario||null,importe:r.importe||null}));
   S=allRec.filter(r=>r.estado==='activo');SH=allRec.filter(r=>r.estado!=='activo');
   AB=(alb.data||[]).map(r=>({id:r.id,proveedor_nombre:r.proveedor_nombre,proveedor_id:r.proveedor_id,num_albaran:r.num_albaran,fecha:r.fecha,forma_pago:r.forma_pago||'',n_bultos:r.n_bultos,total:r.total}));
   PP=(pp.data||[]).map(r=>({id:r.id,proveedor_id:r.proveedor_id,ref:r.ref||'',descripcion:r.descripcion,ultimo_precio:r.ultimo_precio,ultima_fecha:r.ultima_fecha}));
@@ -670,7 +671,7 @@ async function savePinSup(){const p=$('cfg-pin-sup').value.trim();if(!/^\d{4}$/.
 
 function autoGenREHE(){const fechaStr=$('af').value;if(!fechaStr)return;const[year,month,day]=fechaStr.split('-');const dd=String(day).padStart(2,'0');const mm=String(month).padStart(2,'0');const cnt=H.filter(r=>r.fecha===fechaStr).length+1;const rehe='REHE-'+dd+mm+'-'+String(cnt).padStart(3,'0');$('adr').value=rehe}
 
-function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();autoGenREHE();$('ar').value=currentUser;if(!$('af').value)$('af').valueAsDate=new Date()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();window.scrollTo(0,0)}
+function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();autoGenREHE();$('ar').value=currentUser;if(!$('af').value)$('af').valueAsDate=new Date()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();if(n===9)renderInventario();window.scrollTo(0,0)}
 
 function addTag(){const v=$('ppi').value.trim();if(!v||cTags.includes(v))return;cTags.push(v);rTags();$('ppi').value='';$('ppi').focus()}
 function rmT(i){cTags.splice(i,1);rTags()}
@@ -880,6 +881,57 @@ REGLAS:
   return JSON.parse(txt);
 }
 
+function renderInventario(){
+  const active=S.filter(s=>!s.estado||s.estado==='activo');
+  // Parsear cantidad string "3 (75kg)" → {uds, kg}
+  function parseCant(str){
+    if(!str)return{uds:0,kg:0};
+    const um=str.match(/^(\d+(?:\.\d+)?)/);
+    const km=str.match(/\(([0-9.]+)\s*kg\)/i);
+    return{uds:um?parseFloat(um[1]):0,kg:km?parseFloat(km[1]):0};
+  }
+  // Agrupar por proveedor → producto
+  const byProv={};
+  active.forEach(s=>{
+    const prov=s.proveedor||'Sin proveedor';
+    if(!byProv[prov])byProv[prov]={};
+    const prod=s.producto||'Sin descripción';
+    if(!byProv[prov][prod])byProv[prov][prod]={uds:0,kg:0,valor:0,lotes:0};
+    const{uds,kg}=parseCant(s.cantidad);
+    byProv[prov][prod].uds+=uds;
+    byProv[prov][prod].kg+=kg;
+    byProv[prov][prod].valor+=s.importe||0;
+    byProv[prov][prod].lotes+=1;
+  });
+  const provNames=Object.keys(byProv).sort((a,b)=>a.localeCompare(b,'es'));
+  if(!provNames.length){$('inv-content').innerHTML='<div class="empty">No hay stock activo</div>';return;}
+  let html='';
+  provNames.forEach(prov=>{
+    const prods=byProv[prov];
+    const prodNames=Object.keys(prods).sort((a,b)=>a.localeCompare(b,'es'));
+    const totalProv=prodNames.reduce((s,p)=>s+prods[p].valor,0);
+    html+=`<div style="margin-bottom:1.5rem">`;
+    html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;padding-bottom:6px;border-bottom:.5px solid var(--border);margin-bottom:8px">`;
+    html+=`<span style="font-size:10px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase">${prov}</span>`;
+    if(totalProv>0)html+=`<span style="font-size:11px;color:var(--muted)">${totalProv.toFixed(2)} € total</span>`;
+    html+=`</div>`;
+    html+=`<table style="width:100%;font-size:11px;border-collapse:collapse">`;
+    html+=`<tr style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--hint)">`;
+    html+=`<th style="text-align:left;padding:3px 4px">Producto</th><th style="text-align:right;padding:3px 4px">Uds</th><th style="text-align:right;padding:3px 4px">Kg</th><th style="text-align:right;padding:3px 4px">Valor €</th></tr>`;
+    prodNames.forEach(prod=>{
+      const d=prods[prod];
+      html+=`<tr style="border-top:.5px solid var(--border)">`;
+      html+=`<td style="padding:5px 4px">${prod}</td>`;
+      html+=`<td style="padding:5px 4px;text-align:right">${d.uds>0?d.uds:'—'}</td>`;
+      html+=`<td style="padding:5px 4px;text-align:right">${d.kg>0?d.kg.toFixed(2)+'kg':'—'}</td>`;
+      html+=`<td style="padding:5px 4px;text-align:right;font-variant-numeric:tabular-nums">${d.valor>0?d.valor.toFixed(2)+' €':'—'}</td>`;
+      html+=`</tr>`;
+    });
+    html+=`</table></div>`;
+  });
+  $('inv-content').innerHTML=html;
+}
+
 function isNifCif(s){return /^[A-Z]\d{7}[A-Z0-9]$/i.test(s.replace(/[\s\.\-]/g,''))}
 
 // Convierte número con coma decimal (ej: "13,454" o "13.454,00") a float
@@ -1049,7 +1101,7 @@ async function saveAlbaranRecepcion(){
   }
   // 4. Recargar datos
   const{data:freshRecs}=await sb.from('recepciones').select('*').eq('albaran_id',albId);
-  if(freshRecs)freshRecs.forEach(r=>S.push({id:r.id,producto:r.producto,lote:r.lote,temp:r.temperatura,proveedor:r.proveedor||'',vencimiento:r.vencimiento||'',frio:r.requiere_frio,cantidad:r.cantidad||'',obs:r.observaciones||'',albaran:r.nro_albaran||'',fecha:r.fecha,hora:(r.hora||'').slice(0,5),estado:'activo',fecha_salida:'',motivo_salida:''}));
+  if(freshRecs)freshRecs.forEach(r=>S.push({id:r.id,producto:r.producto,lote:r.lote,temp:r.temperatura,proveedor:r.proveedor||'',vencimiento:r.vencimiento||'',frio:r.requiere_frio,cantidad:r.cantidad||'',obs:r.observaciones||'',albaran:r.nro_albaran||'',fecha:r.fecha,hora:(r.hora||'').slice(0,5),estado:'activo',fecha_salida:'',motivo_salida:'',precio_unitario:r.precio_unitario||null,importe:r.importe||null}));
   AB.push({id:albId,...albRow});
   if(provId){const{data:ppData}=await sb.from('proveedor_productos').select('*').eq('proveedor_id',provId);if(ppData){PP=PP.filter(p=>p.proveedor_id!==provId);ppData.forEach(p=>PP.push({id:p.id,proveedor_id:p.proveedor_id,ref:p.ref||'',descripcion:p.descripcion,ultimo_precio:p.ultimo_precio,ultima_fecha:p.ultima_fecha}));}}
   rRH();rS();rPL();
@@ -1956,4 +2008,10 @@ function applyAllEgOcr(){
 }
 </script>
 </body>
-</html>
+</html
+<div class="view" id="v9">
+  <div class="sec-t">Inventario</div>
+  <div id="inv-content"><div class="empty">Cargando...</div></div>
+</div>
+
+>
