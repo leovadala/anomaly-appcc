@@ -841,17 +841,27 @@ ATENCIÓN CON LAS COLUMNAS NUMÉRICAS:
 - IMPORTE = precio × cantidad de esa línea
 - El separador de miles es punto; el decimal es coma — en el JSON usa siempre punto decimal
 
+PROCESO DE EXTRACCIÓN — sigue este orden:
+1. Lee la cabecera: proveedor, nº albarán, fecha, total, forma de pago
+2. Identifica cuántas filas de producto hay en la tabla
+3. Para cada fila, lee de izquierda a derecha columna por columna
+4. Para el LOTE: deletrea cada carácter uno por uno antes de escribirlo
+5. Para el IMPORTE: lee el último número de la fila. Verifica que sea coherente con uds × precio
+6. Al terminar, verifica que la suma de importes sea ≈ al total de cabecera
+
 REGLAS:
-- Extrae TODAS las filas de la tabla de productos, en orden, sin omitir ninguna
+- Extrae TODAS las filas en orden, sin omitir ninguna
 - Ignora: mercancía no servida, condiciones legales, pie de página
 - Campos no visibles: null (no string vacío)
-- Fechas en YYYY-MM-DD`;
+- Fechas en YYYY-MM-DD
+- En los lotes: si ves un carácter ambiguo entre letra y número, elige según contexto del resto del código`;
   const resp=await fetch('https://api.openai.com/v1/chat/completions',{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
     body:JSON.stringify({
       model:'gpt-4o',
       max_tokens:4000,
+      temperature:0,
       messages:[{role:'user',content:[
         {type:'text',text:prompt},
         {type:'image_url',image_url:{url:'data:'+mime+';base64,'+base64,detail:'high'}}
