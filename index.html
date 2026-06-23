@@ -767,11 +767,42 @@ function handleOcrImage(e){
   reader.readAsDataURL(file);
 }
 
+async function preprocessImageForGPT(imageDataUrl){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      const MAX_W=1800;
+      let w=img.width,h=img.height;
+      if(w>MAX_W){h=Math.round(h*MAX_W/w);w=MAX_W;}
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,w,h);
+      // Aumentar contraste para mejorar legibilidad
+      const id=ctx.getImageData(0,0,w,h);const d=id.data;
+      const f=1.35;const fac=(259*(f*255+255))/(255*(259-f*255));
+      for(let i=0;i<d.length;i+=4){
+        d[i]=Math.min(255,Math.max(0,fac*(d[i]-128)+128));
+        d[i+1]=Math.min(255,Math.max(0,fac*(d[i+1]-128)+128));
+        d[i+2]=Math.min(255,Math.max(0,fac*(d[i+2]-128)+128));
+      }
+      ctx.putImageData(id,0,0);
+      resolve(canvas.toDataURL('image/jpeg',0.93));
+    };
+    img.onerror=()=>resolve(imageDataUrl);
+    img.src=imageDataUrl;
+  });
+}
+
 async function ocrAlbaranConGPT(imageDataUrl){
-  const base64=imageDataUrl.split(',')[1];
-  const mime=imageDataUrl.split(';')[0].split(':')[1]||'image/jpeg';
-  const prompt=`Eres un asistente especializado en leer albaranes de entrega españoles de distribución alimentaria.
-Tu tarea: extraer TODOS los datos del albarán y devolver ÚNICAMENTE un JSON válido, sin markdown ni texto extra.
+  const processed=await preprocessImageForGPT(imageDataUrl);
+  const base64=processed.split(',')[1];
+  const mime='image/jpeg';
+  const prompt=`Eres un experto en lectura de albaranes de distribución alimentaria española.
+Analiza la imagen del albarán y devuelve ÚNICAMENTE un JSON válido, sin markdown ni texto extra.
+
+ESTRUCTURA DE COLUMNAS DE LA TABLA (en este orden típico):
+REF | DESCRIPCIÓN DEL PRODUCTO | LOTE | FECHA CAD/VTO | UDS | KG | PRECIO UNIT | %IVA | IMPORTE
 
 ESTRUCTURA JSON REQUERIDA:
 {
@@ -780,14 +811,14 @@ ESTRUCTURA JSON REQUERIDA:
     "num_albaran": "número exacto",
     "fecha": "YYYY-MM-DD",
     "forma_pago": "texto o null",
-    "n_bultos": número o null,
-    "total": número con punto decimal o null
+    "n_bultos": número entero o null,
+    "total": número decimal o null
   },
   "lineas": [
     {
       "ref": "código de referencia o null",
-      "descripcion": "nombre completo sin abreviar",
-      "lote": "código de lote exacto o null",
+      "descripcion": "nombre completo del producto sin abreviar",
+      "lote": "código alfanumérico exacto o null",
       "vencimiento": "YYYY-MM-DD o null",
       "unidades": número entero o null,
       "kg": número decimal o null,
@@ -798,27 +829,23 @@ ESTRUCTURA JSON REQUERIDA:
   ]
 }
 
-INSTRUCCIONES CRÍTICAS PARA LOTES:
-- Los lotes son códigos alfanuméricos (ej: 060926, 28B1960061, FX26120AB, N126056AA)
-- Lee cada carácter individualmente con máximo cuidado
-- Distingue: 0 (cero) vs O (letra O), 1 vs I vs l, B vs 8, S vs 5, Z vs 2, G vs 6
-- Letras mayúsculas en el lote: escríbelas en MAYÚSCULAS exactamente como aparecen
-- Copia el lote exactamente como aparece, sin corregirlo ni interpretarlo
+ATENCIÓN CON LOS LOTES — lee carácter por carácter:
+- Son códigos alfanuméricos: ej. 060926, 28B1960061, FX26120AB, N126056AA
+- Distingue: 0 vs O, 1 vs I vs l, B vs 8, S vs 5, Z vs 2, G vs 6
+- Cópialos exactamente, con mayúsculas donde corresponda
 
-INSTRUCCIONES PARA CANTIDADES Y COLUMNAS:
-- 'Unidades' o 'Uds' = número entero de bultos/cajas entregadas → campo unidades
-- 'Kg' o 'Peso' = peso total en kilogramos → campo kg (puede ser decimal)
-- 'Precio' = precio por unidad o kg → campo precio_unitario
-- 'Importe' = total de esa línea → campo importe
-- NO confundas kg con unidades ni precio con importe
+ATENCIÓN CON LAS COLUMNAS NUMÉRICAS:
+- UDS (unidades) = entero pequeño (1-999), son bultos/cajas/unidades
+- KG = peso decimal en kilos (puede ser 0 o null si no aplica)
+- PRECIO UNIT = precio por unidad o kilo
+- IMPORTE = precio × cantidad de esa línea
+- El separador de miles es punto; el decimal es coma — en el JSON usa siempre punto decimal
 
-INSTRUCCIONES GENERALES:
-- Extrae TODAS las filas de productos en orden, sin omitir ninguna
-- Ignora: mercancía no servida, pie de página, condiciones legales
-- Separador decimal en JSON: siempre punto (nunca coma)
-- Campo no visible: null (no cadena vacía)
-- Fechas siempre en YYYY-MM-DD
-- Descripciones: nombre completo, sin abreviar`;
+REGLAS:
+- Extrae TODAS las filas de la tabla de productos, en orden, sin omitir ninguna
+- Ignora: mercancía no servida, condiciones legales, pie de página
+- Campos no visibles: null (no string vacío)
+- Fechas en YYYY-MM-DD`;
   const resp=await fetch('https://api.openai.com/v1/chat/completions',{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
