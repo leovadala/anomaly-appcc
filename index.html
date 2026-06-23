@@ -771,11 +771,13 @@ async function ocrAlbaranConGPT(imageDataUrl){
   const base64=imageDataUrl.split(',')[1];
   const mime=imageDataUrl.split(';')[0].split(':')[1]||'image/jpeg';
   const prompt=`Eres un asistente especializado en leer albaranes de entrega españoles.
-Extrae todos los datos del albarán en la imagen y devuelve SOLO un JSON válido con esta estructura (sin markdown, sin texto extra):
+Analiza CADA FILA de la tabla de productos del albarán. NO omitas ninguna línea aunque la imagen esté parcialmente cortada.
+Cuenta primero cuántas filas de productos hay en la tabla, luego extráelas TODAS sin excepción.
+Devuelve SOLO un JSON válido con esta estructura exacta (sin markdown, sin texto adicional antes o después):
 {
   "cabecera": {
     "proveedor": "nombre completo del proveedor/empresa",
-    "num_albaran": "número de albarán exacto",
+    "num_albaran": "número de albarán exacto tal como aparece",
     "fecha": "YYYY-MM-DD",
     "forma_pago": "descripción de la forma de pago o null",
     "n_bultos": número entero o null,
@@ -783,26 +785,31 @@ Extrae todos los datos del albarán en la imagen y devuelve SOLO un JSON válido
   },
   "lineas": [
     {
-      "ref": "código de referencia del producto o null",
-      "descripcion": "nombre completo del producto",
-      "lote": "número de lote",
+      "ref": "código/referencia del producto o null",
+      "descripcion": "nombre COMPLETO del producto sin abreviar",
+      "lote": "número de lote exacto o null",
       "vencimiento": "YYYY-MM-DD o null",
       "unidades": número entero o null,
-      "kg": número decimal o null,
-      "precio_unitario": número decimal o null,
-      "iva": número entero (porcentaje) o null,
-      "importe": número decimal o null
+      "kg": número decimal con punto decimal o null,
+      "precio_unitario": número decimal con punto decimal o null,
+      "iva": número entero porcentaje o null,
+      "importe": número decimal con punto decimal o null
     }
   ]
 }
-Incluye SOLO los productos efectivamente entregados. Ignora secciones de "mercancía no servida", términos legales y pie de página.
-Los decimales usan punto (no coma). Las fechas siempre en formato YYYY-MM-DD.`;
+REGLAS IMPORTANTES:
+- Incluye TODOS los productos de la tabla en el mismo orden que aparecen. No te detengas antes de terminar.
+- Ignora SOLO: secciones de mercancía no servida, pie de página, avisos legales.
+- Los separadores de miles se ignoran. El separador decimal en el JSON siempre es punto.
+- Si un campo no aparece en la imagen usa null, no cadenas vacías.
+- Las fechas siempre en formato YYYY-MM-DD.
+- No abrevies las descripciones de productos.`;
   const resp=await fetch('https://api.openai.com/v1/chat/completions',{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
     body:JSON.stringify({
       model:'gpt-4o',
-      max_tokens:2000,
+      max_tokens:4000,
       messages:[{role:'user',content:[
         {type:'text',text:prompt},
         {type:'image_url',image_url:{url:'data:'+mime+';base64,'+base64,detail:'high'}}
@@ -928,10 +935,10 @@ function renderOcrResults(textOrData){
     html+=`<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:10px">`;
     html+=`<table style="width:100%;font-size:11px;border-collapse:collapse;min-width:580px">`;
     html+=`<tr style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">`;
-    html+=`<th style="padding:4px 3px;text-align:left;min-width:130px">Descripción</th><th style="padding:4px 3px;min-width:80px">Lote</th><th style="padding:4px 3px;min-width:100px">Venc.</th><th style="padding:4px 3px;min-width:45px">Uds</th><th style="padding:4px 3px;min-width:65px">Precio</th><th style="padding:4px 3px;min-width:65px">Importe</th><th style="padding:4px 3px">Frío</th></tr>`;
+    html+=`<th style="padding:4px 3px;text-align:left;min-width:180px">Descripción</th><th style="padding:4px 3px;min-width:80px">Lote</th><th style="padding:4px 3px;min-width:100px">Venc.</th><th style="padding:4px 3px;min-width:45px">Uds</th><th style="padding:4px 3px;min-width:65px">Precio</th><th style="padding:4px 3px;min-width:65px">Importe</th><th style="padding:4px 3px">Frío</th></tr>`;
     ls.forEach((l,i)=>{
       html+=`<tr style="border-top:1px solid var(--border,#eee)">`;
-      html+=`<td style="padding:3px"><input style="font-size:11px;width:100%;min-width:120px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${(l.descripcion||'').replace(/"/g,'&quot;')}" oninput="window._ocrAlbaran.lineas[${i}].descripcion=this.value"></td>`;
+      html+=`<td style="padding:3px"><input style="font-size:11px;width:100%;min-width:170px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${(l.descripcion||'').replace(/"/g,'&quot;')}" oninput="window._ocrAlbaran.lineas[${i}].descripcion=this.value"></td>`;
       html+=`<td style="padding:3px"><input style="font-size:11px;width:80px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${(l.lote||'').replace(/"/g,'&quot;')}" oninput="window._ocrAlbaran.lineas[${i}].lote=this.value"></td>`;
       html+=`<td style="padding:3px"><input type="date" style="font-size:11px;width:110px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.vencimiento||''}" oninput="window._ocrAlbaran.lineas[${i}].vencimiento=this.value"></td>`;
       html+=`<td style="padding:3px"><input type="number" style="font-size:11px;width:45px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.unidades!=null?l.unidades:''}" oninput="window._ocrAlbaran.lineas[${i}].unidades=parseInt(this.value)||null"></td>`;
