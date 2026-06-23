@@ -847,16 +847,20 @@ Devuelve ÚNICAMENTE un JSON válido, sin markdown ni texto extra:
   ]
 }
 
-COLUMNAS DE LA TABLA (orden típico): REF | DESCRIPCIÓN | LOTE | FECHA CAD | UDS | KG | PRECIO | %IVA | IMPORTE
+COLUMNAS DE LA TABLA (orden típico): REF | DESCRIPCIÓN | LOTE | FECHA CAD | UDS | KG | PRECIO UNIT | %IVA | IMPORTE
+
+DIFERENCIA CRÍTICA ENTRE %IVA E IMPORTE:
+- %IVA → campo "iva": es un PORCENTAJE entero, siempre 4, 10 o 21. Es la penúltima columna numérica
+- IMPORTE → campo "importe": es el TOTAL MONETARIO de la línea en euros (ej: 67.25, 124.50). Es la ÚLTIMA columna. Siempre es mayor que el %IVA
+- Si el valor que ves en "importe" es 4, 10 o 21, estás leyendo el %IVA — el importe real está en la columna siguiente (última)
+- Verificación: importe ≈ unidades × precio_unitario × (1 + iva/100)
 
 IDENTIFICACIÓN DEL PROVEEDOR:
-- El PROVEEDOR es la empresa que EMITE el albarán: su nombre/logo aparece en el encabezado o membrete del documento (arriba)
-- El CLIENTE/DESTINATARIO somos nosotros (quien recibe la mercancía): aparece como "Cliente:", "Entregar a:", "Destinatario:" etc. — NO es el proveedor
-- Si ves dos empresas, el proveedor es siempre quien firma/emite el documento, no quien lo recibe
+- El PROVEEDOR es la empresa que EMITE el albarán: su nombre/logo aparece en el encabezado o membrete (arriba)
+- El CLIENTE/DESTINATARIO somos nosotros (quien recibe): aparece como "Cliente:", "Entregar a:", "Destinatario:" — NO es el proveedor
 
 REGLAS:
 - Para LOTES y FECHAS: usa el texto OCR como fuente principal (más fiable para caracteres)
-- Para IMPORTES: lee el último valor numérico de cada fila; verifica que ≈ uds × precio
 - Extrae TODAS las filas de producto en orden, sin omitir ninguna
 - Ignora: mercancía no servida, condiciones legales, pie de página
 - Separador decimal en JSON: siempre punto
