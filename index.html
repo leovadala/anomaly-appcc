@@ -827,22 +827,26 @@ Lee los encabezados de la tabla del albarán. Las columnas varían por proveedor
 - Pueden existir otros formatos — identifica los encabezados reales de ESTA imagen
 
 PASO 2 — MAPEAR CAMPOS:
-- "ref" ← columna CÓDIGO o REF
-- "descripcion" ← columna DESCRIPCIÓN (completa, sin abreviar)
-- "lote" ← columna LOTE (código alfanumérico exacto)
-- "vencimiento" ← columna FECHA CAD / F.CON.PREF / F.VTO / VENCIMIENTO → formato YYYY-MM-DD
-- "unidades" ← columna CANTIDAD / UDS / UNIDADES (número entero)
+- "ref" ← columna CÓDIGO / REF / Ref. (primer código numérico de la fila)
+- "descripcion" ← columna DESCRIPCIÓN (nombre completo, sin abreviar)
+- "lote" ← columna LOTE si existe; si no hay columna de lote → null
+- "vencimiento" ← columna FECHA CAD / F.CON.PREF / F.VTO / VENCIMIENTO → YYYY-MM-DD; si no existe → null
+- "unidades" ← columna CANTIDAD / UDS / UNIDADES — extrae SOLO el número, ignorando texto como "CJ", "UN", "KG", "UDS"
 - "kg" ← columna KG / PESO si existe, si no → null
-- "precio_unitario" ← columna PRECIO / PRECIO UND. / P.UNIT
-- "iva" ← columna %IVA si existe en las líneas (valor: 4, 10 o 21), si no → null
-- "importe" ← columna IMPORTE (siempre la ÚLTIMA columna monetaria) — es precio × cantidad
+- "precio_unitario" ← columna PRECIO / PRECIO UND. / Precio Unitario
+- "iva" ← columna %IVA si existe en las líneas (valor entero: 4, 10 o 21), si no → null
+- "importe" ← columna IMPORTE / Valor Líquido / TOTAL LÍNEA — total monetario de la fila. Si la última columna es %IVA, el importe es la penúltima columna monetaria
 
-PASO 3 — PROVEEDOR:
-- Usa el NOMBRE COMERCIAL principal (el más grande/prominente en el encabezado)
-- Si hay nombre comercial Y razón social (S.L., S.A., S.C.), usa el nombre comercial
+PASO 3 — TOTALES DE CABECERA:
+- "total" ← VALOR A PAGAR / TOTAL ALBARÁN / TOTAL (importe final con IVA incluido)
+- Si hay TOTAL PEDIDO (sin IVA) y VALOR A PAGAR (con IVA), usa VALOR A PAGAR
+
+PASO 4 — PROVEEDOR:
+- Usa el NOMBRE COMERCIAL principal (el más grande/prominente, normalmente el logo o encabezado)
+- Si hay nombre comercial Y razón social (S.L., S.A., S.L.U., S.C.), usa el nombre comercial
 - El cliente/destinatario (ANOMALY, Wordcream, etc.) NO es el proveedor
 
-PASO 4 — LOTES (máxima precisión):
+PASO 5 — LOTES (máxima precisión):
 - Lee carácter por carácter desde el texto OCR
 - Distingue: 0 vs O, 1 vs I vs l, B vs 8, S vs 5
 - Copia exactamente, incluyendo guiones y mayúsculas
