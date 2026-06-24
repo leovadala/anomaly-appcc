@@ -831,7 +831,7 @@ PASO 2 — MAPEAR CAMPOS:
 - "descripcion" ← columna DESCRIPCIÓN — copia el texto COMPLETO de la celda, incluyendo dimensiones, gramajes, cantidades y especificaciones técnicas (ej: "BOLSA PAPEL KRAFT MARRON 32G 140+60X310MM 1000UDS"). No cortes ni resumas
 - "lote" ← columna LOTE si existe; si no hay columna de lote → null
 - "vencimiento" ← columna FECHA CAD / F.CON.PREF / F.VTO / VENCIMIENTO → YYYY-MM-DD; si no existe → null
-- "unidades" ← columna CANTIDAD / UDS / UNIDADES — extrae SOLO el número, ignorando texto como "CJ", "UN", "KG", "UDS"
+- "unidades" ← columna CANTIDAD / UDS / UNIDADES — extrae SOLO el número entero de esa columna, ignorando texto como "CJ", "UN", "KG", "UDS". ATENCIÓN: la columna POS o posición (números grandes como 10000, 30000) NO es la cantidad — es un número de línea interno, ignóralo para unidades
 - "kg" ← columna KG / PESO si existe, si no → null
 - "precio_unitario" ← columna PRECIO / PRECIO UND. / Precio Unitario
 - "iva" ← columna %IVA / % IVA si existe en las líneas (valor entero: 4, 10 o 21), si no → null
