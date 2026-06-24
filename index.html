@@ -834,8 +834,9 @@ PASO 2 — MAPEAR CAMPOS:
 - "unidades" ← columna CANTIDAD / UDS / UNIDADES — extrae SOLO el número, ignorando texto como "CJ", "UN", "KG", "UDS"
 - "kg" ← columna KG / PESO si existe, si no → null
 - "precio_unitario" ← columna PRECIO / PRECIO UND. / Precio Unitario
-- "iva" ← columna %IVA si existe en las líneas (valor entero: 4, 10 o 21), si no → null
+- "iva" ← columna %IVA / % IVA si existe en las líneas (valor entero: 4, 10 o 21), si no → null
 - "importe" ← columna IMPORTE / Valor Líquido / TOTAL LÍNEA — total monetario de la fila. Si la última columna es %IVA, el importe es la penúltima columna monetaria
+- IMPORTANTE: la columna DTO.% / DESCUENTO / DESC. NO es el importe ni el IVA — es un porcentaje de descuento, ignórala para el importe
 
 PASO 3 — TOTALES DE CABECERA:
 - "total" ← VALOR A PAGAR / TOTAL ALBARÁN / TOTAL (importe final con IVA incluido)
