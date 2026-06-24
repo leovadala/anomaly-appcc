@@ -810,33 +810,58 @@ async function ocrAlbaranConGPT(imageDataUrl){
 
   // Paso 2: GPT estructura el texto + usa imagen para contexto
   $('ocr-status').textContent='Interpretando con IA (2/2)...';
-  const prompt=`Eres un experto en albaranes de distribución alimentaria española.
-Tienes DOS fuentes de información del mismo albarán:
-1. La IMAGEN (para entender la estructura de columnas y la posición de los datos)
-2. El TEXTO OCR (más preciso para leer caracteres individuales: números, letras, códigos)
+  const prompt=`Eres un experto en leer albaranes de distribución alimentaria española.
+Tienes DOS fuentes del mismo albarán:
+1. La IMAGEN (para entender estructura, columnas y posición)
+2. El TEXTO OCR a continuación (más fiable para leer caracteres exactos)
 
-TEXTO OCR EXTRAÍDO:
+TEXTO OCR:
 \`\`\`
 ${rawText}
 \`\`\`
 
-Usa AMBAS fuentes: la imagen para entender qué columna es cada valor, el texto OCR para leer los valores exactos (especialmente lotes, fechas y números).
+PASO 1 — IDENTIFICAR COLUMNAS:
+Lee los encabezados de la tabla del albarán. Las columnas varían por proveedor. Ejemplos:
+- Formato A: CÓDIGO | DESCRIPCIÓN | LOTE | FECHA CAD | UDS | KG | PRECIO | %IVA | IMPORTE
+- Formato B: CÓDIGO | DESCRIPCIÓN | LOTE | F.CON.PREF | CANTIDAD | PRECIO UND. | DTO.% | IMPORTE
+- Pueden existir otros formatos — identifica los encabezados reales de ESTA imagen
 
-Devuelve ÚNICAMENTE un JSON válido, sin markdown ni texto extra:
+PASO 2 — MAPEAR CAMPOS:
+- "ref" ← columna CÓDIGO o REF
+- "descripcion" ← columna DESCRIPCIÓN (completa, sin abreviar)
+- "lote" ← columna LOTE (código alfanumérico exacto)
+- "vencimiento" ← columna FECHA CAD / F.CON.PREF / F.VTO / VENCIMIENTO → formato YYYY-MM-DD
+- "unidades" ← columna CANTIDAD / UDS / UNIDADES (número entero)
+- "kg" ← columna KG / PESO si existe, si no → null
+- "precio_unitario" ← columna PRECIO / PRECIO UND. / P.UNIT
+- "iva" ← columna %IVA si existe en las líneas (valor: 4, 10 o 21), si no → null
+- "importe" ← columna IMPORTE (siempre la ÚLTIMA columna monetaria) — es precio × cantidad
+
+PASO 3 — PROVEEDOR:
+- Usa el NOMBRE COMERCIAL principal (el más grande/prominente en el encabezado)
+- Si hay nombre comercial Y razón social (S.L., S.A., S.C.), usa el nombre comercial
+- El cliente/destinatario (ANOMALY, Wordcream, etc.) NO es el proveedor
+
+PASO 4 — LOTES (máxima precisión):
+- Lee carácter por carácter desde el texto OCR
+- Distingue: 0 vs O, 1 vs I vs l, B vs 8, S vs 5
+- Copia exactamente, incluyendo guiones y mayúsculas
+
+Devuelve ÚNICAMENTE este JSON (sin markdown, sin texto extra):
 {
   "cabecera": {
-    "proveedor": "nombre completo",
+    "proveedor": "nombre comercial prominente",
     "num_albaran": "número exacto",
     "fecha": "YYYY-MM-DD",
     "forma_pago": "texto o null",
-    "n_bultos": número entero o null,
+    "n_bultos": número o null,
     "total": número decimal o null
   },
   "lineas": [
     {
-      "ref": "código de referencia o null",
-      "descripcion": "nombre completo del producto",
-      "lote": "código alfanumérico exacto del texto OCR",
+      "ref": "código o null",
+      "descripcion": "nombre completo",
+      "lote": "código exacto o null",
       "vencimiento": "YYYY-MM-DD o null",
       "unidades": número entero o null,
       "kg": número decimal o null,
@@ -847,22 +872,9 @@ Devuelve ÚNICAMENTE un JSON válido, sin markdown ni texto extra:
   ]
 }
 
-COLUMNAS DE LA TABLA (orden típico): REF | DESCRIPCIÓN | LOTE | FECHA CAD | UDS | KG | PRECIO UNIT | %IVA | IMPORTE
-
-DIFERENCIA CRÍTICA ENTRE %IVA E IMPORTE:
-- %IVA → campo "iva": es un PORCENTAJE entero, siempre 4, 10 o 21. Es la penúltima columna numérica
-- IMPORTE → campo "importe": es el TOTAL MONETARIO de la línea en euros (ej: 67.25, 124.50). Es la ÚLTIMA columna. Siempre es mayor que el %IVA
-- Si el valor que ves en "importe" es 4, 10 o 21, estás leyendo el %IVA — el importe real está en la columna siguiente (última)
-- Verificación: importe ≈ unidades × precio_unitario × (1 + iva/100)
-
-IDENTIFICACIÓN DEL PROVEEDOR:
-- El PROVEEDOR es la empresa que EMITE el albarán: su nombre/logo aparece en el encabezado o membrete (arriba)
-- El CLIENTE/DESTINATARIO somos nosotros (quien recibe): aparece como "Cliente:", "Entregar a:", "Destinatario:" — NO es el proveedor
-
-REGLAS:
-- Para LOTES y FECHAS: usa el texto OCR como fuente principal (más fiable para caracteres)
-- Extrae TODAS las filas de producto en orden, sin omitir ninguna
-- Ignora: mercancía no servida, condiciones legales, pie de página
+REGLAS FINALES:
+- Extrae TODAS las filas de producto en orden
+- Ignora: mercancía no servida, totales de pie de página, condiciones legales
 - Separador decimal en JSON: siempre punto
 - Campos no visibles: null`;
 
