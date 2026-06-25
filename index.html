@@ -779,23 +779,34 @@ async function preprocessImageForGPT(imageDataUrl){
   return new Promise(resolve=>{
     const img=new Image();
     img.onload=()=>{
-      const MAX_W=1800;
+      // Resolución mayor para cámaras de menor calidad
+      const MAX_W=2048;
       let w=img.width,h=img.height;
       if(w>MAX_W){h=Math.round(h*MAX_W/w);w=MAX_W;}
       const canvas=document.createElement('canvas');
       canvas.width=w;canvas.height=h;
       const ctx=canvas.getContext('2d');
       ctx.drawImage(img,0,0,w,h);
-      // Aumentar contraste para mejorar legibilidad
       const id=ctx.getImageData(0,0,w,h);const d=id.data;
-      const f=1.35;const fac=(259*(f*255+255))/(255*(259-f*255));
+      // 1. Auto-normalización: detecta rango real de brillo y lo estira al máximo
+      // Esto corrige imágenes oscuras (iPhone más antiguo, mala luz)
+      let minV=255,maxV=0;
       for(let i=0;i<d.length;i+=4){
-        d[i]=Math.min(255,Math.max(0,fac*(d[i]-128)+128));
-        d[i+1]=Math.min(255,Math.max(0,fac*(d[i+1]-128)+128));
-        d[i+2]=Math.min(255,Math.max(0,fac*(d[i+2]-128)+128));
+        const lum=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+        if(lum<minV)minV=lum;if(lum>maxV)maxV=lum;
+      }
+      const range=maxV-minV||1;
+      // 2. Contraste extra encima de la normalización
+      const f=1.4;const fac=(259*(f*255+255))/(255*(259-f*255));
+      for(let i=0;i<d.length;i+=4){
+        for(let c=0;c<3;c++){
+          let v=((d[i+c]-minV)/range)*255; // normalizar
+          v=Math.min(255,Math.max(0,fac*(v-128)+128)); // contraste
+          d[i+c]=v;
+        }
       }
       ctx.putImageData(id,0,0);
-      resolve(canvas.toDataURL('image/jpeg',0.93));
+      resolve(canvas.toDataURL('image/jpeg',0.94));
     };
     img.onerror=()=>resolve(imageDataUrl);
     img.src=imageDataUrl;
