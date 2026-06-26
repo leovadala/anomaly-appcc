@@ -297,7 +297,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div class="r3"><div class="f"><label>Fecha</label><input type="date" id="af"></div><div class="f"><label>Hora</label><input type="time" id="ah"></div><div class="f"><label>Responsable</label><input id="ar" readonly></div></div>
 <div class="f"><label>Producto (sabor)</label><select id="ap"><option value="">Seleccionar...</option></select><input id="apc" placeholder="Especificar" style="display:none;margin-top:4px"></div>
 <div class="sec"><div class="sec-t">Ingredientes</div>
-<div class="r2"><div class="f"><label>Productos del stock <span style="font-size:9px;color:var(--muted);font-weight:400">(Ctrl/Cmd para selección múltiple)</span></label><select id="aip" multiple style="height:120px;border-radius:6px;border:.5px solid var(--border);padding:4px;font-size:12px;width:100%"></select></div><div class="f" style="display:flex;gap:6px;align-items:flex-end"><button type="button" class="btn-s" onclick="addIngr()">+ Agregar</button><button type="button" class="btn-s" onclick="addAllIngr()" style="background:var(--muted,#888);white-space:nowrap">Sel. todos</button></div></div>
+<div class="f">
+  <label>Productos del stock</label>
+  <div style="border:.5px solid var(--border);border-radius:8px;overflow:hidden;margin-top:4px">
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:.5px solid var(--border);background:var(--surface,#f5f3ee);position:sticky;top:0">
+      <input id="aip-search" placeholder="Buscar…" oninput="filterAipPanel(this.value)" style="flex:1;border:none;outline:none;font-size:12px;background:transparent;font-family:var(--font)">
+      <span style="font-size:10px;color:var(--muted);white-space:nowrap"><span id="aip-sel-count">0</span> selec.</span>
+      <button type="button" onclick="toggleAllAip()" style="font-size:10px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0;font-family:var(--font)">Todos</button>
+    </div>
+    <div id="aip-panel" style="max-height:180px;overflow-y:auto"></div>
+  </div>
+  <button type="button" class="btn-s" onclick="addIngr()" style="margin-top:8px;width:100%" id="aip-add-btn">+ Agregar seleccionados</button>
+</div>
 <div class="note" id="aip-filtro-note" style="display:none;color:var(--hint,#888)"></div>
 <div id="ingr-list"></div>
 </div>
@@ -1188,9 +1199,43 @@ function setTempFinal(){const arm=$('atf').value;if(arm==='1'||arm==='2'||arm===
 function toggleROH4(){const show=$('a4e').checked;$('a4-sec').style.display=show?'block':'none'}
 function toggleROH5(){const show=$('a5e').checked;$('a5-sec').style.display=show?'block':'none'}
 
-function uIngrSelect(filtro){const byProd={};S.forEach(i=>{if(!byProd[i.producto])byProd[i.producto]=[];byProd[i.producto].push(i)});Object.values(byProd).forEach(items=>{items.sort((a,b)=>(a.vencimiento||'9999-12-31').localeCompare(b.vencimiento||'9999-12-31'))});let entries=Object.entries(byProd).sort(([a],[b])=>a.localeCompare(b,'es'));if(filtro&&filtro.length){entries=entries.filter(([prod])=>filtro.some(f=>prod.toLowerCase().includes(f.toLowerCase())));const note=$('aip-filtro-note');if(note&&entries.length){note.textContent='Mostrando '+entries.length+' ingrediente'+(entries.length!==1?'s':'')+' del sabor';note.style.display='block'}else if(note){note.textContent='No hay ingredientes del sabor en stock';note.style.display='block'}}else{const note=$('aip-filtro-note');if(note)note.style.display='none'}const opts=[];entries.forEach(([prod,items])=>{items.forEach(f=>{const sem=semaforo(f.vencimiento);const ingreso=f.fecha_ingreso||f.fecha;opts.push(`<option value="${f.producto}|${f.lote}|${f.proveedor}|${f.temp}">${sem} ${prod} — Lote: ${f.lote} (vence: ${f.vencimiento||'—'} · ingreso: ${ingreso})</option>`)})});$('aip').innerHTML=opts.join('')}
-function addAllIngr(){const opts=Array.from($('aip').options).filter(o=>o.value);if(!opts.length){alert('No hay ingredientes disponibles');return}opts.forEach(o=>o.selected=true);addIngr()}
-function addIngr(){const selected=Array.from($('aip').selectedOptions).filter(o=>o.value);if(!selected.length){alert('Seleccioná uno o más productos del stock');return}let added=0;selected.forEach(o=>{const[prod,lote,prov,temp]=o.value.split('|');if(!currentIngr.find(x=>x.producto===prod&&x.lote===lote)){currentIngr.push({producto:prod,lote:lote,proveedor:prov,temp:temp});added++}});rIngrList();Array.from($('aip').options).forEach(o=>o.selected=false);if(!added)alert('Los productos seleccionados ya estaban agregados')}
+let _aipItems=[];
+function semDot(venc){if(!venc)return'';const dias=Math.round((new Date(venc).getTime()-new Date(hoy).getTime())/(864e5));if(dias<0)return'<span style="font-size:9px;font-weight:600;color:#c0392b;margin-left:4px">VENC</span>';if(dias<7)return'<span style="font-size:9px;font-weight:600;color:#c0392b;margin-left:4px">'+dias+'d</span>';if(dias<=30)return'<span style="font-size:9px;color:#b7860b;margin-left:4px">'+dias+'d</span>';return''}
+function uIngrSelect(filtro){
+  const byProd={};S.forEach(i=>{if(!byProd[i.producto])byProd[i.producto]=[];byProd[i.producto].push(i)});
+  Object.values(byProd).forEach(items=>{items.sort((a,b)=>(a.vencimiento||'9999-12-31').localeCompare(b.vencimiento||'9999-12-31'))});
+  let entries=Object.entries(byProd).sort(([a],[b])=>a.localeCompare(b,'es'));
+  const note=$('aip-filtro-note');
+  if(filtro&&filtro.length){
+    entries=entries.filter(([prod])=>filtro.some(f=>prod.toLowerCase().includes(f.toLowerCase())));
+    if(note)note.style.display='block';
+    if(note)note.textContent=entries.length?'Filtrando por receta del sabor ('+entries.length+' producto'+(entries.length!==1?'s':'')+')'  :'Sin productos del sabor en stock';
+  } else {if(note)note.style.display='none'}
+  _aipItems=[];
+  entries.forEach(([prod,items])=>{items.forEach(f=>{_aipItems.push({prod,lote:f.lote,prov:f.proveedor||'',temp:f.temp,venc:f.vencimiento||'',ingreso:f.fecha_ingreso||f.fecha})})});
+  if($('aip-search'))$('aip-search').value='';
+  renderAipPanel('');
+}
+function renderAipPanel(q){
+  const panel=$('aip-panel');if(!panel)return;
+  const items=q?_aipItems.filter(i=>i.prod.toLowerCase().includes(q.toLowerCase())):_aipItems;
+  if(!items.length){panel.innerHTML='<div style="padding:12px;font-size:11px;color:var(--hint);text-align:center">Sin productos en stock</div>';return}
+  panel.innerHTML=items.map((f,i)=>{
+    const idx=_aipItems.indexOf(f);
+    return`<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:12px" onclick="toggleAipItem(${idx})">
+      <input type="checkbox" id="aip-cb-${idx}" style="width:16px;height:16px;flex-shrink:0;accent-color:var(--black)" onclick="event.stopPropagation();toggleAipItem(${idx})">
+      <span style="flex:1;min-width:0"><span style="display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.prod}</span><span style="font-size:10px;color:var(--muted)">Lote: ${f.lote}${f.venc?' · vence: '+f.venc:''}</span></span>
+      ${semDot(f.venc)}
+    </label>`
+  }).join('');
+  updateAipCount();
+}
+function toggleAipItem(idx){const cb=document.getElementById('aip-cb-'+idx);if(cb)cb.checked=!cb.checked;updateAipCount()}
+function updateAipCount(){const n=document.querySelectorAll('#aip-panel input[type=checkbox]:checked').length;const el=$('aip-sel-count');if(el)el.textContent=n;const btn=$('aip-add-btn');if(btn)btn.textContent=n?'+ Agregar seleccionados ('+n+')':'+ Agregar seleccionados'}
+function filterAipPanel(q){renderAipPanel(q)}
+function toggleAllAip(){const cbs=Array.from(document.querySelectorAll('#aip-panel input[type=checkbox]'));const anyUnchecked=cbs.some(c=>!c.checked);cbs.forEach(c=>c.checked=anyUnchecked);updateAipCount()}
+function addAllIngr(){toggleAllAip();addIngr()}
+function addIngr(){const cbs=Array.from(document.querySelectorAll('#aip-panel input[type=checkbox]:checked'));if(!cbs.length){alert('Seleccioná al menos un producto');return}let added=0;cbs.forEach(cb=>{const idx=parseInt(cb.id.replace('aip-cb-',''));const f=_aipItems[idx];if(f&&!currentIngr.find(x=>x.producto===f.prod&&x.lote===f.lote)){currentIngr.push({producto:f.prod,lote:f.lote,proveedor:f.prov,temp:f.temp});added++}});cbs.forEach(cb=>cb.checked=false);updateAipCount();rIngrList();if(!added)alert('Ya estaban todos agregados')}
 function rmIngr(i){currentIngr.splice(i,1);rIngrList()}
 function rIngrList(){const e=$('ingr-list');if(!currentIngr.length){e.innerHTML='<div class="note">Sin ingredientes agregados</div>';return}e.innerHTML=currentIngr.map((x,i)=>`<div class="ingr-item"><div class="ingr-info"><span class="ingr-prod">${x.producto}</span><span class="ingr-meta">Lote: ${x.lote}</span><span class="ingr-meta">Prov: ${x.proveedor||'—'}</span></div><button type="button" class="btn-d" onclick="rmIngr(${i})">×</button></div>`).join('')}
 function uLF(){const s=$('ap').value==='otro'?$('apc').value:$('ap').value,b=$('ab').value,f=$('af').value;if(!s||!b||!f){$('alf').textContent='---';return}const d=new Date(f);const sab=sabores.find(x=>x.nombre===s);const code=sab?sab.codigo.toUpperCase():s.substring(0,3).toUpperCase();$('alf').textContent=code+String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+String(Math.round(b)).padStart(2,'0')}
