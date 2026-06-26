@@ -382,11 +382,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 
 <!-- ── EMPLEADOS ── -->
 <div id="hpanel-empleados" style="display:none">
-  <div class="sec-t" style="margin-bottom:1.2rem">Empleados de horarios</div>
-  <div class="note" style="margin-bottom:1rem">Estos empleados son independientes de los responsables de APPCC. Configurá aquí los datos de contrato para el cálculo de horas.</div>
+  <div class="sec-t" style="margin-bottom:1.2rem">Plantel</div>
+  <div class="note" style="margin-bottom:1rem">Todos los integrantes del equipo. Hacé click en ✏ en la grilla o en "Editar" aquí para modificar datos de contrato. Para agregar nuevos empleados, usá Configuración → Equipo.</div>
 
-  <div class="sec">
-    <div class="sec-t" id="hemp-sec-t">Nuevo empleado</div>
+  <div class="sec" id="hemp-form-sec" style="display:none">
+    <div class="sec-t" id="hemp-sec-t">Empleados</div>
     <div class="r2">
       <div class="f"><label>Nombre completo</label><input id="hemp-name" placeholder="Ej: Sofía García"></div>
       <div class="f"><label>Cargo / Responsabilidad</label><input id="hemp-cargo" placeholder="Ej: Responsable de turno"></div>
@@ -604,14 +604,14 @@ async function loadAll(){
     sb.from('albaranes').select('*').order('fecha',{ascending:false}),
     sb.from('proveedor_productos').select('*').order('descripcion')
   ]);
-  team=(t.data||[]).map(r=>({id:r.id,nombre:r.nombre,pin:r.pin||'',horas_contrato:r.horas_contrato||0,tipo_contrato:r.tipo_contrato||'parcial'}));
+  team=(t.data||[]).map(r=>({id:r.id,nombre:r.nombre,pin:r.pin||'',horas_contrato:r.horas_contrato||0,tipo_contrato:r.tipo_contrato||'parcial',dias_vacaciones:r.dias_vacaciones||22}));
   P=(p.data||[]).map(r=>({id:r.id,nombre:r.nombre,cif:r.cif||'',tel:r.telefono||'',rs:r.registro_sanitario||'',productos:r.productos||[],notas:r.notas||'',pdfs:[]}));
   const allRec=(s.data||[]).map(r=>({id:r.id,producto:r.producto,lote:r.lote,temp:r.temperatura,proveedor:r.proveedor||'',vencimiento:r.vencimiento||'',frio:r.requiere_frio,cantidad:r.cantidad||'',obs:r.observaciones||'',albaran:r.nro_albaran||'',fecha:r.fecha,hora:(r.hora||'').slice(0,5),estado:r.estado||'activo',fecha_salida:r.fecha_salida||'',motivo_salida:r.motivo_salida||'',precio_unitario:r.precio_unitario||null,importe:r.importe||null,categoria:r.categoria||'',fecha_ingreso:r.fecha_ingreso||r.fecha}));
   S=allRec.filter(r=>r.estado==='activo');SH=allRec.filter(r=>r.estado!=='activo');
   AB=(alb.data||[]).map(r=>({id:r.id,proveedor_nombre:r.proveedor_nombre,proveedor_id:r.proveedor_id,num_albaran:r.num_albaran,fecha:r.fecha,forma_pago:r.forma_pago||'',n_bultos:r.n_bultos,total:r.total}));
   PP=(pp.data||[]).map(r=>({id:r.id,proveedor_id:r.proveedor_id,ref:r.ref||'',descripcion:r.descripcion,ultimo_precio:r.ultimo_precio,ultima_fecha:r.ultima_fecha}));
   H=(h.data||[]).map(r=>({id:r.id,fecha:r.fecha,hora:(r.hora||'').slice(0,5),responsable:r.responsable,producto:r.producto,ingredientes:r.ingredientes||'',lote_prov:r.lote_proveedor||'',proveedor:r.proveedor||'',cant:r.cantidad_pesada||'',rehe:r.doc_rehe||'',obs:r.observaciones||'',pcc1:{t:r.pcc1_temp,m:r.pcc1_tiempo},roh1:{t:r.roh1_temp,v:r.roh1_vida_util||'',m:r.roh1_tiempo||''},roh3:{t:r.roh3_temp,m:r.roh3_tiempo||''},lote:r.lote_final||'',baldes:r.baldes,kg:r.kg,roh4:{i:r.roh4_identificacion||'',c:r.roh4_cantidad||''},roh5:{c:r.roh5_camara||'',t:r.roh5_temp,m:r.roh5_tiempo,e:(r.roh5_hora_entrada||'').slice(0,5),s:(r.roh5_hora_salida||'').slice(0,5)},litros:r.litros_final,pac:r.nro_pac||'',temps:{a1:r.temp_armario_1,a2:r.temp_armario_2,a3:r.temp_armario_3,p1:r.temp_pozzetti_1,p2:r.temp_pozzetti_2,p3:r.temp_pozzetti_3},ver:{e:r.verificacion_etapa||'',d:r.verificacion_descripcion||'',r:r.verificacion_resultado||''}}));
-  sabores=(sab.data||[]).map(r=>({id:r.id,nombre:r.nombre,codigo:r.codigo,activo:r.activo}));
+  sabores=(sab.data||[]).map(r=>({id:r.id,nombre:r.nombre,codigo:r.codigo,activo:r.activo,ingredientes:r.ingredientes||[],peso_teorico:r.peso_teorico||null}));
   const cfgData=cfg.data||[];const pinRow=cfgData.find(r=>r.key==='pin_supervisor');if(pinRow)pinSupervisor=pinRow.value;const oaiRow=cfgData.find(r=>r.key==='openai_key');if(oaiRow)OPENAI_KEY=oaiRow.value;const hlRow=cfgData.find(r=>r.key==='horario_local');if(hlRow){try{horLocal=JSON.parse(hlRow.value)||{}}catch(e){horLocal={}}};
   renderTeamSelect();renderTeam();rRH();rPL();renderSabores();renderSaborSelect();
 }
@@ -1179,6 +1179,8 @@ function renderHistorial(){const e=$('rhist');const d7=new Date();d7.setDate(d7.
 function rRH(){const r=[],e=$('rli');const d7=new Date();d7.setDate(d7.getDate()-7);const d7s=d7.toISOString().split('T')[0];S.forEach((s,idx)=>{if(s.fecha>=d7s)r.push({...s,_idx:idx})});r.sort((a,b)=>b.fecha.localeCompare(a.fecha)||((b.hora||'').localeCompare(a.hora||'')));if(!r.length){e.innerHTML='<div class="empty">Sin recepciones recientes</div>';return}e.innerHTML=r.map(i=>`<div class="card"><div class="card-top"><span class="card-nm">${i.producto}</span><div style="display:flex;align-items:center;gap:6px"><span class="card-meta">${i.fecha} ${i.hora||''}</span><span class="badge">${i.frio?'Fr\u00edo':'Amb.'}</span><button type="button" class="btn-d" onclick="editRec(${i._idx})">Editar</button></div></div><div class="card-row"><div><div class="card-l">Lote</div><div class="card-v">${i.lote}</div></div><div><div class="card-l">Temp.</div><div class="card-v">${i.temp}\u00b0C</div></div><div><div class="card-l">Venc.</div><div class="card-v">${i.vencimiento||'\u2014'}</div></div><div><div class="card-l">Prov.</div><div class="card-v">${i.proveedor||'\u2014'}</div></div></div></div>`).join('')}
 
 
+function semaforo(venc){if(!venc)return'⚪';const dias=Math.round((new Date(venc).getTime()-new Date(hoy).getTime())/(864e5));if(dias<0)return'🔴';if(dias<7)return'🔴';if(dias<=30)return'🟡';return'🟢'}
+function semaforoStyle(venc){if(!venc)return'background:#aaa';const dias=Math.round((new Date(venc).getTime()-new Date(hoy).getTime())/(864e5));if(dias<0)return'background:#e74c3c';if(dias<7)return'background:#e74c3c';if(dias<=30)return'background:#f39c12';return'background:#27ae60'}
 function rS(){const q=$('ss').value.toLowerCase(),f=[];S.forEach((s,idx)=>{if(s.producto.toLowerCase().includes(q))f.push({...s,_idx:idx})});$('sc').textContent=f.length+' item'+(f.length!==1?'s':'');const e=$('sl');if(!f.length){e.innerHTML='<div class="empty">Stock vacío</div>';return}const g={};f.forEach(i=>{if(!g[i.producto])g[i.producto]=[];g[i.producto].push(i)});Object.values(g).forEach(items=>{items.sort((a,b)=>(a.vencimiento||'9999-12-31').localeCompare(b.vencimiento||'9999-12-31'))});const sortedEntries=Object.entries(g).sort(([a],[b])=>a.localeCompare(b,'es'));e.innerHTML=sortedEntries.map(([,items])=>items.map((i,idx)=>{const cad=i.vencimiento&&i.vencimiento<hoy;return`<div class="card" style="${cad?'border-left:3px solid #e74c3c;':''}"><div class="card-top"><span class="card-nm">${i.producto}</span><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;${semaforoStyle(i.vencimiento)}" title="${i.vencimiento?'Vence: '+i.vencimiento:'Sin vencimiento'}"></span>${i.categoria?`<span class="badge" style="background:var(--surface,#eee);color:var(--text)">${i.categoria}</span>`:''} ${cad?'<span class="badge" style="background:#e74c3c;color:#fff">Vencido</span>':''}<span class="badge">${i.frio?'Frío':'Amb.'}</span><button type="button" class="btn-d" onclick="editRec(${i._idx})">Editar</button><button type="button" class="btn-d" onclick="archiveStock(${i._idx},'consumo')" style="background:#27ae60;color:#fff">Consumido</button><button type="button" class="btn-d" onclick="archiveStock(${i._idx},'caducado')" style="background:#e74c3c;color:#fff">Caducado</button></div></div><div class="card-row"><div><div class="card-l">Lote</div><div class="card-v">${i.lote}</div></div><div><div class="card-l">Temp.</div><div class="card-v">${i.temp}°C</div></div><div><div class="card-l">Venc.</div><div class="card-v" ${cad?'style="color:#e74c3c;font-weight:bold"':''}>${i.vencimiento||'—'}</div></div><div><div class="card-l">Ingreso</div><div class="card-v">${i.fecha_ingreso||i.fecha} ${i.hora}</div></div>${i.albaran?`<div><div class="card-l">Albarán</div><div class="card-v">${i.albaran}</div></div>`:''}</div></div>`}).join('')).join('')}
 function toggleROH1(){const show=$('a2e').checked;$('a2-sec').style.display=show?'block':'none'}
 function setArmarioTemp(){const arm=$('tarm').value;let txt='';if(arm==='1'||arm==='2'||arm==='3'){txt='-18.5°C'}$('ttemp').value=txt}
@@ -1435,28 +1437,44 @@ let horEmpleados=[];
 let horEmpEditIdx=null;
 
 async function loadHorEmpleados(){
+  // Load extra horario data (salary, etc.) keyed by name
   const{data}=await sb.from('hor_empleados').select('*').order('nombre');
-  horEmpleados=(data||[]).map(r=>({id:r.id,nombre:r.nombre,cargo:r.cargo||'',horas_contrato:r.horas_contrato||0,tipo_contrato:r.tipo_contrato||'parcial',salario_hora:r.salario_hora||0,noct_pct:r.noct_pct||25,fest_pct:r.fest_pct||75,dias_vacaciones:r.dias_vacaciones||22,fecha_ingreso:r.fecha_ingreso||''}));
+  const horExtra={};(data||[]).forEach(r=>{horExtra[r.nombre]=r});
+  // Merge with team (main staff list)
+  horEmpleados=team.map(t=>{
+    const ex=horExtra[t.nombre]||{};
+    return{
+      id:t.id,hor_id:ex.id||null,nombre:t.nombre,
+      cargo:ex.cargo||'',
+      horas_contrato:ex.horas_contrato||t.horas_contrato||0,
+      tipo_contrato:ex.tipo_contrato||t.tipo_contrato||'parcial',
+      salario_hora:ex.salario_hora||0,
+      noct_pct:ex.noct_pct||25,
+      fest_pct:ex.fest_pct||75,
+      dias_vacaciones:ex.dias_vacaciones||t.dias_vacaciones||22,
+      fecha_ingreso:ex.fecha_ingreso||'',
+      activo:t.activo!==false
+    }
+  });
 }
 
 async function saveHorEmpleado(){
-  const nombre=$('hemp-name').value.trim();
-  if(!nombre){alert('Nombre requerido');return}
-  const ingresoVal=$('hemp-ingreso').value;
-  const row={nombre,cargo:$('hemp-cargo').value.trim(),horas_contrato:parseInt($('hemp-horas').value)||0,tipo_contrato:$('hemp-tipo').value,salario_hora:parseFloat($('hemp-salario').value)||0,noct_pct:parseInt($('hemp-noct-pct').value)||25,fest_pct:parseInt($('hemp-fest-pct').value)||75,dias_vacaciones:parseInt($('hemp-vacdays').value)||22,fecha_ingreso:ingresoVal||null};
-  if(horEmpEditIdx!==null){
-    const id=horEmpleados[horEmpEditIdx].id;
-    const{error}=await sb.from('hor_empleados').update(row).eq('id',id);
+  if(horEmpEditIdx===null)return;  // only editing existing team members
+  const emp=horEmpleados[horEmpEditIdx];
+  const row={nombre:emp.nombre,cargo:$('hemp-cargo').value.trim(),horas_contrato:parseInt($('hemp-horas').value)||0,tipo_contrato:$('hemp-tipo').value,salario_hora:parseFloat($('hemp-salario').value)||0,noct_pct:parseInt($('hemp-noct-pct').value)||25,fest_pct:parseInt($('hemp-fest-pct').value)||75,dias_vacaciones:parseInt($('hemp-vacdays').value)||22,fecha_ingreso:$('hemp-ingreso').value||null};
+  // Also update team table horas+tipo+vacaciones
+  await sb.from('team').update({horas_contrato:row.horas_contrato,tipo_contrato:row.tipo_contrato,dias_vacaciones:row.dias_vacaciones}).eq('id',emp.id);
+  // Upsert into hor_empleados by name
+  if(emp.hor_id){
+    const{error}=await sb.from('hor_empleados').update(row).eq('id',emp.hor_id);
     if(error){alert('Error: '+error.message);return}
-    horEmpleados[horEmpEditIdx]={id,...row};
-    cancelHorEmpleado();
   } else {
     const{data,error}=await sb.from('hor_empleados').insert(row).select();
     if(error){alert('Error: '+error.message);return}
-    if(data&&data[0])horEmpleados.push({id:data[0].id,...row});
-    ['hemp-name','hemp-cargo','hemp-horas','hemp-salario','hemp-ingreso'].forEach(x=>{$(x).value=''});
-    $('hemp-noct-pct').value='25';$('hemp-fest-pct').value='75';$('hemp-tipo').value='parcial';$('hemp-vacdays').value='22';
+    if(data&&data[0])horEmpleados[horEmpEditIdx].hor_id=data[0].id;
   }
+  Object.assign(horEmpleados[horEmpEditIdx],row);
+  cancelHorEmpleado();
   renderHempList();renderHorGrilla();renderHorSummary();
 }
 
@@ -1467,24 +1485,34 @@ function editHorEmpleadoFromGrilla(i){
 }
 function editHorEmpleado(i){
   horEmpEditIdx=i;const e=horEmpleados[i];
-  $('hemp-name').value=e.nombre;$('hemp-cargo').value=e.cargo||'';$('hemp-horas').value=e.horas_contrato||'';
+  $('hemp-name').value=e.nombre;
+  $('hemp-cargo').value=e.cargo||'';$('hemp-horas').value=e.horas_contrato||'';
   $('hemp-tipo').value=e.tipo_contrato||'parcial';$('hemp-salario').value=e.salario_hora||'';
   $('hemp-noct-pct').value=e.noct_pct||25;$('hemp-fest-pct').value=e.fest_pct||75;
   $('hemp-vacdays').value=e.dias_vacaciones||22;$('hemp-ingreso').value=e.fecha_ingreso||'';
-  $('hemp-sec-t').textContent='Editar empleado';$('btn-hemp').textContent='Actualizar';
-  $('btn-hemp-cancel').style.display='inline-block';$('hemp-name').focus();window.scrollTo({top:0,behavior:'smooth'});
+  $('hemp-sec-t').textContent='Editar: '+e.nombre;$('btn-hemp').textContent='Guardar cambios';
+  $('hemp-name').readOnly=true;$('hemp-name').style.opacity='.5';
+  $('btn-hemp-cancel').style.display='inline-block';$('hemp-form-sec').style.display='block';window.scrollTo({top:0,behavior:'smooth'});
 }
 
 function cancelHorEmpleado(){
   horEmpEditIdx=null;['hemp-name','hemp-cargo','hemp-horas','hemp-salario','hemp-ingreso'].forEach(x=>{$(x).value=''});
   $('hemp-noct-pct').value='25';$('hemp-fest-pct').value='75';$('hemp-tipo').value='parcial';$('hemp-vacdays').value='22';
-  $('hemp-sec-t').textContent='Nuevo empleado';$('btn-hemp').textContent='Agregar empleado';$('btn-hemp-cancel').style.display='none';
+  $('hemp-name').readOnly=false;$('hemp-name').style.opacity='1';$('hemp-form-sec').style.display='none';
+  $('hemp-sec-t').textContent='Empleados';$('btn-hemp').textContent='—';$('btn-hemp').style.display='none';$('btn-hemp-cancel').style.display='none';
 }
 
 async function deleteHorEmpleado(i){
-  if(!confirm('¿Eliminar empleado "'+horEmpleados[i].nombre+'"?'))return;
-  await sb.from('hor_empleados').delete().eq('id',horEmpleados[i].id);
-  horEmpleados.splice(i,1);renderHempList();renderHorGrilla();renderHorSummary();
+  const emp=horEmpleados[i];
+  if(!confirm('¿Eliminar empleado "'+emp.nombre+'" del plantel?'))return;
+  // Remove from team
+  await sb.from('team').delete().eq('id',emp.id);
+  // Remove from hor_empleados if exists
+  if(emp.hor_id)await sb.from('hor_empleados').delete().eq('id',emp.hor_id);
+  team.splice(team.findIndex(t=>t.id===emp.id),1);
+  horEmpleados.splice(i,1);
+  renderHempList();renderHorGrilla();renderHorSummary();
+  renderTeam();renderTeamSelect();
 }
 
 function renderHempList(){
