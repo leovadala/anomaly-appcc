@@ -589,6 +589,7 @@ let editingSaborIdx=null;
 let editingTeamIdx=null;
 let currentIngr=[];
 let pinSupervisor='0000';
+let horLocal={};  // {dayIdx:{a:'12:00',c:'00:00'}}
 const hoy=new Date().toISOString().split('T')[0];
 const $=id=>document.getElementById(id);
 
@@ -611,7 +612,7 @@ async function loadAll(){
   PP=(pp.data||[]).map(r=>({id:r.id,proveedor_id:r.proveedor_id,ref:r.ref||'',descripcion:r.descripcion,ultimo_precio:r.ultimo_precio,ultima_fecha:r.ultima_fecha}));
   H=(h.data||[]).map(r=>({id:r.id,fecha:r.fecha,hora:(r.hora||'').slice(0,5),responsable:r.responsable,producto:r.producto,ingredientes:r.ingredientes||'',lote_prov:r.lote_proveedor||'',proveedor:r.proveedor||'',cant:r.cantidad_pesada||'',rehe:r.doc_rehe||'',obs:r.observaciones||'',pcc1:{t:r.pcc1_temp,m:r.pcc1_tiempo},roh1:{t:r.roh1_temp,v:r.roh1_vida_util||'',m:r.roh1_tiempo||''},roh3:{t:r.roh3_temp,m:r.roh3_tiempo||''},lote:r.lote_final||'',baldes:r.baldes,kg:r.kg,roh4:{i:r.roh4_identificacion||'',c:r.roh4_cantidad||''},roh5:{c:r.roh5_camara||'',t:r.roh5_temp,m:r.roh5_tiempo,e:(r.roh5_hora_entrada||'').slice(0,5),s:(r.roh5_hora_salida||'').slice(0,5)},litros:r.litros_final,pac:r.nro_pac||'',temps:{a1:r.temp_armario_1,a2:r.temp_armario_2,a3:r.temp_armario_3,p1:r.temp_pozzetti_1,p2:r.temp_pozzetti_2,p3:r.temp_pozzetti_3},ver:{e:r.verificacion_etapa||'',d:r.verificacion_descripcion||'',r:r.verificacion_resultado||''}}));
   sabores=(sab.data||[]).map(r=>({id:r.id,nombre:r.nombre,codigo:r.codigo,activo:r.activo}));
-  const cfgData=cfg.data||[];const pinRow=cfgData.find(r=>r.key==='pin_supervisor');if(pinRow)pinSupervisor=pinRow.value;const oaiRow=cfgData.find(r=>r.key==='openai_key');if(oaiRow)OPENAI_KEY=oaiRow.value;
+  const cfgData=cfg.data||[];const pinRow=cfgData.find(r=>r.key==='pin_supervisor');if(pinRow)pinSupervisor=pinRow.value;const oaiRow=cfgData.find(r=>r.key==='openai_key');if(oaiRow)OPENAI_KEY=oaiRow.value;const hlRow=cfgData.find(r=>r.key==='horario_local');if(hlRow){try{horLocal=JSON.parse(hlRow.value)||{}}catch(e){horLocal={}}};
   renderTeamSelect();renderTeam();rRH();rPL();renderSabores();renderSaborSelect();
 }
 loadAll();
@@ -1459,6 +1460,11 @@ async function saveHorEmpleado(){
   renderHempList();renderHorGrilla();renderHorSummary();
 }
 
+
+function editHorEmpleadoFromGrilla(i){
+  horMainTab('empleados');
+  setTimeout(()=>editHorEmpleado(i),50);
+}
 function editHorEmpleado(i){
   horEmpEditIdx=i;const e=horEmpleados[i];
   $('hemp-name').value=e.nombre;$('hemp-cargo').value=e.cargo||'';$('hemp-horas').value=e.horas_contrato||'';
@@ -1502,6 +1508,39 @@ function renderHempList(){
         <button type="button" class="btn-d" onclick="deleteHorEmpleado(${i})">Eliminar</button>
       </div>
     </div>`).join('');
+}
+
+
+// ─── HORARIO LOCAL ────────────────────────────────────────────────────────────
+async function saveHorLocal(dayIdx,apertura,cierre){
+  horLocal[dayIdx]={a:apertura,c:cierre};
+  await sb.from('config').upsert({key:'horario_local',value:JSON.stringify(horLocal)});
+  renderHorGrilla();
+}
+
+function openHorLocalModal(dayIdx,dayLabel){
+  const cur=horLocal[dayIdx]||{};
+  const a=cur.a||'';const cl=cur.c||'';
+  // Remove existing modal if any
+  const ex=document.getElementById('hl-modal');if(ex)ex.remove();
+  const m=document.createElement('div');
+  m.id='hl-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999';
+  m.innerHTML=`<div style="background:var(--bg);border-radius:12px;padding:24px;min-width:240px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+    <div style="font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px">${dayLabel} — Horario local</div>
+    <div class="r2">
+      <div class="f"><label>Apertura</label><input id="hl-a" type="time" value="${a}" style="font-size:15px;text-align:center"></div>
+      <div class="f"><label>Cierre</label><input id="hl-c" type="time" value="${cl}" style="font-size:15px;text-align:center"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button type="button" class="btn-s" onclick="(async()=>{await saveHorLocal(${dayIdx},document.getElementById('hl-a').value,document.getElementById('hl-c').value);document.getElementById('hl-modal').remove()})()">Guardar</button>
+      <button type="button" class="btn-d" onclick="document.getElementById('hl-modal').remove()">Cancelar</button>
+      ${a||cl?`<button type="button" class="btn-d" style="color:#e74c3c" onclick="(async()=>{await saveHorLocal(${dayIdx},'','');document.getElementById('hl-modal').remove()})()">Borrar</button>`:''}
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target===m)m.remove()});
+  setTimeout(()=>document.getElementById('hl-a').focus(),50);
 }
 
 // ─── VACACIONES ──────────────────────────────────────────────────────────────
@@ -1766,7 +1805,7 @@ function renderHorGrilla(){
     const esch=sch[nombre]||{};
     const contrato=emp.horas_contrato||0;
     let totalH=0;
-    let rowHTML=`<tr><td class="ht-emp" title="${nombre}${emp.cargo?' · '+emp.cargo:''}">${nombre}${emp.cargo?`<span style="display:block;font-size:8px;font-weight:400;color:var(--hint);letter-spacing:.3px">${emp.cargo}</span>`:''}</td>`;
+    let rowHTML=`<tr><td class="ht-emp" title="${nombre}${emp.cargo?' · '+emp.cargo:''}"><span style="display:flex;align-items:center;justify-content:space-between;gap:2px"><span>${nombre}${emp.cargo?`<span style="display:block;font-size:8px;font-weight:400;color:var(--hint);letter-spacing:.3px">${emp.cargo}</span>`:''}</span><span onclick="editHorEmpleadoFromGrilla(${activeTeam.indexOf(emp)})" style="cursor:pointer;font-size:9px;opacity:.5;flex-shrink:0;padding:1px 3px;border-radius:3px;line-height:1" title="Editar empleado">✏</span></span></td>`;
     days.forEach((d,i)=>{
       const s=esch[i]||'';totalH+=parseShiftHours(s);
       const noct=nocturnasHoras(s)>0;const fest=esFestivo(d)&&s&&s!=='OFF';
@@ -1781,6 +1820,18 @@ function renderHorGrilla(){
     rowHTML+=`<td style="text-align:center;font-size:10px;font-weight:500">${totalH||''}</td></tr>`;
     html+=rowHTML;
   });
+  html+='<tfoot><tr style="background:var(--surface,#f5f3ee);border-top:1.5px solid var(--border)">';
+  html+='<td style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);padding:4px 2px">Horario local</td>';
+  days.forEach((d,i)=>{
+    const hl=horLocal[i]||{};
+    const dl2=dayLabel(d);
+    if(hl.a||hl.c){
+      html+=`<td style="text-align:center;cursor:pointer;padding:3px 2px" onclick="openHorLocalModal(${i},'${dl2}')" title="Editar horario"><span style="display:block;font-size:9px;font-weight:600;color:var(--muted)">${hl.a||'?'}</span><span style="display:block;font-size:9px;color:var(--hint)">${hl.c||'?'}</span></td>`;
+    } else {
+      html+=`<td style="text-align:center;cursor:pointer;opacity:.4;padding:3px 2px" onclick="openHorLocalModal(${i},'${dl2}')" title="Agregar horario"><span style="font-size:10px;color:var(--muted)">+</span></td>`;
+    }
+  });
+  html+='<td></td></tr></tfoot>';
   html+='</tbody>';
   tbl.innerHTML=html;
 }
