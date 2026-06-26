@@ -382,10 +382,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 
 <!-- ── EMPLEADOS ── -->
 <div id="hpanel-empleados" style="display:none">
-  <div class="sec-t" style="margin-bottom:1.2rem">Plantel</div>
-  <div class="note" style="margin-bottom:1rem">Todos los integrantes del equipo. Hacé click en ✏ en la grilla o en "Editar" aquí para modificar datos de contrato. Para agregar nuevos empleados, usá Configuración → Equipo.</div>
+  <div class="sec-t" style="margin-bottom:1.2rem">Empleados de horarios</div>
+  <div class="note" style="margin-bottom:1rem">Configurá aquí el plantel completo para la grilla. Hacé click en ✏ en la grilla o en "Editar" en la lista para modificar datos.</div>
 
-  <div class="sec" id="hemp-form-sec" style="display:none">
+  <div class="sec" id="hemp-form-sec">
     <div class="sec-t" id="hemp-sec-t">Empleados</div>
     <div class="r2">
       <div class="f"><label>Nombre completo</label><input id="hemp-name" placeholder="Ej: Sofía García"></div>
@@ -1437,44 +1437,27 @@ let horEmpleados=[];
 let horEmpEditIdx=null;
 
 async function loadHorEmpleados(){
-  // Load extra horario data (salary, etc.) keyed by name
   const{data}=await sb.from('hor_empleados').select('*').order('nombre');
-  const horExtra={};(data||[]).forEach(r=>{horExtra[r.nombre]=r});
-  // Merge with team (main staff list)
-  horEmpleados=team.map(t=>{
-    const ex=horExtra[t.nombre]||{};
-    return{
-      id:t.id,hor_id:ex.id||null,nombre:t.nombre,
-      cargo:ex.cargo||'',
-      horas_contrato:ex.horas_contrato||t.horas_contrato||0,
-      tipo_contrato:ex.tipo_contrato||t.tipo_contrato||'parcial',
-      salario_hora:ex.salario_hora||0,
-      noct_pct:ex.noct_pct||25,
-      fest_pct:ex.fest_pct||75,
-      dias_vacaciones:ex.dias_vacaciones||t.dias_vacaciones||22,
-      fecha_ingreso:ex.fecha_ingreso||'',
-      activo:t.activo!==false
-    }
-  });
+  horEmpleados=(data||[]).map(r=>({id:r.id,nombre:r.nombre,cargo:r.cargo||'',horas_contrato:r.horas_contrato||0,tipo_contrato:r.tipo_contrato||'parcial',salario_hora:r.salario_hora||0,noct_pct:r.noct_pct||25,fest_pct:r.fest_pct||75,dias_vacaciones:r.dias_vacaciones||22,fecha_ingreso:r.fecha_ingreso||''}));
 }
 
 async function saveHorEmpleado(){
-  if(horEmpEditIdx===null)return;  // only editing existing team members
-  const emp=horEmpleados[horEmpEditIdx];
-  const row={nombre:emp.nombre,cargo:$('hemp-cargo').value.trim(),horas_contrato:parseInt($('hemp-horas').value)||0,tipo_contrato:$('hemp-tipo').value,salario_hora:parseFloat($('hemp-salario').value)||0,noct_pct:parseInt($('hemp-noct-pct').value)||25,fest_pct:parseInt($('hemp-fest-pct').value)||75,dias_vacaciones:parseInt($('hemp-vacdays').value)||22,fecha_ingreso:$('hemp-ingreso').value||null};
-  // Also update team table horas+tipo+vacaciones
-  await sb.from('team').update({horas_contrato:row.horas_contrato,tipo_contrato:row.tipo_contrato,dias_vacaciones:row.dias_vacaciones}).eq('id',emp.id);
-  // Upsert into hor_empleados by name
-  if(emp.hor_id){
-    const{error}=await sb.from('hor_empleados').update(row).eq('id',emp.hor_id);
+  const nombre=$('hemp-name').value.trim();
+  if(!nombre){alert('Nombre requerido');return}
+  const row={nombre,cargo:$('hemp-cargo').value.trim(),horas_contrato:parseInt($('hemp-horas').value)||0,tipo_contrato:$('hemp-tipo').value,salario_hora:parseFloat($('hemp-salario').value)||0,noct_pct:parseInt($('hemp-noct-pct').value)||25,fest_pct:parseInt($('hemp-fest-pct').value)||75,dias_vacaciones:parseInt($('hemp-vacdays').value)||22,fecha_ingreso:$('hemp-ingreso').value||null};
+  if(horEmpEditIdx!==null){
+    const id=horEmpleados[horEmpEditIdx].id;
+    const{error}=await sb.from('hor_empleados').update(row).eq('id',id);
     if(error){alert('Error: '+error.message);return}
+    horEmpleados[horEmpEditIdx]={id,...row};
+    cancelHorEmpleado();
   } else {
     const{data,error}=await sb.from('hor_empleados').insert(row).select();
     if(error){alert('Error: '+error.message);return}
-    if(data&&data[0])horEmpleados[horEmpEditIdx].hor_id=data[0].id;
+    if(data&&data[0])horEmpleados.push({id:data[0].id,...row});
+    ['hemp-name','hemp-cargo','hemp-horas','hemp-salario','hemp-ingreso'].forEach(x=>$(x).value='');
+    $('hemp-noct-pct').value='25';$('hemp-fest-pct').value='75';$('hemp-tipo').value='parcial';$('hemp-vacdays').value='22';
   }
-  Object.assign(horEmpleados[horEmpEditIdx],row);
-  cancelHorEmpleado();
   renderHempList();renderHorGrilla();renderHorSummary();
 }
 
@@ -1485,34 +1468,25 @@ function editHorEmpleadoFromGrilla(i){
 }
 function editHorEmpleado(i){
   horEmpEditIdx=i;const e=horEmpleados[i];
-  $('hemp-name').value=e.nombre;
-  $('hemp-cargo').value=e.cargo||'';$('hemp-horas').value=e.horas_contrato||'';
+  $('hemp-name').value=e.nombre;$('hemp-cargo').value=e.cargo||'';$('hemp-horas').value=e.horas_contrato||'';
   $('hemp-tipo').value=e.tipo_contrato||'parcial';$('hemp-salario').value=e.salario_hora||'';
   $('hemp-noct-pct').value=e.noct_pct||25;$('hemp-fest-pct').value=e.fest_pct||75;
   $('hemp-vacdays').value=e.dias_vacaciones||22;$('hemp-ingreso').value=e.fecha_ingreso||'';
-  $('hemp-sec-t').textContent='Editar: '+e.nombre;$('btn-hemp').textContent='Guardar cambios';
-  $('hemp-name').readOnly=true;$('hemp-name').style.opacity='.5';
-  $('btn-hemp-cancel').style.display='inline-block';$('hemp-form-sec').style.display='block';window.scrollTo({top:0,behavior:'smooth'});
+  $('hemp-sec-t').textContent='Editar empleado';$('btn-hemp').textContent='Actualizar';$('btn-hemp').style.display='';
+  $('btn-hemp-cancel').style.display='inline-block';$('hemp-form-sec').style.display='block';$('hemp-name').focus();window.scrollTo({top:0,behavior:'smooth'});
 }
 
 function cancelHorEmpleado(){
   horEmpEditIdx=null;['hemp-name','hemp-cargo','hemp-horas','hemp-salario','hemp-ingreso'].forEach(x=>{$(x).value=''});
   $('hemp-noct-pct').value='25';$('hemp-fest-pct').value='75';$('hemp-tipo').value='parcial';$('hemp-vacdays').value='22';
-  $('hemp-name').readOnly=false;$('hemp-name').style.opacity='1';$('hemp-form-sec').style.display='none';
-  $('hemp-sec-t').textContent='Empleados';$('btn-hemp').textContent='—';$('btn-hemp').style.display='none';$('btn-hemp-cancel').style.display='none';
+  $('hemp-sec-t').textContent='Nuevo empleado';$('btn-hemp').textContent='Agregar empleado';$('btn-hemp').style.display='';$('btn-hemp-cancel').style.display='none';
 }
 
 async function deleteHorEmpleado(i){
-  const emp=horEmpleados[i];
-  if(!confirm('¿Eliminar empleado "'+emp.nombre+'" del plantel?'))return;
-  // Remove from team
-  await sb.from('team').delete().eq('id',emp.id);
-  // Remove from hor_empleados if exists
-  if(emp.hor_id)await sb.from('hor_empleados').delete().eq('id',emp.hor_id);
-  team.splice(team.findIndex(t=>t.id===emp.id),1);
-  horEmpleados.splice(i,1);
-  renderHempList();renderHorGrilla();renderHorSummary();
-  renderTeam();renderTeamSelect();
+  if(!confirm('¿Eliminar empleado "'+horEmpleados[i].nombre+'" del plantel de horarios?'))return;
+  const{error}=await sb.from('hor_empleados').delete().eq('id',horEmpleados[i].id);
+  if(error){alert('Error: '+error.message);return}
+  horEmpleados.splice(i,1);renderHempList();renderHorGrilla();renderHorSummary();
 }
 
 function renderHempList(){
