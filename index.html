@@ -310,6 +310,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   <button type="button" class="btn-s" onclick="addIngr()" style="margin-top:8px;width:100%" id="aip-add-btn">+ Agregar seleccionados</button>
 </div>
 <div class="note" id="aip-filtro-note" style="display:none;color:var(--hint,#888)"></div>
+<div class="note" id="aip-filter-tip" style="color:var(--hint);font-size:10px">Seleccioná un sabor arriba para filtrar solo sus ingredientes. Configurá la receta en Configuración → Sabores.</div>
 <div id="ingr-list"></div>
 </div>
 <div class="f"><label>Cantidad pesada (kg)</label><input type="number" id="aqp" value="8" step="0.1"></div>
@@ -676,7 +677,7 @@ $('sab-name').addEventListener('input',e=>{const code=e.target.value.substring(0
 $('sab-name').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('sab-code').focus()}});
 $('sab-code').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveSabor()}});
 $('af').addEventListener('change',e=>{autoGenREHE()});
-$('ap').addEventListener('change',function(){const sab=sabores.find(s=>s.nombre===this.value);if(sab&&sab.ingredientes&&sab.ingredientes.length){uIngrSelect(sab.ingredientes)}else{uIngrSelect();const note=$('aip-filtro-note');if(note)note.style.display='none'}calcMerma()});
+$('ap').addEventListener('change',function(){const sab=sabores.find(s=>s.nombre===this.value);const tip=$('aip-filter-tip');if(sab&&sab.ingredientes&&sab.ingredientes.length){uIngrSelect(sab.ingredientes);if(tip)tip.style.display='none'}else{uIngrSelect();const note=$('aip-filtro-note');if(note)note.style.display='none';if(tip)tip.style.display=this.value?'none':'block'}calcMerma()});
 
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.activeElement.id==='aiq'){e.preventDefault();addIngr()}});
 $('rp').addEventListener('change',e=>{const s=$('rpd');s.innerHTML='<option value="">Seleccionar...</option>';if(e.target.value!==''){const p=P[+e.target.value];if(p&&p.productos.length)s.innerHTML+=p.productos.map(x=>`<option>${x}</option>`).join('');s.innerHTML+='<option value="otro">Otro...</option>'}});
@@ -1220,22 +1221,34 @@ function renderAipPanel(q){
   const panel=$('aip-panel');if(!panel)return;
   const items=q?_aipItems.filter(i=>i.prod.toLowerCase().includes(q.toLowerCase())):_aipItems;
   if(!items.length){panel.innerHTML='<div style="padding:12px;font-size:11px;color:var(--hint);text-align:center">Sin productos en stock</div>';return}
-  panel.innerHTML=items.map((f,i)=>{
+  panel.innerHTML=items.map((f)=>{
     const idx=_aipItems.indexOf(f);
-    return`<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:12px" onclick="toggleAipItem(${idx})">
-      <input type="checkbox" id="aip-cb-${idx}" style="width:16px;height:16px;flex-shrink:0;accent-color:var(--black)" onclick="event.stopPropagation();toggleAipItem(${idx})">
+    return`<label id="aip-row-${idx}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:12px;transition:background .1s" onclick="toggleAipItem(${idx},event)">
+      <input type="checkbox" id="aip-cb-${idx}" style="width:16px;height:16px;flex-shrink:0;accent-color:var(--black)" onclick="event.stopPropagation()">
       <span style="flex:1;min-width:0"><span style="display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.prod}</span><span style="font-size:10px;color:var(--muted)">Lote: ${f.lote}${f.venc?' · vence: '+f.venc:''}</span></span>
       ${semDot(f.venc)}
     </label>`
   }).join('');
   updateAipCount();
 }
-function toggleAipItem(idx){const cb=document.getElementById('aip-cb-'+idx);if(cb)cb.checked=!cb.checked;updateAipCount()}
+function toggleAipItem(idx,e){
+  const cb=document.getElementById('aip-cb-'+idx);
+  if(!cb)return;
+  if(e&&e.target===cb)cb.checked=cb.checked; else cb.checked=!cb.checked;
+  const row=document.getElementById('aip-row-'+idx);
+  if(row)row.style.background=cb.checked?'var(--surface,#f0ede8)':'';
+  updateAipCount();
+}
 function updateAipCount(){const n=document.querySelectorAll('#aip-panel input[type=checkbox]:checked').length;const el=$('aip-sel-count');if(el)el.textContent=n;const btn=$('aip-add-btn');if(btn)btn.textContent=n?'+ Agregar seleccionados ('+n+')':'+ Agregar seleccionados'}
 function filterAipPanel(q){renderAipPanel(q)}
-function toggleAllAip(){const cbs=Array.from(document.querySelectorAll('#aip-panel input[type=checkbox]'));const anyUnchecked=cbs.some(c=>!c.checked);cbs.forEach(c=>c.checked=anyUnchecked);updateAipCount()}
+function toggleAllAip(){
+  const cbs=Array.from(document.querySelectorAll('#aip-panel input[type=checkbox]'));
+  const anyUnchecked=cbs.some(c=>!c.checked);
+  cbs.forEach(c=>{c.checked=anyUnchecked;const idx=c.id.replace('aip-cb-','');const row=document.getElementById('aip-row-'+idx);if(row)row.style.background=anyUnchecked?'var(--surface,#f0ede8)':'';});
+  updateAipCount();
+}
 function addAllIngr(){toggleAllAip();addIngr()}
-function addIngr(){const cbs=Array.from(document.querySelectorAll('#aip-panel input[type=checkbox]:checked'));if(!cbs.length){alert('Seleccioná al menos un producto');return}let added=0;cbs.forEach(cb=>{const idx=parseInt(cb.id.replace('aip-cb-',''));const f=_aipItems[idx];if(f&&!currentIngr.find(x=>x.producto===f.prod&&x.lote===f.lote)){currentIngr.push({producto:f.prod,lote:f.lote,proveedor:f.prov,temp:f.temp});added++}});cbs.forEach(cb=>cb.checked=false);updateAipCount();rIngrList();if(!added)alert('Ya estaban todos agregados')}
+function addIngr(){const cbs=Array.from(document.querySelectorAll('#aip-panel input[type=checkbox]:checked'));if(!cbs.length){alert('Seleccioná al menos un producto');return}let added=0;cbs.forEach(cb=>{const idx=parseInt(cb.id.replace('aip-cb-',''));const f=_aipItems[idx];if(f&&!currentIngr.find(x=>x.producto===f.prod&&x.lote===f.lote)){currentIngr.push({producto:f.prod,lote:f.lote,proveedor:f.prov,temp:f.temp});added++}});cbs.forEach(cb=>{cb.checked=false;const row=document.getElementById('aip-row-'+cb.id.replace('aip-cb-',''));if(row)row.style.background=''});updateAipCount();rIngrList();if(!added)alert('Ya estaban todos agregados')}
 function rmIngr(i){currentIngr.splice(i,1);rIngrList()}
 function rIngrList(){const e=$('ingr-list');if(!currentIngr.length){e.innerHTML='<div class="note">Sin ingredientes agregados</div>';return}e.innerHTML=currentIngr.map((x,i)=>`<div class="ingr-item"><div class="ingr-info"><span class="ingr-prod">${x.producto}</span><span class="ingr-meta">Lote: ${x.lote}</span><span class="ingr-meta">Prov: ${x.proveedor||'—'}</span></div><button type="button" class="btn-d" onclick="rmIngr(${i})">×</button></div>`).join('')}
 function uLF(){const s=$('ap').value==='otro'?$('apc').value:$('ap').value,b=$('ab').value,f=$('af').value;if(!s||!b||!f){$('alf').textContent='---';return}const d=new Date(f);const sab=sabores.find(x=>x.nombre===s);const code=sab?sab.codigo.toUpperCase():s.substring(0,3).toUpperCase();$('alf').textContent=code+String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+String(Math.round(b)).padStart(2,'0')}
