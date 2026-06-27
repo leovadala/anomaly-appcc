@@ -609,6 +609,7 @@ const hoy=new Date().toISOString().split('T')[0];
 const $=id=>document.getElementById(id);
 
 async function loadAll(){
+  if(!window.supabase){throw new Error('Supabase JS no cargó (CDN)')}
   const[t,p,s,h,sab,cfg,alb,pp]=await Promise.all([
     sb.from('team').select('*').order('created_at'),
     sb.from('proveedores').select('*').order('created_at'),
@@ -630,7 +631,11 @@ async function loadAll(){
   const cfgData=cfg.data||[];const pinRow=cfgData.find(r=>r.key==='pin_supervisor');if(pinRow)pinSupervisor=pinRow.value;const oaiRow=cfgData.find(r=>r.key==='openai_key');if(oaiRow)OPENAI_KEY=oaiRow.value;const hlRow=cfgData.find(r=>r.key==='horario_local');if(hlRow){try{horLocal=JSON.parse(hlRow.value)||{}}catch(e){horLocal={}}};
   renderTeamSelect();renderTeam();rRH();rPL();renderSabores();renderSaborSelect();
 }
-loadAll();
+loadAll().catch(err=>{
+  console.error('loadAll error:',err);
+  const el=document.getElementById('ob-user');
+  if(el)el.insertAdjacentHTML('afterend','<div style="color:#c0392b;font-size:11px;margin-top:8px;padding:8px;background:#fde;border-radius:6px">Error al cargar: '+String(err)+'</div>');
+});
 
 function renderDashboard(){
   const all=[...S,...SH];
