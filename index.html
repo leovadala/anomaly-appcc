@@ -425,6 +425,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     </div>
     <button type="button" class="btn-s" id="btn-hemp" onclick="saveHorEmpleado()" style="margin-top:.5rem">Agregar empleado</button>
     <button type="button" class="btn-d" id="btn-hemp-cancel" onclick="cancelHorEmpleado()" style="display:none;margin-top:8px;margin-left:8px;padding:6px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar</button>
+    <button type="button" id="btn-hemp-del" onclick="deleteHorEmpleadoForm()" style="display:none;margin-top:8px;margin-left:8px;padding:6px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase;background:transparent;border:.5px solid #c0392b;color:#c0392b;font-family:var(--font);cursor:pointer">Eliminar empleado</button>
   </div>
 
   <div id="hemp-list"></div>
@@ -526,9 +527,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 </div>
 <div id="sab-ingr-section" style="display:none;margin-top:14px;padding:12px;background:var(--surface,#f5f3ee);border-radius:8px;border:.5px solid var(--border)">
 <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Ingredientes de la receta</div>
-<div class="note" style="margin-bottom:8px">Productos del stock que se usan en este sabor. Filtrará la lista en producción.</div>
-<div class="r2"><div class="f"><label>Nombre del producto</label><input id="sab-ingr-input" placeholder="Ej: Azúcar blanquilla 25kg" onkeydown="if(event.key==='Enter'){addSabIngr();event.preventDefault()}"></div><div class="f" style="display:flex;align-items:flex-end"><button type="button" class="btn-s" onclick="addSabIngr()">+ Agregar</button></div></div>
-<div id="sab-ingr-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:24px"></div>
+<div class="note" style="margin-bottom:8px">Seleccioná los productos del stock que se usan en este sabor. Filtrarán la lista en producción.</div>
+<input id="sab-ip-search" placeholder="Buscar producto..." oninput="renderSabIngrPicker(this.value)" style="width:100%;border:none;border-bottom:.5px solid var(--border);background:transparent;font-family:var(--font);font-size:12px;padding:6px 0;outline:none;margin-bottom:4px">
+<div id="sab-ip-panel" style="max-height:180px;overflow-y:auto;border:.5px solid var(--border);border-radius:6px;background:var(--bg,#faf9f6);margin-bottom:8px"></div>
+<div style="font-size:10px;color:var(--muted);margin-bottom:4px">Seleccionados:</div>
+<div id="sab-ingr-list" style="display:flex;flex-wrap:wrap;gap:6px;min-height:20px"></div>
 </div>
 <div id="sabor-list"></div>
 </div>
@@ -1231,20 +1234,27 @@ function renderAipPanel(q){
   if(!items.length){panel.innerHTML='<div style="padding:12px;font-size:11px;color:var(--hint);text-align:center">Sin productos en stock</div>';return}
   panel.innerHTML=items.map((f)=>{
     const idx=_aipItems.indexOf(f);
-    return`<label id="aip-row-${idx}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:12px;transition:background .1s" onclick="toggleAipItem(${idx},event)">
-      <input type="checkbox" id="aip-cb-${idx}" style="width:16px;height:16px;flex-shrink:0;accent-color:var(--black)" onclick="event.stopPropagation()">
+    return`<div id="aip-row-${idx}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:12px;transition:background .1s" onclick="toggleAipItem(${idx},event)">
+      <input type="checkbox" id="aip-cb-${idx}" style="width:16px;height:16px;flex-shrink:0;accent-color:var(--black)" onchange="updateAipRowFromCb(${idx})" onclick="event.stopPropagation()">
       <span style="flex:1;min-width:0"><span style="display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.prod}</span><span style="font-size:10px;color:var(--muted)">Lote: ${f.lote}${f.venc?' · vence: '+f.venc:''}</span></span>
       ${semDot(f.venc)}
-    </label>`
+    </div>`
   }).join('');
   updateAipCount();
 }
 function toggleAipItem(idx,e){
   const cb=document.getElementById('aip-cb-'+idx);
   if(!cb)return;
-  if(e&&e.target===cb)cb.checked=cb.checked; else cb.checked=!cb.checked;
+  if(e&&e.target===cb){/* checkbox click: browser already toggled, just update UI */}
+  else{cb.checked=!cb.checked}
   const row=document.getElementById('aip-row-'+idx);
   if(row)row.style.background=cb.checked?'var(--surface,#f0ede8)':'';
+  updateAipCount();
+}
+function updateAipRowFromCb(idx){
+  const cb=document.getElementById('aip-cb-'+idx);
+  const row=document.getElementById('aip-row-'+idx);
+  if(row)row.style.background=cb&&cb.checked?'var(--surface,#f0ede8)':'';
   updateAipCount();
 }
 function updateAipCount(){const n=document.querySelectorAll('#aip-panel input[type=checkbox]:checked').length;const el=$('aip-sel-count');if(el)el.textContent=n;const btn=$('aip-add-btn');if(btn)btn.textContent=n?'+ Agregar seleccionados ('+n+')':'+ Agregar seleccionados'}
@@ -1268,8 +1278,24 @@ H.push({fecha:row.fecha,hora:(row.hora||'').slice(0,5),responsable:row.responsab
 currentIngr=[];rIngrList();$('apeso-real').value='';const mn=$('merma-note');if(mn)mn.style.display='none';$('aok').style.display='block';setTimeout(()=>$('aok').style.display='none',3000)}
 
 let currentSabIngr=[];
-function addSabIngr(){const v=$('sab-ingr-input').value.trim();if(!v)return;if(!currentSabIngr.includes(v))currentSabIngr.push(v);renderSabIngrList();$('sab-ingr-input').value='';$('sab-ingr-input').focus()}
-function rmSabIngr(i){currentSabIngr.splice(i,1);renderSabIngrList()}
+function renderSabIngrPicker(q){
+  const panel=$('sab-ip-panel');if(!panel)return;
+  const names=[...new Set(S.map(x=>x.producto))].sort((a,b)=>a.localeCompare(b,'es'));
+  const filtered=q?names.filter(n=>n.toLowerCase().includes(q.toLowerCase())):names;
+  if(!filtered.length){panel.innerHTML='<div style="padding:10px;text-align:center;font-size:11px;color:var(--hint)">Sin productos en stock</div>';return}
+  panel.innerHTML=filtered.map(name=>{
+    const checked=currentSabIngr.includes(name);
+    const safeN=name.replace(/'/g,"\\'");
+    return`<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:12px${checked?';background:var(--surface,#f0ede8)':''}"><input type="checkbox" ${checked?'checked':''} onchange="toggleSabIngr('${safeN}',this.checked,this)" style="width:15px;height:15px;flex-shrink:0;accent-color:var(--black)"><span style="flex:1">${name}</span></label>`
+  }).join('');
+}
+function toggleSabIngr(name,checked,cb){
+  if(checked){if(!currentSabIngr.includes(name))currentSabIngr.push(name)}
+  else{currentSabIngr=currentSabIngr.filter(n=>n!==name)}
+  if(cb){const lbl=cb.closest('label');if(lbl)lbl.style.background=checked?'var(--surface,#f0ede8)':''}
+  renderSabIngrList();
+}
+function rmSabIngr(i){currentSabIngr.splice(i,1);renderSabIngrList();renderSabIngrPicker($('sab-ip-search')?$('sab-ip-search').value:'')}
 function renderSabIngrList(){const e=$('sab-ingr-list');if(!e)return;e.innerHTML=currentSabIngr.length?currentSabIngr.map((n,i)=>`<span class="tg">${n}<span onclick="rmSabIngr(${i})" style="cursor:pointer;margin-left:4px">×</span></span>`).join(''):'<span style="color:var(--muted);font-size:11px">Sin ingredientes definidos</span>'}
 function calcMerma(){const sab=sabores.find(s=>s.nombre===$('ap').value);const pesoR=parseFloat($('apeso-real').value)||0;const note=$('merma-note');if(!note)return;if(sab&&sab.peso_teorico&&pesoR){const merma=sab.peso_teorico-pesoR;const pct=(merma/sab.peso_teorico*100).toFixed(1);note.textContent='Peso teórico: '+sab.peso_teorico+' kg · Real: '+pesoR+' kg · Merma: '+merma.toFixed(2)+' kg ('+pct+'%)';note.style.display='block'}else if(sab&&sab.peso_teorico){note.textContent='Peso teórico del sabor: '+sab.peso_teorico+' kg';note.style.display='block'}else{note.style.display='none'}}
 function renderSaborSelect(){const sel=$('ap');sel.innerHTML='<option value="">Seleccionar...</option>'+[...sabores].filter(s=>s.activo).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')).map(s=>`<option>${s.nombre}</option>`).join('')+'<option value="otro">Otro...</option>'}
@@ -1278,7 +1304,7 @@ function renderSabores(){const e=$('sabor-list');if(!sabores.length){e.innerHTML
 
 async function saveSabor(){const n=$('sab-name').value.trim(),c=$('sab-code').value.trim().toUpperCase(),pt=parseFloat($('sab-peso').value)||null;if(!n||!c||c.length!==3){alert('Nombre y código de 3 letras requeridos');return}if(editingSaborIdx!==null){const id=sabores[editingSaborIdx].id;const{error}=await sb.from('sabores').update({nombre:n,codigo:c,peso_teorico:pt,ingredientes:currentSabIngr}).eq('id',id);if(error){alert('Error: '+error.message);return}sabores[editingSaborIdx].nombre=n;sabores[editingSaborIdx].codigo=c;sabores[editingSaborIdx].peso_teorico=pt;sabores[editingSaborIdx].ingredientes=[...currentSabIngr];cancelEditSabor()}else{const dup=sabores.find(s=>s.codigo===c);if(dup){alert('Ya existe un sabor con código '+c);return}const{data,error}=await sb.from('sabores').insert({nombre:n,codigo:c,peso_teorico:pt,ingredientes:currentSabIngr}).select();if(error){alert('Error: '+error.message);return}if(data&&data[0])sabores.push({id:data[0].id,nombre:n,codigo:c,activo:true,peso_teorico:pt,ingredientes:[...currentSabIngr]});$('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';currentSabIngr=[];renderSabIngrList()}renderSabores();renderSaborSelect()}
 
-function editSabor(i){editingSaborIdx=i;$('sab-name').value=sabores[i].nombre;$('sab-code').value=sabores[i].codigo;$('sab-peso').value=sabores[i].peso_teorico||'';currentSabIngr=[...(sabores[i].ingredientes||[])];renderSabIngrList();$('sab-ingr-section').style.display='block';$('btn-sab').textContent='Actualizar';$('btn-sab-cancel').style.display='inline-block';$('sabor-sec-t').textContent='Editar sabor';$('sab-name').focus()}
+function editSabor(i){editingSaborIdx=i;$('sab-name').value=sabores[i].nombre;$('sab-code').value=sabores[i].codigo;$('sab-peso').value=sabores[i].peso_teorico||'';currentSabIngr=[...(sabores[i].ingredientes||[])];renderSabIngrList();renderSabIngrPicker('');if($('sab-ip-search'))$('sab-ip-search').value='';$('sab-ingr-section').style.display='block';$('btn-sab').textContent='Actualizar';$('btn-sab-cancel').style.display='inline-block';$('sabor-sec-t').textContent='Editar sabor';$('sab-name').focus()}
 
 function cancelEditSabor(){editingSaborIdx=null;$('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';currentSabIngr=[];renderSabIngrList();$('btn-sab').textContent='Agregar';$('btn-sab-cancel').style.display='none';$('sab-ingr-section').style.display='none';$('sabor-sec-t').textContent='Sabores'}
 
@@ -1539,15 +1565,16 @@ function editHorEmpleado(i){
   $('hemp-noct-pct').value=e.noct_pct||25;$('hemp-fest-pct').value=e.fest_pct||75;
   $('hemp-vacdays').value=e.dias_vacaciones||22;$('hemp-ingreso').value=e.fecha_ingreso||'';
   $('hemp-sec-t').textContent='Editar empleado';$('btn-hemp').textContent='Actualizar';$('btn-hemp').style.display='';
-  $('btn-hemp-cancel').style.display='inline-block';$('hemp-form-sec').style.display='block';$('hemp-name').focus();window.scrollTo({top:0,behavior:'smooth'});
+  $('btn-hemp-cancel').style.display='inline-block';$('btn-hemp-del').style.display='inline-block';$('hemp-form-sec').style.display='block';$('hemp-name').focus();window.scrollTo({top:0,behavior:'smooth'});
 }
 
 function cancelHorEmpleado(){
   horEmpEditIdx=null;['hemp-name','hemp-cargo','hemp-horas','hemp-salario','hemp-ingreso'].forEach(x=>{$(x).value=''});
   $('hemp-noct-pct').value='25';$('hemp-fest-pct').value='75';$('hemp-tipo').value='parcial';$('hemp-vacdays').value='22';
-  $('hemp-sec-t').textContent='Nuevo empleado';$('btn-hemp').textContent='Agregar empleado';$('btn-hemp').style.display='';$('btn-hemp-cancel').style.display='none';
+  $('hemp-sec-t').textContent='Nuevo empleado';$('btn-hemp').textContent='Agregar empleado';$('btn-hemp').style.display='';$('btn-hemp-cancel').style.display='none';$('btn-hemp-del').style.display='none';
 }
 
+function deleteHorEmpleadoForm(){if(horEmpEditIdx===null)return;deleteHorEmpleado(horEmpEditIdx);cancelHorEmpleado()}
 async function deleteHorEmpleado(i){
   if(!confirm('¿Eliminar empleado "'+horEmpleados[i].nombre+'" del plantel de horarios?'))return;
   const{error}=await sb.from('hor_empleados').delete().eq('id',horEmpleados[i].id);
