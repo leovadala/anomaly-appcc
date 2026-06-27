@@ -713,7 +713,7 @@ async function savePinSup(){const p=$('cfg-pin-sup').value.trim();if(!/^\d{4}$/.
 
 function autoGenREHE(){const fechaStr=$('af').value;if(!fechaStr)return;const[year,month,day]=fechaStr.split('-');const dd=String(day).padStart(2,'0');const mm=String(month).padStart(2,'0');const cnt=H.filter(r=>r.fecha===fechaStr).length+1;const rehe='REHE-'+dd+mm+'-'+String(cnt).padStart(3,'0');$('adr').value=rehe}
 
-function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();autoGenREHE();$('ar').value=currentUser;if(!$('af').value)$('af').valueAsDate=new Date()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();if(n===9)renderInventario();window.scrollTo(0,0)}
+function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();autoGenREHE();$('ar').value=currentUser;if(!$('af').value)$('af').valueAsDate=new Date()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();if(n===9){renderInventario();renderInvHistorial()}window.scrollTo(0,0)}
 
 function addTag(){const v=$('ppi').value.trim();if(!v||cTags.includes(v))return;cTags.push(v);rTags();$('ppi').value='';$('ppi').focus()}
 function rmT(i){cTags.splice(i,1);rTags()}
@@ -955,7 +955,16 @@ REGLAS FINALES:
   return JSON.parse(txt);
 }
 
-async function registrarInventario(){if(!confirm('¿Registrar inventario con el stock activo actual?\nSe guardarán '+S.length+' items.'))return;if(!S.length){alert('No hay stock activo para registrar');return}const rows=S.map(s=>({fecha:hoy,producto:s.producto,proveedor:s.proveedor||null,categoria:s.categoria||null,cantidad_uds:1,cantidad_kg:0,valor:0,notas:'Lote: '+s.lote+' | Venc: '+(s.vencimiento||'—')+' | Temp: '+s.temp+'°C'}));const{error}=await sb.from('inventario_mensual').insert(rows);if(error){alert('Error al guardar: '+error.message);return}alert('Inventario registrado: '+rows.length+' productos');renderInventario()}
+function parseCantStr(str){if(!str)return{uds:0,kg:0};const um=str.match(/^(\d+(?:\.\d+)?)/);const km=str.match(/\(([0-9.]+)\s*kg\)/i);return{uds:um?parseFloat(um[1]):0,kg:km?parseFloat(km[1]):0}}
+async function registrarInventario(){
+  if(!confirm('¿Registrar inventario con el stock activo actual?\nSe guardarán '+S.length+' items.'))return;
+  if(!S.length){alert('No hay stock activo para registrar');return}
+  const rows=S.map(s=>{const{uds,kg}=parseCantStr(s.cantidad);return{fecha:hoy,producto:s.producto,proveedor:s.proveedor||null,categoria:s.categoria||null,cantidad_uds:uds,cantidad_kg:kg,valor:s.importe||0,notas:'Lote: '+s.lote+' | Venc: '+(s.vencimiento||'—')+' | Temp: '+s.temp+'°C'}});
+  const{error}=await sb.from('inventario_mensual').insert(rows);
+  if(error){alert('Error al guardar: '+error.message);return}
+  alert('Inventario registrado: '+rows.length+' productos');
+  renderInventario();renderInvHistorial();
+}
 function renderInventario(){
   try{
   const active=S.filter(s=>!s.estado||s.estado==='activo');
@@ -1007,6 +1016,45 @@ function renderInventario(){
   });
   $('inv-content').innerHTML=html;
   }catch(err){$('inv-content').innerHTML='<div class="empty">Error: '+err.message+'</div>';console.error('renderInventario:',err);}
+}
+
+async function renderInvHistorial(){
+  const el=$('inv-historial');if(!el)return;
+  el.innerHTML='<div style="font-size:11px;color:var(--hint);padding:8px 0">Cargando historial...</div>';
+  const{data,error}=await sb.from('inventario_mensual').select('fecha,producto,valor,cantidad_uds,cantidad_kg').order('fecha',{ascending:false});
+  if(error||!data||!data.length){el.innerHTML='<div class="empty">Sin snapshots guardados aún</div>';return}
+  // Group by month YYYY-MM
+  const byMonth={};
+  data.forEach(r=>{
+    const mes=r.fecha.substring(0,7);
+    if(!byMonth[mes])byMonth[mes]={items:0,valor:0,productos:new Set()};
+    byMonth[mes].items++;
+    byMonth[mes].valor+=r.valor||0;
+    byMonth[mes].productos.add(r.producto);
+  });
+  const meses=Object.keys(byMonth).sort((a,b)=>b.localeCompare(a));
+  const MN_L=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  let html='<div style="font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Snapshots guardados</div>';
+  meses.forEach((mes,i)=>{
+    const d=byMonth[mes];const prev=meses[i+1]?byMonth[meses[i+1]]:null;
+    const[yr,mo]=mes.split('-');
+    const label=MN_L[parseInt(mo)-1]+' '+yr;
+    const dItems=prev?d.items-prev.items:null;
+    const dVal=prev?d.valor-prev.valor:null;
+    const dItemsStr=dItems===null?'':(dItems>=0?`<span style="color:#27ae60">+${dItems}</span>`:`<span style="color:#e74c3c">${dItems}</span>`)+' items';
+    const dValStr=dVal===null?'':(dVal>=0?`<span style="color:#27ae60">+${dVal.toFixed(0)}€</span>`:`<span style="color:#e74c3c">${dVal.toFixed(0)}€</span>`);
+    html+=`<div style="border:.5px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;background:var(--surface)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <span style="font-weight:600;font-size:13px">${label}</span>
+        ${d.valor>0?`<span style="font-size:12px;font-weight:500">${d.valor.toFixed(2)} €</span>`:''}
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap">
+        <span>${d.productos.size} productos · ${d.items} lotes</span>
+        ${prev?`<span style="color:var(--hint)">vs anterior: ${dItemsStr} ${dValStr}</span>`:'<span style="color:var(--hint)">primer snapshot</span>'}
+      </div>
+    </div>`;
+  });
+  el.innerHTML=html;
 }
 
 function isNifCif(s){return /^[A-Z]\d{7}[A-Z0-9]$/i.test(s.replace(/[\s\.\-]/g,''))}
@@ -2347,6 +2395,7 @@ function applyAllEgOcr(){
 <button type="button" class="btn-s" onclick="registrarInventario()" style="margin-bottom:10px">📋 Registrar inventario ahora</button>
 </div>
   <div id="inv-content"><div class="empty">Cargando...</div></div>
+  <div id="inv-historial" style="margin-top:1.5rem"></div>
 </div>
 
 >
