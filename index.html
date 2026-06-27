@@ -428,6 +428,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     <button type="button" id="btn-hemp-del" onclick="deleteHorEmpleadoForm()" style="display:none;margin-top:8px;margin-left:8px;padding:6px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase;background:transparent;border:.5px solid #c0392b;color:#c0392b;font-family:var(--font);cursor:pointer">Eliminar empleado</button>
   </div>
 
+  <div style="margin-top:1.5rem;margin-bottom:.6rem;font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">Plantel actual</div>
   <div id="hemp-list"></div>
 </div>
 
@@ -1535,6 +1536,7 @@ function horMainTab(tab){
   if(tab==='resumen'){populateMesSel();renderHorReporteMes()}
   if(tab==='vacaciones'){renderVacPanel()}
   if(tab==='liquidar'){populateLiqMesSel();renderLiquidacion()}
+  if(tab==='empleados'){renderHempList()}
 }
 
 function horTab(tab){horMainTab(tab)}
