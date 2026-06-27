@@ -519,11 +519,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 </div>
 <div class="sec"><div class="sec-t" id="sabor-sec-t">Sabores</div>
 <div class="r2"><div class="f"><label>Nombre</label><input id="sab-name" placeholder="Ej: Vainilla"></div><div class="f"><label>Código (3 letras)</label><input id="sab-code" maxlength="3" placeholder="VAI" style="text-transform:uppercase;font-family:var(--mono)"></div></div>
-<div class="r2"><div class="f"><label>Peso teórico (kg/batch)</label><input id="sab-peso" type="number" min="0" step="0.1" placeholder="Ej: 5.5"></div><div class="f" style="display:flex;align-items:flex-end"><button type="button" class="btn-s" id="btn-sab" onclick="saveSabor()">Agregar</button></div></div>
-<button type="button" class="btn-d" id="btn-sab-cancel" onclick="cancelEditSabor()" style="display:none;margin-bottom:10px;padding:6px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
-<div id="sab-ingr-section" style="margin-top:10px;padding:10px;background:var(--surface,#f5f3ee);border-radius:8px">
-<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Ingredientes de la receta</div>
-<div class="note" style="margin-bottom:8px">Define los productos del stock que se usan en este sabor. Filtrará la lista en producción.</div>
+<div class="f"><label>Peso teórico (kg/batch)</label><input id="sab-peso" type="number" min="0" step="0.1" placeholder="Ej: 5.5" style="max-width:200px"></div>
+<div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+<button type="button" class="btn-s" id="btn-sab" onclick="saveSabor()">Agregar</button>
+<button type="button" class="btn-d" id="btn-sab-cancel" onclick="cancelEditSabor()" style="display:none;padding:6px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
+</div>
+<div id="sab-ingr-section" style="display:none;margin-top:14px;padding:12px;background:var(--surface,#f5f3ee);border-radius:8px;border:.5px solid var(--border)">
+<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Ingredientes de la receta</div>
+<div class="note" style="margin-bottom:8px">Productos del stock que se usan en este sabor. Filtrará la lista en producción.</div>
 <div class="r2"><div class="f"><label>Nombre del producto</label><input id="sab-ingr-input" placeholder="Ej: Azúcar blanquilla 25kg" onkeydown="if(event.key==='Enter'){addSabIngr();event.preventDefault()}"></div><div class="f" style="display:flex;align-items:flex-end"><button type="button" class="btn-s" onclick="addSabIngr()">+ Agregar</button></div></div>
 <div id="sab-ingr-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:24px"></div>
 </div>
@@ -1272,7 +1275,7 @@ async function saveSabor(){const n=$('sab-name').value.trim(),c=$('sab-code').va
 
 function editSabor(i){editingSaborIdx=i;$('sab-name').value=sabores[i].nombre;$('sab-code').value=sabores[i].codigo;$('sab-peso').value=sabores[i].peso_teorico||'';currentSabIngr=[...(sabores[i].ingredientes||[])];renderSabIngrList();$('sab-ingr-section').style.display='block';$('btn-sab').textContent='Actualizar';$('btn-sab-cancel').style.display='inline-block';$('sabor-sec-t').textContent='Editar sabor';$('sab-name').focus()}
 
-function cancelEditSabor(){editingSaborIdx=null;$('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';currentSabIngr=[];renderSabIngrList();$('btn-sab').textContent='Agregar';$('btn-sab-cancel').style.display='none';$('sabor-sec-t').textContent='Sabores'}
+function cancelEditSabor(){editingSaborIdx=null;$('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';currentSabIngr=[];renderSabIngrList();$('btn-sab').textContent='Agregar';$('btn-sab-cancel').style.display='none';$('sab-ingr-section').style.display='none';$('sabor-sec-t').textContent='Sabores'}
 
 async function toggleSabor(i){const nv=!sabores[i].activo;const{error}=await sb.from('sabores').update({activo:nv}).eq('id',sabores[i].id);if(error){alert('Error: '+error.message);return}sabores[i].activo=nv;renderSabores();renderSaborSelect()}
 
