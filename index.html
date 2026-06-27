@@ -1443,19 +1443,51 @@ async function applyCustomShift(){
 }
 
 async function exportHorPNG(){
-  const wrap=$('hor-table-wrap');
-  if(!wrap){alert('No hay grilla para exportar');return}
   const days=getWeekDates(horCurrentWeekOffset);
+  const sch=getSchedule();
+  const activeTeam=horEmpleados;
+  if(!activeTeam.length){alert('Sin empleados para exportar');return}
   const d0=days[0],d6=days[6];
-  const fmt=d=>d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'});
-  const nombre=`horario_${fmt(d0).replace('/','')}_${fmt(d6).replace('/','')}.png`;
+  const MN=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+  const DIAS_A=['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+  const fmtTitle=d=>String(d.getDate()).padStart(2,'0')+' '+MN[d.getMonth()]+' '+d.getFullYear();
+  const fmtDay=d=>DIAS_A[d.getDay()];
+  const fmtDate=d=>String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+  function cellStyle(s){
+    if(!s||s===''||s==='OFF')return'';
+    if(s==='P')return'background:#fff3cd;color:#856404';
+    const c=shiftClass(s);
+    return({'sc-morning':'background:#d4edda;color:#2d7a4f','sc-midday':'background:#c5e8d2;color:#276a48','sc-evening':'background:#c5ddf0;color:#1a5a8a','sc-night':'background:#b8ccf0;color:#1a3a8a'})[c]||'';
+  }
+  let tRows='';
+  activeTeam.forEach(emp=>{
+    const nombre=emp.nombre||'';const esch=sch[nombre]||{};let totalH=0;let cells='';
+    days.forEach((d,i)=>{
+      const s=esch[i]||'';const sh=parseShiftHours(s);totalH+=sh;
+      const cs=cellStyle(s);
+      cells+=`<td style="text-align:center;padding:10px 4px;border:.5px solid #ddd8d0;${cs};font-weight:700;letter-spacing:.5px;font-size:12px">${s&&s!=='OFF'?s+`<span style="display:block;font-size:9px;font-weight:400;opacity:.7">(${sh}h)</span>`:`<span style="color:#b0a898;font-weight:400;font-size:11px">OFF</span>`}</td>`;
+    });
+    tRows+=`<tr><td style="padding:10px 12px;border:.5px solid #ddd8d0;background:#f5f3ee"><span style="font-weight:700;font-size:12px;display:block;color:#1a1714">${nombre}</span>${emp.cargo?`<span style="font-size:9px;color:#8a8078;letter-spacing:.5px;text-transform:uppercase">${emp.cargo}</span>`:''}</td>${cells}<td style="text-align:center;padding:10px 4px;border:.5px solid #ddd8d0;font-size:12px;font-weight:600;color:#4a4440">${totalH||'—'}</td></tr>`;
+  });
+  let localRow=`<td style="padding:7px 12px;border:.5px solid #ddd8d0;background:#eeebe6;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#8a8078">Horario local</td>`;
+  days.forEach((d,i)=>{const hl=horLocal[i]||{};localRow+=`<td style="text-align:center;padding:7px 4px;border:.5px solid #ddd8d0;background:#eeebe6;font-size:10px;font-weight:700;color:#4a4440">${hl.a&&hl.c?hl.a+'–'+hl.c:'—'}</td>`});
+  localRow+=`<td style="border:.5px solid #ddd8d0;background:#eeebe6"></td>`;
+  let headCells='';
+  days.forEach(d=>{headCells+=`<th style="padding:12px 4px;border:.5px solid #ddd8d0;background:#eeebe6;text-align:center;font-weight:700;font-size:11px;letter-spacing:1.5px;color:#1a1714">${fmtDay(d)}<br><span style="font-weight:400;font-size:10px;letter-spacing:0;color:#6a6058">${fmtDate(d)}</span></th>`});
+  const tbl=`<table style="width:100%;border-collapse:collapse"><thead><tr><th style="padding:12px 14px;border:.5px solid #ddd8d0;background:#eeebe6;text-align:left;font-size:9px;letter-spacing:2px;font-weight:600;color:#8a8078;text-transform:uppercase">Empleado</th>${headCells}<th style="padding:12px 4px;border:.5px solid #ddd8d0;background:#eeebe6;text-align:center;font-size:9px;letter-spacing:1px;font-weight:600;color:#8a8078">H</th></tr></thead><tbody>${tRows}</tbody><tfoot><tr>${localRow}</tr></tfoot></table>`;
+  const html=`<div style="background:#faf9f6;padding:28px 24px;font-family:Inter,system-ui,-apple-system,sans-serif;display:inline-block;min-width:760px"><div style="font-size:11px;font-weight:700;letter-spacing:2.5px;color:#1a1714;margin-bottom:18px;text-transform:uppercase">ANOMALY — HORARIOS · ${fmtTitle(d0)} – ${fmtTitle(d6)}</div>${tbl}<div style="margin-top:14px;font-size:9px;color:#8a8078;font-style:italic">* El horario indica cuándo deben estar listos para operar, no el ingreso al local. ¡Gracias por tu puntualidad! 🙂</div></div>`;
+  const wrap=document.createElement('div');
+  wrap.style.cssText='position:fixed;left:-9999px;top:0;z-index:-1;white-space:nowrap';
+  wrap.innerHTML=html;
+  document.body.appendChild(wrap);
   try{
-    const canvas=await html2canvas(wrap,{backgroundColor:'#1a1a2e',scale:2,useCORS:true});
+    const canvas=await html2canvas(wrap.firstChild,{backgroundColor:'#faf9f6',scale:2,useCORS:true,logging:false});
     const a=document.createElement('a');
     a.href=canvas.toDataURL('image/png');
-    a.download=nombre;
+    a.download=`horario_${fmtDate(d0).replace('/','')}_${fmtDate(d6).replace('/','')}.png`;
     a.click();
   }catch(e){alert('Error al generar PNG: '+e.message)}
+  finally{document.body.removeChild(wrap)}
 }
 
 function sendWhatsApp(){
@@ -1889,10 +1921,10 @@ function renderHorGrilla(){
   for(let i=0;i<7;i++)html+=`<col style="width:${dayPct}%">`;
   html+=`<col style="width:${totalColW}px;min-width:${totalColW}px"></colgroup>`;
   html+='<thead><tr><th class="ht-emp">Empleado</th>';
-  days.forEach(d=>{
+  days.forEach((d,di)=>{
     const fest=esFestivo(d);
     const dl=dayLabel(d);
-    html+=`<th${fest?' style="background:#fffbe6"':''}>${dl}${fest?'<span class="hor-festivo-dot"></span>':''}</th>`;
+    html+=`<th style="${fest?'background:#fffbe6;':''}cursor:pointer" onclick="showCoverageModal(${di})" title="Ver cobertura">${dl}${fest?'<span class="hor-festivo-dot"></span>':''}</th>`;
   });
   html+='<th style="width:36px;min-width:36px;text-align:center">H</th></tr></thead><tbody>';
   activeTeam.forEach(emp=>{
@@ -1902,14 +1934,15 @@ function renderHorGrilla(){
     let totalH=0;
     let rowHTML=`<tr><td class="ht-emp" title="${nombre}${emp.cargo?' · '+emp.cargo:''}"><span style="display:flex;align-items:center;justify-content:space-between;gap:2px"><span>${nombre}${emp.cargo?`<span style="display:block;font-size:8px;font-weight:400;color:var(--hint);letter-spacing:.3px">${emp.cargo}</span>`:''}</span><span onclick="editHorEmpleadoFromGrilla(${activeTeam.indexOf(emp)})" style="cursor:pointer;font-size:9px;opacity:.5;flex-shrink:0;padding:1px 3px;border-radius:3px;line-height:1" title="Editar empleado">✏</span></span></td>`;
     days.forEach((d,i)=>{
-      const s=esch[i]||'';totalH+=parseShiftHours(s);
+      const s=esch[i]||'';const sh=parseShiftHours(s);totalH+=sh;
       const noct=nocturnasHoras(s)>0;const fest=esFestivo(d)&&s&&s!=='OFF';
       const escapedName=nombre.replace(/'/g,"\\'");
       const isVac=isVacDay(nombre,d);
+      const cellDisp=s&&s!=='OFF'?s+(sh?`<span style="display:block;font-size:8px;opacity:.6;font-weight:400">(${sh}h)</span>`:''):s||'—';
       if(isVac&&!s){
         rowHTML+=`<td style="background:rgba(39,174,96,.12)"><span class="shift-cell" style="background:#27ae60;color:#fff;opacity:.7;font-size:9px" title="Vacaciones">VAC</span></td>`;
       } else {
-        rowHTML+=`<td class="${fest?'ht-festivo':''}"${isVac?' style="background:rgba(39,174,96,.08)"':''}><span class="shift-cell ${shiftClass(s)}${noct?' sc-nocturno':''}" onclick="openShiftModal('${escapedName}',${i},'${s}')" title="${s||'—'}">${s||'—'}</span></td>`;
+        rowHTML+=`<td class="${fest?'ht-festivo':''}"${isVac?' style="background:rgba(39,174,96,.08)"':''}><span class="shift-cell ${shiftClass(s)}${noct?' sc-nocturno':''}" onclick="openShiftModal('${escapedName}',${i},'${s}')" title="${s||'—'}">${cellDisp}</span></td>`;
       }
     });
     rowHTML+=`<td style="text-align:center;font-size:10px;font-weight:500">${totalH||''}</td></tr>`;
@@ -1929,6 +1962,87 @@ function renderHorGrilla(){
   html+='<td></td></tr></tfoot>';
   html+='</tbody>';
   tbl.innerHTML=html;
+}
+
+// ─── COBERTURA MODAL ──────────────────────────────────────────────────────────
+function shiftCoversHour(s,h){
+  if(!s||s===''||s==='OFF')return false;
+  if(s==='P')return false;
+  const m=s.match(/^(\d+)A(\d+)$/);if(!m)return false;
+  let a=parseInt(m[1]),b=parseInt(m[2]);
+  if(b<=a)b+=24;
+  return h>=a&&h<b;
+}
+
+function showCoverageModal(dayIdx){
+  const days=getWeekDates(horCurrentWeekOffset);
+  const sch=getSchedule();
+  const d=days[dayIdx];
+  const hl=horLocal[dayIdx]||{};
+  const DIAS_L=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const MN_L=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const dayName=DIAS_L[d.getDay()]+' '+d.getDate()+' '+MN_L[d.getMonth()];
+
+  const aperH=hl.a?parseInt(hl.a):null;
+  let cierreH=hl.c?parseInt(hl.c):null;
+  if(aperH!==null&&cierreH!==null&&cierreH<=aperH)cierreH+=24;
+
+  // Find hour range from shifts
+  let minH=9,maxH=25;
+  horEmpleados.forEach(emp=>{
+    const s=(sch[emp.nombre]||{})[dayIdx]||'';
+    const m=s.match(/^(\d+)A(\d+)$/);
+    if(m){
+      const a=parseInt(m[1]);let b=parseInt(m[2]);if(b<=a)b+=24;
+      minH=Math.min(minH,a-1);maxH=Math.max(maxH,b+1);
+    }
+  });
+  minH=Math.max(minH,6);maxH=Math.min(maxH,30);
+
+  const slots=[];
+  for(let h=minH;h<maxH;h++){
+    const staff=horEmpleados.filter(emp=>shiftCoversHour((sch[emp.nombre]||{})[dayIdx]||'',h));
+    const isOpen=aperH!==null&&cierreH!==null&&h>=aperH&&h<cierreH;
+    slots.push({h,count:staff.length,names:staff.map(e=>e.nombre),isOpen});
+  }
+  const maxCount=Math.max(...slots.map(s=>s.count),1);
+
+  const BAR_W=30,GAP=3,CHART_H=110,PAD=12;
+  const svgW=PAD*2+slots.length*(BAR_W+GAP)-GAP;
+  let bars='';
+  slots.forEach((sl,i)=>{
+    const x=PAD+i*(BAR_W+GAP);
+    const barH=sl.count>0?Math.max(Math.round((sl.count/maxCount)*CHART_H),5):2;
+    const y=CHART_H-barH;
+    const color=sl.count===0?'#e0dbd4':sl.isOpen?'#27ae60':'#4a8fd9';
+    bars+=`<rect x="${x}" y="${y}" width="${BAR_W}" height="${barH}" fill="${color}" rx="3"/>`;
+    if(sl.count>0)bars+=`<text x="${x+BAR_W/2}" y="${y-4}" text-anchor="middle" font-size="10" fill="#4a4440">${sl.count}</text>`;
+    if(sl.h%2===0)bars+=`<text x="${x+BAR_W/2}" y="${CHART_H+14}" text-anchor="middle" font-size="9" fill="#8a8078">${String(sl.h%24).padStart(2,'0')}</text>`;
+  });
+
+  const hasShifts=slots.some(s=>s.count>0);
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(26,23,20,.5)';
+  modal.onclick=e=>{if(e.target===modal)modal.remove()};
+  modal.innerHTML=`<div style="background:#faf9f6;border-radius:14px;padding:24px;max-width:92vw;box-shadow:0 12px 40px rgba(0,0,0,.2)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#1a1714">${dayName}</div>
+        <div style="font-size:10px;color:#8a8078;letter-spacing:.8px;text-transform:uppercase;margin-top:3px">Cobertura de personal</div>
+        ${aperH!==null?`<div style="font-size:10px;color:#4a4440;margin-top:4px">Apertura <b>${hl.a}</b> · Cierre <b>${hl.c}</b></div>`:''}
+      </div>
+      <button onclick="this.closest('div').parentElement.remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#8a8078;line-height:1;padding:0 0 0 16px">×</button>
+    </div>
+    ${hasShifts?`<svg width="${svgW}" height="${CHART_H+20}" style="display:block;overflow:visible">${bars}</svg>
+    <div style="display:flex;gap:14px;margin-top:10px;font-size:10px;color:#8a8078;flex-wrap:wrap">
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#27ae60;margin-right:4px;vertical-align:middle"></span>Dentro de horario</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#4a8fd9;margin-right:4px;vertical-align:middle"></span>Fuera de horario</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e0dbd4;margin-right:4px;vertical-align:middle"></span>Sin personal</span>
+    </div>
+    <div style="margin-top:12px;font-size:10px;color:#8a8078;border-top:.5px solid #ddd8d0;padding-top:8px">Máxima cobertura: <b>${maxCount} persona${maxCount!==1?'s':''}</b></div>`
+    :'<div style="text-align:center;padding:24px;font-size:12px;color:#b0a898">No hay turnos cargados para este día</div>'}
+  </div>`;
+  document.body.appendChild(modal);
 }
 
 // ─── EGRESOS ─────────────────────────────────────────────────
