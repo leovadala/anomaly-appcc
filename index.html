@@ -517,6 +517,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div class="f"><label>Dirección</label><input id="cfg-dir" placeholder="Dirección del local"></div>
 <div class="f"><label>Nº Registro Sanitario</label><input id="cfg-rs" placeholder="RGSEAA: ..."></div>
 <div class="f"><label>PIN Supervisor (4 dígitos)</label><div class="tg-row"><input id="cfg-pin-sup" type="password" maxlength="4" inputmode="numeric" placeholder="••••" style="font-family:var(--mono);letter-spacing:4px;text-align:center;width:100px"><button type="button" class="btn-s" onclick="savePinSup()">Guardar</button></div><div class="note" id="pin-sup-ok" style="display:none;color:var(--muted)">PIN supervisor actualizado</div></div>
+<div class="f"><label>PIN Finanzas (4 dígitos)</label><div class="tg-row"><input id="cfg-pin-fin" type="password" maxlength="4" inputmode="numeric" placeholder="••••" style="font-family:var(--mono);letter-spacing:4px;text-align:center;width:100px"><button type="button" class="btn-s" onclick="saveFinanzasPin()">Guardar</button></div><div class="note" id="pin-fin-ok" style="display:none;color:var(--muted)">PIN Finanzas actualizado</div></div>
 </div>
 <div class="sec"><div class="sec-t" id="sabor-sec-t">Sabores</div>
 <div class="r2"><div class="f"><label>Nombre</label><input id="sab-name" placeholder="Ej: Vainilla"></div><div class="f"><label>Código (3 letras)</label><input id="sab-code" maxlength="3" placeholder="VAI" style="text-transform:uppercase;font-family:var(--mono)"></div></div>
@@ -816,7 +817,7 @@ let editingRecIdx=null;
 let editingSaborIdx=null;
 let editingTeamIdx=null;
 let currentIngr=[];
-let pinSupervisor='0000';
+let pinSupervisor='0000',pinFinanzas=null,_finUnlocked=false;
 let horLocal={};  // {dayIdx:{a:'12:00',c:'00:00'}}
 const hoy=new Date().toISOString().split('T')[0];
 const $=id=>document.getElementById(id);
@@ -840,7 +841,7 @@ async function loadAll(){
   PP=(pp.data||[]).map(r=>({id:r.id,proveedor_id:r.proveedor_id,ref:r.ref||'',descripcion:r.descripcion,ultimo_precio:r.ultimo_precio,ultima_fecha:r.ultima_fecha}));
   H=(h.data||[]).map(r=>({id:r.id,fecha:r.fecha,hora:(r.hora||'').slice(0,5),responsable:r.responsable,producto:r.producto,ingredientes:r.ingredientes||'',lote_prov:r.lote_proveedor||'',proveedor:r.proveedor||'',cant:r.cantidad_pesada||'',rehe:r.doc_rehe||'',obs:r.observaciones||'',pcc1:{t:r.pcc1_temp,m:r.pcc1_tiempo},roh1:{t:r.roh1_temp,v:r.roh1_vida_util||'',m:r.roh1_tiempo||''},roh3:{t:r.roh3_temp,m:r.roh3_tiempo||''},lote:r.lote_final||'',baldes:r.baldes,kg:r.kg,roh4:{i:r.roh4_identificacion||'',c:r.roh4_cantidad||''},roh5:{c:r.roh5_camara||'',t:r.roh5_temp,m:r.roh5_tiempo,e:(r.roh5_hora_entrada||'').slice(0,5),s:(r.roh5_hora_salida||'').slice(0,5)},litros:r.litros_final,pac:r.nro_pac||'',temps:{a1:r.temp_armario_1,a2:r.temp_armario_2,a3:r.temp_armario_3,p1:r.temp_pozzetti_1,p2:r.temp_pozzetti_2,p3:r.temp_pozzetti_3},ver:{e:r.verificacion_etapa||'',d:r.verificacion_descripcion||'',r:r.verificacion_resultado||''}}));
   sabores=(sab.data||[]).map(r=>({id:r.id,nombre:r.nombre,codigo:r.codigo,activo:r.activo,ingredientes:r.ingredientes||[],peso_teorico:r.peso_teorico||null}));
-  const cfgData=cfg.data||[];const pinRow=cfgData.find(r=>r.key==='pin_supervisor');if(pinRow)pinSupervisor=pinRow.value;const oaiRow=cfgData.find(r=>r.key==='openai_key');if(oaiRow)OPENAI_KEY=oaiRow.value;const hlRow=cfgData.find(r=>r.key==='horario_local');if(hlRow){try{horLocal=JSON.parse(hlRow.value)||{}}catch(e){horLocal={}}};
+  const cfgData=cfg.data||[];const pinRow=cfgData.find(r=>r.key==='pin_supervisor');if(pinRow)pinSupervisor=pinRow.value;const finRow=cfgData.find(r=>r.key==='pin_finanzas');if(finRow)pinFinanzas=finRow.value;const oaiRow=cfgData.find(r=>r.key==='openai_key');if(oaiRow)OPENAI_KEY=oaiRow.value;const hlRow=cfgData.find(r=>r.key==='horario_local');if(hlRow){try{horLocal=JSON.parse(hlRow.value)||{}}catch(e){horLocal={}}};
   renderTeamSelect();renderTeam();rRH();rPL();renderSabores();renderSaborSelect();
 }
 loadAll();
@@ -913,11 +914,30 @@ function editTeam(i){editingTeamIdx=i;$('cfg-name').value=team[i].nombre;$('cfg-
 function cancelEditTeam(){editingTeamIdx=null;$('cfg-name').value='';$('cfg-pin').value='';$('cfg-pin').placeholder='••••';$('cfg-horas').value='';$('cfg-tipo').value='parcial';$('btn-team').textContent='Agregar integrante';$('btn-team-cancel').style.display='none'}
 function renderTeam(){$('team-list').innerHTML=team.length?team.map((n,i)=>`<div class="team-item"><span>${n.nombre}${n.pin?' <span style="font-size:10px;color:var(--hint);font-family:var(--mono)">PIN ✓</span>':' <span style="font-size:10px;color:#b00;font-family:var(--mono)">Sin PIN</span>'} ${n.horas_contrato?'<span style="font-size:10px;color:var(--muted);font-family:var(--mono)">· '+n.horas_contrato+'h/sem</span>':''}</span><div style="display:flex;gap:6px"><button type="button" class="btn-d" onclick="editTeam(${i})">Editar</button><button type="button" class="btn-d" onclick="rmTeam(${i})">Eliminar</button></div></div>`).join(''):'<div class="empty">Sin integrantes</div>'}
 
+
+function showFinanzasPin(){
+  const m=$('fin-pin-modal');m.style.display='flex';
+  setTimeout(()=>{const inp=$('fin-pin-input');if(inp){inp.value='';inp.focus();}},50);
+}
+function checkFinanzasPin(){
+  const v=($('fin-pin-input').value||'').trim();
+  if(v===pinFinanzas){_finUnlocked=true;$('fin-pin-modal').style.display='none';go(10);}
+  else{$('fin-pin-err').style.display='block';$('fin-pin-input').value='';$('fin-pin-input').focus();}
+}
+async function saveFinanzasPin(){
+  const p=($('cfg-pin-fin').value||'').trim();
+  if(!/^\d{4}$/.test(p)){alert('PIN debe ser 4 dígitos');return}
+  const{error}=await sb.from('config').upsert({key:'pin_finanzas',value:p});
+  if(error){alert('Error: '+error.message);return}
+  pinFinanzas=p;_finUnlocked=true;$('cfg-pin-fin').value='';
+  $('pin-fin-ok').style.display='block';setTimeout(()=>$('pin-fin-ok').style.display='none',2000);
+}
+
 async function savePinSup(){const p=$('cfg-pin-sup').value.trim();if(!/^\d{4}$/.test(p)){alert('PIN debe ser 4 dígitos');return}const{error}=await sb.from('config').upsert({key:'pin_supervisor',value:p});if(error){alert('Error: '+error.message);return}pinSupervisor=p;$('cfg-pin-sup').value='';$('pin-sup-ok').style.display='block';setTimeout(()=>$('pin-sup-ok').style.display='none',2000)}
 
 function autoGenREHE(){const fechaStr=$('af').value;if(!fechaStr)return;const[year,month,day]=fechaStr.split('-');const dd=String(day).padStart(2,'0');const mm=String(month).padStart(2,'0');const cnt=H.filter(r=>r.fecha===fechaStr).length+1;const rehe='REHE-'+dd+mm+'-'+String(cnt).padStart(3,'0');$('adr').value=rehe}
 
-function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();autoGenREHE();$('ar').value=currentUser;if(!$('af').value)$('af').valueAsDate=new Date()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();if(n===9)renderInventario();if(n===10)initFinanzas();window.scrollTo(0,0)}
+function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();autoGenREHE();$('ar').value=currentUser;if(!$('af').value)$('af').valueAsDate=new Date()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();if(n===9)renderInventario();if(n===10){if(pinFinanzas&&!_finUnlocked){showFinanzasPin();return;}initFinanzas();}window.scrollTo(0,0)}
 
 function addTag(){const v=$('ppi').value.trim();if(!v||cTags.includes(v))return;cTags.push(v);rTags();$('ppi').value='';$('ppi').focus()}
 function rmT(i){cTags.splice(i,1);rTags()}
@@ -1539,7 +1559,22 @@ h+='<div class="rp-f"><div>Responsable<br><br>_________________</div><div>Verifi
 h+='<div style="text-align:center;font-size:8px;color:#999;margin-top:1.5rem">ANOMALY Gelato & Specialty Coffee \u2014 Sistema APPCC \u2014 Generado: '+new Date().toLocaleString('es-ES')+'</div>';
 h+='</div>';$('rprev').innerHTML=h}
 
-function expPDF(){const p=document.querySelector('.rp');if(!p)return;const w=window.open('','_blank');w.document.write("<!DOCTYPE html><html><head><title>ANOMALY APPCC</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500');body{font-family:'DM Sans',sans-serif;padding:2rem;color:#1a1a1a;font-size:11px}h4{font-size:16px;font-weight:500;letter-spacing:2px;margin:0 0 2px}.rp-s{font-size:10px;color:#999;margin-bottom:1.5rem}.rp-sec{font-weight:500;font-size:11px;margin:1.5rem 0 .4rem;border-bottom:1px solid #1a1a1a;padding-bottom:3px;letter-spacing:1px;text-transform:uppercase}table{width:100%;border-collapse:collapse;margin-bottom:.8rem}th,td{padding:4px 6px;border:.5px solid #e0ddd6;text-align:left}th{font-weight:500;text-transform:uppercase;font-size:9px;color:#666}.rp-f{margin-top:3rem;display:flex;justify-content:space-between}.rp-f div{border-top:.5px solid #999;padding-top:6px;width:28%;text-align:center;font-size:10px}@media print{body{padding:1rem}}</style></head><body>"+p.innerHTML+"<script>window.onload=function(){window.print()}<\/script></body></html>");w.document.close()}
+function expPDF(){const p=document.querySelector('.rp');if(!p)return;const w=window.open('','_blank');w.document.write("<!DOCTYPE html><html><head><title>ANOMALY APPCC</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500');body{font-family:'DM Sans',sans-serif;padding:2rem;color:#1a1a1a;font-size:11px}h4{font-size:16px;font-weight:500;letter-spacing:2px;margin:0 0 2px}.rp-s{font-size:10px;color:#999;margin-bottom:1.5rem}.rp-sec{font-weight:500;font-size:11px;margin:1.5rem 0 .4rem;border-bottom:1px solid #1a1a1a;padding-bottom:3px;letter-spacing:1px;text-transform:uppercase}table{width:100%;border-collapse:collapse;margin-bottom:.8rem}th,td{padding:4px 6px;border:.5px solid #e0ddd6;text-align:left}th{font-weight:500;text-transform:uppercase;font-size:9px;color:#666}.rp-f{margin-top:3rem;display:flex;justify-content:space-between}.rp-f div{border-top:.5px solid #999;padding-top:6px;width:28%;text-align:center;font-size:10px}@media print{body{padding:1rem}}</style></head><body>"+p.innerHTML+"<script>window.onload=function(){window.print()}<\/script>
+<div id="fin-pin-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.65);z-index:2000;display:none;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:.5px solid var(--border);padding:2rem 1.5rem;width:280px;text-align:center">
+    <div style="font-size:10px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--hint);margin-bottom:1.5rem">Finanzas — Acceso restringido</div>
+    <input id="fin-pin-input" type="password" maxlength="4" inputmode="numeric" placeholder="••••"
+      style="font-family:var(--mono);font-size:28px;letter-spacing:12px;text-align:center;width:100%;border:none;border-bottom:.5px solid var(--border);outline:none;background:transparent;color:var(--black);padding:.5rem 0;margin-bottom:1.5rem"
+      onkeydown="if(event.key==='Enter')checkFinanzasPin()">
+    <div id="fin-pin-err" style="display:none;font-size:11px;color:#b33;margin-bottom:.8rem">PIN incorrecto</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="checkFinanzasPin()" style="flex:1;margin-top:0">Entrar</button>
+      <button class="btn-s" onclick="$('fin-pin-modal').style.display='none'" style="padding:10px 14px">✕</button>
+    </div>
+  </div>
+</div>
+
+</body></html>");w.document.close()}
 
 // ─── HORARIOS MODULE (Supabase) ───────────────────────────────────────────────
 
