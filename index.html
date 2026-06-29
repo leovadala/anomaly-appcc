@@ -1596,7 +1596,7 @@ function printHorario(){
         ${emp.cargo?`<span style="font-size:9px;color:#8a8078;letter-spacing:.5px;text-transform:uppercase">${emp.cargo}</span>`:''}
       </td>
       ${shiftCells}
-      <td rowspan="2" style="border:.5px solid #bbb;background:#fff;min-width:60px;width:60px"></td>
+      <td rowspan="2" style="border:.5px solid #bbb;background:#fff;min-width:120px;width:120px"></td>
     </tr>`;
     // Row 2: empty cells for real entry/exit
     let realCells='';
@@ -1630,7 +1630,7 @@ function printHorario(){
       <tr>
         <th style="padding:10px 12px;border:.5px solid #bbb;background:#eeebe6;text-align:left;font-size:9px;letter-spacing:2px;font-weight:600;color:#8a8078;text-transform:uppercase">Empleado</th>
         ${headCells}
-        <th style="padding:10px 6px;border:.5px solid #bbb;background:#eeebe6;text-align:center;font-size:9px;letter-spacing:1.5px;font-weight:600;color:#8a8078;text-transform:uppercase;min-width:60px">Firma</th>
+        <th style="padding:10px 6px;border:.5px solid #bbb;background:#eeebe6;text-align:center;font-size:9px;letter-spacing:1.5px;font-weight:600;color:#8a8078;text-transform:uppercase;min-width:120px;width:120px">Firma</th>
       </tr>
     </thead>
     <tbody>${tRows}</tbody>
