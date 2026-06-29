@@ -160,9 +160,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 #hor-table-wrap{width:100%;overflow:hidden}
 .hor-table{width:100%;border-collapse:collapse;table-layout:fixed}
 .hor-table th{padding:5px 3px;border:.5px solid var(--border);background:var(--bg);font-weight:500;font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--hint);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hor-table th.ht-emp{text-align:left;padding-left:6px;width:130px;min-width:130px}
+.hor-table th.ht-emp{text-align:left;padding-left:6px}
 .hor-table td{padding:4px 2px;border:.5px solid var(--border);text-align:center;vertical-align:middle;background:var(--surface)}
-.hor-table td.ht-emp{text-align:left;font-weight:500;padding-left:6px;background:var(--bg);white-space:normal;word-break:break-word}
+.hor-table td.ht-emp{text-align:left;font-weight:500;padding-left:6px;background:var(--bg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hor-table td.ht-festivo{background:#fffbe6}
 .hor-table tr:hover td{background:#fafaf8}
 .hor-table tr:hover td.ht-emp{background:#f5f3ee}
@@ -244,6 +244,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <button onclick="go(7)">Dashboard</button>
 <button onclick="go(8)">Egresos</button>
 <button onclick="go(9)">Inventario</button>
+<button onclick="go(10)">Finanzas</button>
 </div>
 
 <!-- V0: PROVEEDORES -->
@@ -374,7 +375,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     <div style="display:flex;gap:8px">
       <button class="btn-s" onclick="sendWhatsApp()">↓ WhatsApp</button>
       <button class="btn-s" onclick="exportHorPNG()">↓ PNG</button>
-      <button class="btn-s" onclick="printHorario()">🖨 Imprimir</button>
     </div>
   </div>
   <div class="hor-summary" id="hor-summary"></div>
@@ -426,10 +426,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     </div>
     <button type="button" class="btn-s" id="btn-hemp" onclick="saveHorEmpleado()" style="margin-top:.5rem">Agregar empleado</button>
     <button type="button" class="btn-d" id="btn-hemp-cancel" onclick="cancelHorEmpleado()" style="display:none;margin-top:8px;margin-left:8px;padding:6px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar</button>
-    <button type="button" id="btn-hemp-del" onclick="deleteHorEmpleadoForm()" style="display:none;margin-top:8px;margin-left:8px;padding:6px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase;background:transparent;border:.5px solid #c0392b;color:#c0392b;font-family:var(--font);cursor:pointer">Eliminar empleado</button>
   </div>
 
-  <div style="margin-top:1.5rem;margin-bottom:.6rem;font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">Plantel actual</div>
   <div id="hemp-list"></div>
 </div>
 
@@ -522,18 +520,13 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 </div>
 <div class="sec"><div class="sec-t" id="sabor-sec-t">Sabores</div>
 <div class="r2"><div class="f"><label>Nombre</label><input id="sab-name" placeholder="Ej: Vainilla"></div><div class="f"><label>Código (3 letras)</label><input id="sab-code" maxlength="3" placeholder="VAI" style="text-transform:uppercase;font-family:var(--mono)"></div></div>
-<div class="f"><label>Peso teórico (kg/batch)</label><input id="sab-peso" type="number" min="0" step="0.1" placeholder="Ej: 5.5" style="max-width:200px"></div>
-<div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-<button type="button" class="btn-s" id="btn-sab" onclick="saveSabor()">Agregar</button>
-<button type="button" class="btn-d" id="btn-sab-cancel" onclick="cancelEditSabor()" style="display:none;padding:6px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
-</div>
-<div id="sab-ingr-section" style="display:none;margin-top:14px;padding:12px;background:var(--surface,#f5f3ee);border-radius:8px;border:.5px solid var(--border)">
-<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Ingredientes de la receta</div>
-<div class="note" style="margin-bottom:8px">Seleccioná los productos del stock que se usan en este sabor. Filtrarán la lista en producción.</div>
-<input id="sab-ip-search" placeholder="Buscar producto..." oninput="renderSabIngrPicker(this.value)" style="width:100%;border:none;border-bottom:.5px solid var(--border);background:transparent;font-family:var(--font);font-size:12px;padding:6px 0;outline:none;margin-bottom:4px">
-<div id="sab-ip-panel" style="max-height:180px;overflow-y:auto;border:.5px solid var(--border);border-radius:6px;background:var(--bg,#faf9f6);margin-bottom:8px"></div>
-<div style="font-size:10px;color:var(--muted);margin-bottom:4px">Seleccionados:</div>
-<div id="sab-ingr-list" style="display:flex;flex-wrap:wrap;gap:6px;min-height:20px"></div>
+<div class="r2"><div class="f"><label>Peso teórico (kg/batch)</label><input id="sab-peso" type="number" min="0" step="0.1" placeholder="Ej: 5.5"></div><div class="f" style="display:flex;align-items:flex-end"><button type="button" class="btn-s" id="btn-sab" onclick="saveSabor()">Agregar</button></div></div>
+<button type="button" class="btn-d" id="btn-sab-cancel" onclick="cancelEditSabor()" style="display:none;margin-bottom:10px;padding:6px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
+<div id="sab-ingr-section" style="margin-top:10px;padding:10px;background:var(--surface,#f5f3ee);border-radius:8px">
+<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Ingredientes de la receta</div>
+<div class="note" style="margin-bottom:8px">Define los productos del stock que se usan en este sabor. Filtrará la lista en producción.</div>
+<div class="r2"><div class="f"><label>Nombre del producto</label><input id="sab-ingr-input" placeholder="Ej: Azúcar blanquilla 25kg" onkeydown="if(event.key==='Enter'){addSabIngr();event.preventDefault()}"></div><div class="f" style="display:flex;align-items:flex-end"><button type="button" class="btn-s" onclick="addSabIngr()">+ Agregar</button></div></div>
+<div id="sab-ingr-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:24px"></div>
 </div>
 <div id="sabor-list"></div>
 </div>
@@ -590,7 +583,222 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 </div><!-- /app -->
 
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js">
+// ===== FINANZAS =====
+let _finTabIdx=0,_VentasMes=[],_NominasMes=[],_GastosFijos=[];
+
+function finTab(n){
+  _finTabIdx=n;
+  for(let i=0;i<4;i++){const el=$('fin-t'+i);if(el)el.style.display=i===n?'block':'none';}
+  document.querySelectorAll('#fin-tabs .hor-maintab').forEach((t,i)=>t.classList.toggle('on',i===n));
+  if(n===0)renderVentasList();
+  if(n===1)renderNominasList();
+  if(n===2)renderGastosList();
+  if(n===3){const now=new Date();const mv=$('pl-mes');if(mv&&!mv.value)mv.value=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');renderPL();}
+}
+
+async function initFinanzas(){
+  const[vR,nR,gR]=await Promise.all([
+    sb.from('ventas_mes').select('*').order('mes',{ascending:false}),
+    sb.from('nominas_mes').select('*').order('mes',{ascending:false}),
+    sb.from('gastos_fijos').select('*').order('mes',{ascending:false})
+  ]);
+  _VentasMes=vR.data||[];_NominasMes=nR.data||[];_GastosFijos=gR.data||[];
+  finTab(_finTabIdx);
+}
+
+function _fmtMes(d){
+  try{const dt=new Date((d||'').substring(0,10)+'T12:00:00');return dt.toLocaleString('es',{month:'long',year:'numeric'})}catch(e){return d}
+}
+
+// — VENTAS —
+function renderVentasList(){
+  const el=$('fin-ventas-list');if(!el)return;
+  if(!_VentasMes.length){el.innerHTML='<div class="empty">Sin ventas importadas.</div>';return}
+  el.innerHTML=_VentasMes.map(v=>`
+    <div class="card">
+      <div class="card-top"><span class="card-nm">${_fmtMes(v.mes)}</span><span style="font-size:13px;font-weight:500">${(v.ventas_netas||0).toFixed(2)} €</span></div>
+      <div class="card-row">
+        <div><div class="card-l">Brutas</div><div class="card-v">${(v.ventas_brutas||0).toFixed(2)} €</div></div>
+        <div><div class="card-l">Descuentos</div><div class="card-v">-${(v.descuentos||0).toFixed(2)} €</div></div>
+        <div><div class="card-l">Cobros</div><div class="card-v">${v.num_transacciones||'—'}</div></div>
+        <div><div class="card-l">Ticket</div><div class="card-v">${v.ticket_medio?v.ticket_medio.toFixed(2)+' €':'—'}</div></div>
+      </div>
+    </div>`).join('');
+}
+
+async function importVentasCSV(input){
+  const file=input.files[0];if(!file)return;
+  const mes=$('fin-ventas-mes').value;
+  if(!mes){alert('Seleccioná el mes primero');input.value='';return}
+  let text;
+  try{
+    const buf=await file.arrayBuffer();const b=new Uint8Array(buf);
+    if(b[0]===0xFF&&b[1]===0xFE)text=new TextDecoder('utf-16le').decode(buf);
+    else if(b[0]===0xFE&&b[1]===0xFF)text=new TextDecoder('utf-16be').decode(buf);
+    else text=new TextDecoder('utf-8').decode(buf);
+  }catch(e){text=await file.text()}
+  const lines=text.split(/\r?\n/).map(l=>l.split(/[,;\t]/));
+  let vb=0,vd=0,vn=0,nt=0;
+  for(const row of lines){
+    const lbl=(row[0]||'').replace(/"/g,'').trim().toLowerCase();
+    let val=0;
+    for(let i=1;i<row.length;i++){const v=parseFloat((row[i]||'').replace(/"/g,'').replace(',','.').trim());if(!isNaN(v)&&v!==0){val=v;break}}
+    if(lbl.includes('bruta')||lbl.includes('gross'))vb=Math.abs(val);
+    else if(lbl.includes('descuento')||lbl.includes('discount'))vd=Math.abs(val);
+    else if(lbl.includes('neta')||lbl.includes('net sale'))vn=Math.abs(val);
+    else if(lbl.includes('cobro')||lbl.includes('transacci')||lbl.includes('payment'))nt=Math.abs(parseInt(val))||nt;
+  }
+  if(!vb&&!vn){alert('No se detectaron datos de ventas. Verificá el CSV de Square.');input.value='';return}
+  if(!vn)vn=vb-vd;
+  const ticket=nt>0?vn/nt:null;
+  const{error}=await sb.from('ventas_mes').upsert({mes:mes+'-01',ventas_brutas:vb,descuentos:vd,ventas_netas:vn,num_transacciones:nt,ticket_medio:ticket},{onConflict:'mes'});
+  if(error){alert('Error: '+error.message);return}
+  const{data}=await sb.from('ventas_mes').select('*').order('mes',{ascending:false});
+  _VentasMes=data||[];renderVentasList();
+  alert('✓ Ventas importadas: '+vn.toFixed(2)+' € netas');input.value='';
+}
+
+// — NÓMINAS —
+function renderNominasList(){
+  const el=$('fin-nominas-list');if(!el)return;
+  if(!_NominasMes.length){el.innerHTML='<div class="empty">Sin nóminas registradas.</div>';return}
+  el.innerHTML=_NominasMes.map(n=>`
+    <div class="card">
+      <div class="card-top"><span class="card-nm">${_fmtMes(n.mes)}</span><span style="font-size:13px;font-weight:500;color:#2d6a2d">${(n.coste_empresa||0).toFixed(2)} €</span></div>
+      <div class="card-row">
+        <div><div class="card-l">Bruto</div><div class="card-v">${(n.total_bruto||0).toFixed(2)} €</div></div>
+        <div><div class="card-l">SS Emp.</div><div class="card-v">${(n.ss_empresa||0).toFixed(2)} €</div></div>
+        <div><div class="card-l">IRPF</div><div class="card-v">${n.irpf?(n.irpf.toFixed(2)+' €'):'—'}</div></div>
+        <div><div class="card-l">Empleados</div><div class="card-v">${n.num_empleados||'—'}</div></div>
+      </div>
+      <button class="btn-d" onclick="delNomina('${n.id}')" style="margin-top:6px;font-size:10px">Eliminar</button>
+    </div>`).join('');
+}
+
+function calcCostEmpresa(){
+  const b=parseFloat($('nom-bruto').value)||0,ss=parseFloat($('nom-ss').value)||0;
+  if(b>0&&ss>0)$('nom-coste').value=(b+ss).toFixed(2);
+}
+
+async function saveNomina(){
+  const mes=$('nom-mes').value;if(!mes){alert('Seleccioná el mes');return}
+  const total_bruto=parseFloat($('nom-bruto').value)||0;
+  const ss_empresa=parseFloat($('nom-ss').value)||0;
+  const coste_empresa=parseFloat($('nom-coste').value)||(total_bruto+ss_empresa);
+  if(!coste_empresa){alert('Ingresá al menos el coste empresa');return}
+  const irpf=parseFloat($('nom-irpf').value)||null;
+  const num_empleados=parseInt($('nom-emps').value)||null;
+  const{error}=await sb.from('nominas_mes').upsert({mes:mes+'-01',total_bruto,ss_empresa,coste_empresa,irpf,num_empleados},{onConflict:'mes'});
+  if(error){alert('Error: '+error.message);return}
+  const{data}=await sb.from('nominas_mes').select('*').order('mes',{ascending:false});
+  _NominasMes=data||[];renderNominasList();
+  ['nom-mes','nom-bruto','nom-ss','nom-coste','nom-irpf','nom-emps'].forEach(id=>$(id).value='');
+  $('nom-ok').style.display='block';setTimeout(()=>$('nom-ok').style.display='none',2500);
+}
+
+async function delNomina(id){
+  if(!confirm('¿Eliminar nómina?'))return;
+  await sb.from('nominas_mes').delete().eq('id',id);
+  _NominasMes=_NominasMes.filter(n=>n.id!==id);renderNominasList();
+}
+
+// — GASTOS —
+function renderGastosList(){
+  const el=$('fin-gastos-list');if(!el)return;
+  if(!_GastosFijos.length){el.innerHTML='<div class="empty">Sin gastos registrados.</div>';return}
+  const byMes={};
+  _GastosFijos.forEach(g=>{const m=(g.mes||'').substring(0,7);if(!byMes[m])byMes[m]=[];byMes[m].push(g)});
+  let html='';
+  Object.keys(byMes).sort().reverse().forEach(m=>{
+    const items=byMes[m],total=items.reduce((s,g)=>s+(g.importe||0),0);
+    html+=`<div style="margin-bottom:1.5rem">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding-bottom:4px;border-bottom:.5px solid var(--border);margin-bottom:8px">
+        <span style="font-size:10px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">${_fmtMes(m+'-01')}</span>
+        <span style="font-size:13px;font-weight:500">${total.toFixed(2)} €</span>
+      </div>
+      ${items.map(g=>`<div class="card" style="padding:.6rem .8rem;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><span style="font-size:12px;font-weight:500">${g.concepto}</span>${g.notas?`<div style="font-size:10px;color:var(--hint)">${g.notas}</div>`:''}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;white-space:nowrap">${(g.importe||0).toFixed(2)} €</span>
+            <button class="btn-d" onclick="delGasto('${g.id}')" style="font-size:11px;padding:2px 6px">×</button>
+          </div>
+        </div>
+        <span class="badge" style="margin-top:4px;display:inline-block;text-transform:capitalize">${g.categoria}</span>
+      </div>`).join('')}
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+async function saveGasto(){
+  const mes=$('gasto-mes').value,concepto=$('gasto-concepto').value.trim();
+  const categoria=$('gasto-cat').value,importe=parseFloat($('gasto-importe').value)||0;
+  const notas=$('gasto-notas').value.trim();
+  if(!mes||!concepto||!importe){alert('Completá mes, concepto e importe');return}
+  const{data,error}=await sb.from('gastos_fijos').insert({mes:mes+'-01',concepto,categoria,importe,notas:notas||null}).select();
+  if(error){alert('Error: '+error.message);return}
+  _GastosFijos.unshift(data[0]);renderGastosList();
+  [$('gasto-concepto'),$('gasto-importe'),$('gasto-notas')].forEach(el=>{if(el)el.value=''});
+  $('gasto-ok').style.display='block';setTimeout(()=>$('gasto-ok').style.display='none',2000);
+}
+
+async function delGasto(id){
+  if(!confirm('¿Eliminar gasto?'))return;
+  await sb.from('gastos_fijos').delete().eq('id',id);
+  _GastosFijos=_GastosFijos.filter(g=>g.id!==id);renderGastosList();
+}
+
+// — P&L —
+async function renderPL(){
+  const mes=$('pl-mes').value;
+  if(!mes){$('pl-content').innerHTML='<div class="empty">Seleccioná un mes</div>';return}
+  $('pl-content').innerHTML='<div class="empty">Calculando...</div>';
+  const mesStart=mes+'-01';
+  const nx=new Date(mesStart+'T12:00:00');nx.setMonth(nx.getMonth()+1);
+  const mesEnd=nx.toISOString().split('T')[0];
+  const[vR,nR,gR,eR]=await Promise.all([
+    sb.from('ventas_mes').select('*').eq('mes',mesStart).maybeSingle(),
+    sb.from('nominas_mes').select('*').eq('mes',mesStart).maybeSingle(),
+    sb.from('gastos_fijos').select('importe,categoria').eq('mes',mesStart),
+    sb.from('egresos').select('importe').gte('fecha',mesStart).lt('fecha',mesEnd)
+  ]);
+  const ventas=vR.data,nominas=nR.data,gastos=gR.data||[],egresos=eR.data||[];
+  const vb=ventas?.ventas_brutas||0,vd=ventas?.descuentos||0,vn=ventas?.ventas_netas||0;
+  const compras=egresos.reduce((s,e)=>s+(parseFloat(e.importe)||0),0);
+  const margen=vn-compras,margenPct=vn>0?margen/vn*100:0;
+  const nomT=nominas?.coste_empresa||0;
+  const gastT=gastos.reduce((s,g)=>s+(g.importe||0),0);
+  const opex=nomT+gastT,ebitda=margen-opex,ebitdaPct=vn>0?ebitda/vn*100:0;
+  const byCat={};gastos.forEach(g=>{byCat[g.categoria]=(byCat[g.categoria]||0)+(g.importe||0)});
+  const missing=[];if(!ventas)missing.push('ventas (Square)');if(!nominas)missing.push('nóminas');
+  const warn=missing.length?`<div style="padding:.6rem .8rem;background:#fffbe6;border:.5px solid #e6d800;font-size:11px;color:#7d5a00;margin-bottom:1rem">⚠ Sin datos de: ${missing.join(', ')}</div>`:'';
+  function pr(label,val,{bold=false,indent=false,color='',sep=false}={}){
+    if(sep)return`<tr style="background:var(--bg)"><td colspan="2" style="padding:4px 8px;font-size:9px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--hint)">${label}</td></tr>`;
+    const fs=bold?'13px':'12px';const fw=bold?'font-weight:500;':'';const col=color?'color:'+color+';':'';const pl=indent?'padding-left:16px;':'';
+    return`<tr><td style="padding:5px 8px;font-size:${fs};${fw}${pl}${col}">${label}</td><td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-size:${fs};${fw}${col}">${val<0?'-':''}${Math.abs(val).toFixed(2)} €</td></tr>`;
+  }
+  $('pl-content').innerHTML=warn+`<table style="width:100%;border-collapse:collapse;border:.5px solid var(--border)">
+    ${pr('VENTAS','',{sep:true})}
+    ${pr('Ventas brutas',vb,{indent:true})}
+    ${vd>0?pr('Descuentos',-vd,{indent:true,color:'#b33'}):''}
+    ${pr('Ventas netas',vn,{bold:true})}
+    ${pr('COSTE DE VENTAS','',{sep:true})}
+    ${pr('Compras / materia prima',-compras,{indent:true})}
+    ${pr('Margen bruto',margen,{bold:true,color:margen>=0?'#2d6a2d':'#b33'})}
+    <tr><td colspan="2" style="padding:1px 8px 5px;font-size:10px;color:var(--muted);text-align:right">Margen: ${margenPct.toFixed(1)}%</td></tr>
+    ${pr('GASTOS OPERATIVOS','',{sep:true})}
+    ${pr('Nóminas (coste empresa)',-nomT,{indent:true})}
+    ${Object.entries(byCat).map(([c,a])=>pr(c.charAt(0).toUpperCase()+c.slice(1),-a,{indent:true})).join('')}
+    ${pr('Total gastos',-opex,{bold:true})}
+    ${pr('RESULTADO','',{sep:true})}
+    ${pr('EBITDA',ebitda,{bold:true,color:ebitda>=0?'#2d6a2d':'#b33'})}
+    <tr><td colspan="2" style="padding:1px 8px 6px;font-size:10px;color:var(--muted);text-align:right">Margen EBITDA: ${ebitdaPct.toFixed(1)}%</td></tr>
+  </table>`;
+}
+
+</script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
@@ -614,7 +822,6 @@ const hoy=new Date().toISOString().split('T')[0];
 const $=id=>document.getElementById(id);
 
 async function loadAll(){
-  if(!window.supabase){throw new Error('Supabase JS no cargó (CDN)')}
   const[t,p,s,h,sab,cfg,alb,pp]=await Promise.all([
     sb.from('team').select('*').order('created_at'),
     sb.from('proveedores').select('*').order('created_at'),
@@ -636,11 +843,7 @@ async function loadAll(){
   const cfgData=cfg.data||[];const pinRow=cfgData.find(r=>r.key==='pin_supervisor');if(pinRow)pinSupervisor=pinRow.value;const oaiRow=cfgData.find(r=>r.key==='openai_key');if(oaiRow)OPENAI_KEY=oaiRow.value;const hlRow=cfgData.find(r=>r.key==='horario_local');if(hlRow){try{horLocal=JSON.parse(hlRow.value)||{}}catch(e){horLocal={}}};
   renderTeamSelect();renderTeam();rRH();rPL();renderSabores();renderSaborSelect();
 }
-loadAll().catch(err=>{
-  console.error('loadAll error:',err);
-  const el=document.getElementById('ob-user');
-  if(el)el.insertAdjacentHTML('afterend','<div style="color:#c0392b;font-size:11px;margin-top:8px;padding:8px;background:#fde;border-radius:6px">Error al cargar: '+String(err)+'</div>');
-});
+loadAll();
 
 function renderDashboard(){
   const all=[...S,...SH];
@@ -714,7 +917,7 @@ async function savePinSup(){const p=$('cfg-pin-sup').value.trim();if(!/^\d{4}$/.
 
 function autoGenREHE(){const fechaStr=$('af').value;if(!fechaStr)return;const[year,month,day]=fechaStr.split('-');const dd=String(day).padStart(2,'0');const mm=String(month).padStart(2,'0');const cnt=H.filter(r=>r.fecha===fechaStr).length+1;const rehe='REHE-'+dd+mm+'-'+String(cnt).padStart(3,'0');$('adr').value=rehe}
 
-function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();autoGenREHE();$('ar').value=currentUser;if(!$('af').value)$('af').valueAsDate=new Date()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();if(n===9){renderInventario();renderInvHistorial()}window.scrollTo(0,0)}
+function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();autoGenREHE();$('ar').value=currentUser;if(!$('af').value)$('af').valueAsDate=new Date()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();if(n===9)renderInventario();if(n===10)initFinanzas();window.scrollTo(0,0)}
 
 function addTag(){const v=$('ppi').value.trim();if(!v||cTags.includes(v))return;cTags.push(v);rTags();$('ppi').value='';$('ppi').focus()}
 function rmT(i){cTags.splice(i,1);rTags()}
@@ -761,7 +964,7 @@ function rPL(){
 }
 
 function uSP(){const sp=[...P.map((p,i)=>({...p,_i:i}))].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));$('rp').innerHTML='<option value="">Seleccionar...</option>'+sp.map(p=>`<option value="${p._i}">${p.nombre}</option>`).join('')}
-function editRec(idx){const i=S[idx];editingRecIdx=idx;go(1);setTimeout(()=>{$('rfecha').value=i.fecha||'';$('rhora').value=i.hora||'';const pi=P.findIndex(p=>p.nombre===i.proveedor);$('rp').value=pi>=0?pi:'';$('rp').dispatchEvent(new Event('change'));setTimeout(()=>{if(i.producto){const opts=$('rpd').options;let found=false;for(let o=0;o<opts.length;o++){if(opts[o].value===i.producto||opts[o].textContent===i.producto){$('rpd').value=opts[o].value;found=true;break}}if(!found){$('rpd').value='otro';$('rpdc').style.display='block';$('rpdc').value=i.producto}$('rpd').dispatchEvent(new Event('change'))}},60);$('rl').value=i.lote;$('rt').value=i.temp;$('rq').value=i.cantidad||'';$('rv').value=i.vencimiento||'';$('rf').checked=i.frio;$('ro').value=i.obs||'';$('ra').value=i.albaran||'';$('rcat').value=i.categoria||'';$('rfingreso').value=i.fecha_ingreso||'';$('btn-rec').textContent='Actualizar recepción';$('btn-rec-cancel').style.display='block';document.querySelector('#v1 .sec-t').textContent='Editar recepción';window.scrollTo({top:0,behavior:'smooth'})},80)}
+function editRec(idx){const i=S[idx];editingRecIdx=idx;$('rfecha').value=i.fecha||'';$('rhora').value=i.hora||'';const pi=P.findIndex(p=>p.nombre===i.proveedor);$('rp').value=pi>=0?pi:'';$('rp').dispatchEvent(new Event('change'));setTimeout(()=>{if(i.producto){const opts=$('rpd').options;let found=false;for(let o=0;o<opts.length;o++){if(opts[o].value===i.producto||opts[o].textContent===i.producto){$('rpd').value=opts[o].value;found=true;break}}if(!found){$('rpd').value='otro';$('rpdc').style.display='block';$('rpdc').value=i.producto}$('rpd').dispatchEvent(new Event('change'))}},50);$('rl').value=i.lote;$('rt').value=i.temp;$('rq').value=i.cantidad||'';$('rv').value=i.vencimiento||'';$('rf').checked=i.frio;$('ro').value=i.obs||'';$('ra').value=i.albaran||'';$('rcat').value=i.categoria||'';$('rfingreso').value=i.fecha_ingreso||'';$('btn-rec').textContent='Actualizar recepción';$('btn-rec-cancel').style.display='block';document.querySelector('#v1 .sec-t').textContent='Editar recepción';window.scrollTo({top:0,behavior:'smooth'})}
 
 function cancelEditRec(){editingRecIdx=null;['rl','rt','rq','ro','ra'].forEach(x=>$(x).value='');$('rp').value='';$('rpd').value='';$('rpdc').value='';$('rpdc').style.display='none';$('rv').value='';$('rf').checked=false;$('rcat').value='';$('rfingreso').value='';initRecDate();$('btn-rec').textContent='Registrar recepción';$('btn-rec-cancel').style.display='none';document.querySelector('#v1 .sec-t').textContent='Nueva recepción'}
 
@@ -956,16 +1159,7 @@ REGLAS FINALES:
   return JSON.parse(txt);
 }
 
-function parseCantStr(str){if(!str)return{uds:0,kg:0};const um=str.match(/^(\d+(?:\.\d+)?)/);const km=str.match(/\(([0-9.]+)\s*kg\)/i);return{uds:um?parseFloat(um[1]):0,kg:km?parseFloat(km[1]):0}}
-async function registrarInventario(){
-  if(!confirm('¿Registrar inventario con el stock activo actual?\nSe guardarán '+S.length+' items.'))return;
-  if(!S.length){alert('No hay stock activo para registrar');return}
-  const rows=S.map(s=>{const{uds,kg}=parseCantStr(s.cantidad);return{fecha:hoy,producto:s.producto,proveedor:s.proveedor||null,categoria:s.categoria||null,cantidad_uds:uds,cantidad_kg:kg,valor:s.importe||0,notas:'Lote: '+s.lote+' | Venc: '+(s.vencimiento||'—')+' | Temp: '+s.temp+'°C'}});
-  const{error}=await sb.from('inventario_mensual').insert(rows);
-  if(error){alert('Error al guardar: '+error.message);return}
-  alert('Inventario registrado: '+rows.length+' productos');
-  renderInventario();renderInvHistorial();
-}
+async function registrarInventario(){if(!confirm('¿Registrar inventario con el stock activo actual?\nSe guardarán '+S.length+' items.'))return;if(!S.length){alert('No hay stock activo para registrar');return}const rows=S.map(s=>({fecha:hoy,producto:s.producto,proveedor:s.proveedor||null,categoria:s.categoria||null,cantidad_uds:1,cantidad_kg:0,valor:0,notas:'Lote: '+s.lote+' | Venc: '+(s.vencimiento||'—')+' | Temp: '+s.temp+'°C'}));const{error}=await sb.from('inventario_mensual').insert(rows);if(error){alert('Error al guardar: '+error.message);return}alert('Inventario registrado: '+rows.length+' productos');renderInventario()}
 function renderInventario(){
   try{
   const active=S.filter(s=>!s.estado||s.estado==='activo');
@@ -1017,45 +1211,6 @@ function renderInventario(){
   });
   $('inv-content').innerHTML=html;
   }catch(err){$('inv-content').innerHTML='<div class="empty">Error: '+err.message+'</div>';console.error('renderInventario:',err);}
-}
-
-async function renderInvHistorial(){
-  const el=$('inv-historial');if(!el)return;
-  el.innerHTML='<div style="font-size:11px;color:var(--hint);padding:8px 0">Cargando historial...</div>';
-  const{data,error}=await sb.from('inventario_mensual').select('fecha,producto,valor,cantidad_uds,cantidad_kg').order('fecha',{ascending:false});
-  if(error||!data||!data.length){el.innerHTML='<div class="empty">Sin snapshots guardados aún</div>';return}
-  // Group by month YYYY-MM
-  const byMonth={};
-  data.forEach(r=>{
-    const mes=r.fecha.substring(0,7);
-    if(!byMonth[mes])byMonth[mes]={items:0,valor:0,productos:new Set()};
-    byMonth[mes].items++;
-    byMonth[mes].valor+=r.valor||0;
-    byMonth[mes].productos.add(r.producto);
-  });
-  const meses=Object.keys(byMonth).sort((a,b)=>b.localeCompare(a));
-  const MN_L=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  let html='<div style="font-size:9px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Snapshots guardados</div>';
-  meses.forEach((mes,i)=>{
-    const d=byMonth[mes];const prev=meses[i+1]?byMonth[meses[i+1]]:null;
-    const[yr,mo]=mes.split('-');
-    const label=MN_L[parseInt(mo)-1]+' '+yr;
-    const dItems=prev?d.items-prev.items:null;
-    const dVal=prev?d.valor-prev.valor:null;
-    const dItemsStr=dItems===null?'':(dItems>=0?`<span style="color:#27ae60">+${dItems}</span>`:`<span style="color:#e74c3c">${dItems}</span>`)+' items';
-    const dValStr=dVal===null?'':(dVal>=0?`<span style="color:#27ae60">+${dVal.toFixed(0)}€</span>`:`<span style="color:#e74c3c">${dVal.toFixed(0)}€</span>`);
-    html+=`<div style="border:.5px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;background:var(--surface)">
-      <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <span style="font-weight:600;font-size:13px">${label}</span>
-        ${d.valor>0?`<span style="font-size:12px;font-weight:500">${d.valor.toFixed(2)} €</span>`:''}
-      </div>
-      <div style="font-size:10px;color:var(--muted);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap">
-        <span>${d.productos.size} productos · ${d.items} lotes</span>
-        ${prev?`<span style="color:var(--hint)">vs anterior: ${dItemsStr} ${dValStr}</span>`:'<span style="color:var(--hint)">primer snapshot</span>'}
-      </div>
-    </div>`;
-  });
-  el.innerHTML=html;
 }
 
 function isNifCif(s){return /^[A-Z]\d{7}[A-Z0-9]$/i.test(s.replace(/[\s\.\-]/g,''))}
@@ -1171,7 +1326,7 @@ function renderOcrResults(textOrData){
     html+=`<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:10px">`;
     html+=`<table style="width:100%;font-size:11px;border-collapse:collapse;min-width:580px">`;
     html+=`<tr style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">`;
-    html+=`<th style="padding:4px 3px;text-align:left;min-width:180px">Descripción</th><th style="padding:4px 3px;min-width:80px">Lote</th><th style="padding:4px 3px;min-width:100px">Venc.</th><th style="padding:4px 3px;min-width:45px">Uds</th><th style="padding:4px 3px;min-width:65px">Precio</th><th style="padding:4px 3px;min-width:65px">Importe</th><th style="padding:4px 3px;min-width:60px">Temp °C</th><th style="padding:4px 3px">Frío</th></tr>`;
+    html+=`<th style="padding:4px 3px;text-align:left;min-width:180px">Descripción</th><th style="padding:4px 3px;min-width:80px">Lote</th><th style="padding:4px 3px;min-width:100px">Venc.</th><th style="padding:4px 3px;min-width:45px">Uds</th><th style="padding:4px 3px;min-width:65px">Precio</th><th style="padding:4px 3px;min-width:65px">Importe</th><th style="padding:4px 3px">Frío</th></tr>`;
     ls.forEach((l,i)=>{
       html+=`<tr style="border-top:1px solid var(--border,#eee)">`;
       html+=`<td style="padding:3px"><input style="font-size:11px;width:100%;min-width:170px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${(l.descripcion||'').replace(/"/g,'&quot;')}" oninput="window._ocrAlbaran.lineas[${i}].descripcion=this.value"></td>`;
@@ -1180,12 +1335,11 @@ function renderOcrResults(textOrData){
       html+=`<td style="padding:3px"><input type="number" style="font-size:11px;width:45px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.unidades!=null?l.unidades:''}" oninput="window._ocrAlbaran.lineas[${i}].unidades=parseInt(this.value)||null"></td>`;
       html+=`<td style="padding:3px"><input type="number" step="0.001" style="font-size:11px;width:65px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.precio_unitario!=null?l.precio_unitario:''}" oninput="window._ocrAlbaran.lineas[${i}].precio_unitario=parseFloat(this.value)||null"></td>`;
       html+=`<td style="padding:3px"><input type="number" step="0.01" style="font-size:11px;width:65px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.importe!=null?l.importe:''}" oninput="window._ocrAlbaran.lineas[${i}].importe=parseFloat(this.value)||null"></td>`;
-      html+=`<td style="padding:3px"><input type="number" id="ocr-line-temp-${i}" step="0.1" style="font-size:11px;width:58px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.temp!=null?l.temp:''}" placeholder="°C" oninput="window._ocrAlbaran.lineas[${i}].temp=parseFloat(this.value)||null"></td>`;
       html+=`<td style="padding:3px;text-align:center"><input type="checkbox" ${l.requiere_frio?'checked':''} onchange="window._ocrAlbaran.lineas[${i}].requiere_frio=this.checked"></td>`;
       html+=`</tr>`;
     });
     html+=`</table></div>`;
-    html+=`<div class="r2" style="gap:8px"><div class="f"><label style="font-size:9px">Aplicar temp. a todas (°C)</label><div style="display:flex;gap:6px;align-items:center"><input type="number" id="ocr-temp-all" step="0.1" placeholder="ej: 4 o -18" style="flex:1" oninput="applyOcrTempAll(this.value)"><span style="font-size:10px;color:var(--muted);white-space:nowrap">→ todas</span></div></div><div class="f"><label style="font-size:9px">Observaciones</label><input id="ocr-obs" placeholder="Estado, sellos..."></div></div>`;
+    html+=`<div class="r2" style="gap:8px"><div class="f"><label style="font-size:9px">Temp. recibida (°C)</label><input type="number" id="ocr-temp" step="0.1" placeholder="°C"></div><div class="f"><label style="font-size:9px">Observaciones</label><input id="ocr-obs" placeholder="Estado, sellos..."></div></div>`;
     html+=`<button type="button" class="btn" onclick="saveAlbaranRecepcion()" style="width:100%;margin-top:12px">✓ Confirmar recepción completa (${ls.length} productos)</button>`;
   } else {
     html+=`<div style="font-size:12px;color:var(--hint);padding:.8rem 0;text-align:center">No se detectaron líneas de productos.<br>Usá el formulario manual o intentá con foto más nítida.</div>`;
@@ -1194,15 +1348,6 @@ function renderOcrResults(textOrData){
   $('ocr-results').innerHTML=html;
 }
 
-function applyOcrTempAll(val){
-  const t=parseFloat(val)||null;
-  if(!window._ocrAlbaran||!window._ocrAlbaran.lineas)return;
-  window._ocrAlbaran.lineas.forEach((l,i)=>{
-    l.temp=t;
-    const inp=document.getElementById('ocr-line-temp-'+i);
-    if(inp)inp.value=t!=null?t:'';
-  });
-}
 async function saveAlbaranRecepcion(){
   const data=window._ocrAlbaran;if(!data)return;
   // Sync inputs de cabecera al objeto
@@ -1214,6 +1359,7 @@ async function saveAlbaranRecepcion(){
   const provNombre=data.cabecera.proveedor;
   const provObj=P.find(p=>p.nombre===provNombre);
   const provId=data.cabecera.proveedor_id||(provObj?provObj.id:null);
+  const temp=parseFloat($('ocr-temp').value)||null;
   const obs=($('ocr-obs').value||'').trim()||null;
   if(!provNombre){alert('Indicá el proveedor antes de confirmar');return}
   if(!data.cabecera.num_albaran){alert('Indicá el Nº de albarán');return}
@@ -1224,7 +1370,7 @@ async function saveAlbaranRecepcion(){
   if(albErr){alert('Error guardando albarán: '+albErr.message);return}
   const albId=albData[0].id;
   // 2. Insert recepciones (una por línea)
-  const recRows=data.lineas.map(l=>({albaran_id:albId,proveedor:provNombre,producto:l.descripcion||'Sin descripción',lote:l.lote||'S/L',vencimiento:l.vencimiento||null,cantidad:l.unidades!=null?String(l.unidades)+(l.kg?' ('+l.kg+'kg)':''):null,precio_unitario:l.precio_unitario||null,importe:l.importe||null,ref_proveedor:l.ref||null,temperatura:l.temp!=null?l.temp:null,requiere_frio:l.requiere_frio||false,nro_albaran:data.cabecera.num_albaran,fecha:data.cabecera.fecha,hora:new Date().toTimeString().slice(0,5),observaciones:obs,estado:'activo'}));
+  const recRows=data.lineas.map(l=>({albaran_id:albId,proveedor:provNombre,producto:l.descripcion||'Sin descripción',lote:l.lote||'S/L',vencimiento:l.vencimiento||null,cantidad:l.unidades!=null?String(l.unidades)+(l.kg?' ('+l.kg+'kg)':''):null,precio_unitario:l.precio_unitario||null,importe:l.importe||null,ref_proveedor:l.ref||null,temperatura:temp,requiere_frio:l.requiere_frio||false,nro_albaran:data.cabecera.num_albaran,fecha:data.cabecera.fecha,hora:new Date().toTimeString().slice(0,5),observaciones:obs,estado:'activo'}));
   const{error:recErr}=await sb.from('recepciones').insert(recRows);
   if(recErr){alert('Error guardando recepciones: '+recErr.message);return}
   // 3. Upsert proveedor_productos (catálogo)
@@ -1293,27 +1439,20 @@ function renderAipPanel(q){
   if(!items.length){panel.innerHTML='<div style="padding:12px;font-size:11px;color:var(--hint);text-align:center">Sin productos en stock</div>';return}
   panel.innerHTML=items.map((f)=>{
     const idx=_aipItems.indexOf(f);
-    return`<div id="aip-row-${idx}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:12px;transition:background .1s" onclick="toggleAipItem(${idx},event)">
-      <input type="checkbox" id="aip-cb-${idx}" style="width:16px;height:16px;flex-shrink:0;accent-color:var(--black)" onchange="updateAipRowFromCb(${idx})" onclick="event.stopPropagation()">
+    return`<label id="aip-row-${idx}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:12px;transition:background .1s" onclick="toggleAipItem(${idx},event)">
+      <input type="checkbox" id="aip-cb-${idx}" style="width:16px;height:16px;flex-shrink:0;accent-color:var(--black)" onclick="event.stopPropagation()">
       <span style="flex:1;min-width:0"><span style="display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.prod}</span><span style="font-size:10px;color:var(--muted)">Lote: ${f.lote}${f.venc?' · vence: '+f.venc:''}</span></span>
       ${semDot(f.venc)}
-    </div>`
+    </label>`
   }).join('');
   updateAipCount();
 }
 function toggleAipItem(idx,e){
   const cb=document.getElementById('aip-cb-'+idx);
   if(!cb)return;
-  if(e&&e.target===cb){/* checkbox click: browser already toggled, just update UI */}
-  else{cb.checked=!cb.checked}
+  if(e&&e.target===cb)cb.checked=cb.checked; else cb.checked=!cb.checked;
   const row=document.getElementById('aip-row-'+idx);
   if(row)row.style.background=cb.checked?'var(--surface,#f0ede8)':'';
-  updateAipCount();
-}
-function updateAipRowFromCb(idx){
-  const cb=document.getElementById('aip-cb-'+idx);
-  const row=document.getElementById('aip-row-'+idx);
-  if(row)row.style.background=cb&&cb.checked?'var(--surface,#f0ede8)':'';
   updateAipCount();
 }
 function updateAipCount(){const n=document.querySelectorAll('#aip-panel input[type=checkbox]:checked').length;const el=$('aip-sel-count');if(el)el.textContent=n;const btn=$('aip-add-btn');if(btn)btn.textContent=n?'+ Agregar seleccionados ('+n+')':'+ Agregar seleccionados'}
@@ -1337,36 +1476,19 @@ H.push({fecha:row.fecha,hora:(row.hora||'').slice(0,5),responsable:row.responsab
 currentIngr=[];rIngrList();$('apeso-real').value='';const mn=$('merma-note');if(mn)mn.style.display='none';$('aok').style.display='block';setTimeout(()=>$('aok').style.display='none',3000)}
 
 let currentSabIngr=[];
-function renderSabIngrPicker(q){
-  const panel=$('sab-ip-panel');if(!panel)return;
-  const names=[...new Set(S.map(x=>x.producto))].sort((a,b)=>a.localeCompare(b,'es'));
-  const filtered=q?names.filter(n=>n.toLowerCase().includes(q.toLowerCase())):names;
-  if(!filtered.length){panel.innerHTML='<div style="padding:10px;text-align:center;font-size:11px;color:var(--hint)">Sin productos en stock</div>';return}
-  panel.innerHTML=filtered.map(name=>{
-    const checked=currentSabIngr.includes(name);
-    const safeN=name.replace(/'/g,"\\'");
-    return`<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:12px${checked?';background:var(--surface,#f0ede8)':''}"><input type="checkbox" ${checked?'checked':''} onchange="toggleSabIngr('${safeN}',this.checked,this)" style="width:15px;height:15px;flex-shrink:0;accent-color:var(--black)"><span style="flex:1">${name}</span></label>`
-  }).join('');
-}
-function toggleSabIngr(name,checked,cb){
-  if(checked){if(!currentSabIngr.includes(name))currentSabIngr.push(name)}
-  else{currentSabIngr=currentSabIngr.filter(n=>n!==name)}
-  if(cb){const lbl=cb.closest('label');if(lbl)lbl.style.background=checked?'var(--surface,#f0ede8)':''}
-  renderSabIngrList();
-}
-function rmSabIngr(i){currentSabIngr.splice(i,1);renderSabIngrList();renderSabIngrPicker($('sab-ip-search')?$('sab-ip-search').value:'')}
+function addSabIngr(){const v=$('sab-ingr-input').value.trim();if(!v)return;if(!currentSabIngr.includes(v))currentSabIngr.push(v);renderSabIngrList();$('sab-ingr-input').value='';$('sab-ingr-input').focus()}
+function rmSabIngr(i){currentSabIngr.splice(i,1);renderSabIngrList()}
 function renderSabIngrList(){const e=$('sab-ingr-list');if(!e)return;e.innerHTML=currentSabIngr.length?currentSabIngr.map((n,i)=>`<span class="tg">${n}<span onclick="rmSabIngr(${i})" style="cursor:pointer;margin-left:4px">×</span></span>`).join(''):'<span style="color:var(--muted);font-size:11px">Sin ingredientes definidos</span>'}
 function calcMerma(){const sab=sabores.find(s=>s.nombre===$('ap').value);const pesoR=parseFloat($('apeso-real').value)||0;const note=$('merma-note');if(!note)return;if(sab&&sab.peso_teorico&&pesoR){const merma=sab.peso_teorico-pesoR;const pct=(merma/sab.peso_teorico*100).toFixed(1);note.textContent='Peso teórico: '+sab.peso_teorico+' kg · Real: '+pesoR+' kg · Merma: '+merma.toFixed(2)+' kg ('+pct+'%)';note.style.display='block'}else if(sab&&sab.peso_teorico){note.textContent='Peso teórico del sabor: '+sab.peso_teorico+' kg';note.style.display='block'}else{note.style.display='none'}}
-function normNombre(n){return n?n.charAt(0).toUpperCase()+n.slice(1).toLowerCase():n}
-function renderSaborSelect(){const sel=$('ap');sel.innerHTML='<option value="">Seleccionar...</option>'+[...sabores].filter(s=>s.activo).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')).map(s=>`<option value="${s.nombre}">${normNombre(s.nombre)}</option>`).join('')+'<option value="otro">Otro...</option>'}
+function renderSaborSelect(){const sel=$('ap');sel.innerHTML='<option value="">Seleccionar...</option>'+[...sabores].filter(s=>s.activo).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')).map(s=>`<option>${s.nombre}</option>`).join('')+'<option value="otro">Otro...</option>'}
 
-function renderSabores(){const e=$('sabor-list');if(!sabores.length){e.innerHTML='<div class="empty">Sin sabores</div>';return}e.innerHTML=sabores.map((s,i)=>`<div class="sab-item"><div class="sab-info"><span class="${s.activo?'':'sab-inactive'}">${normNombre(s.nombre)}</span><span class="sab-code">${s.codigo.toUpperCase()}</span>${s.peso_teorico?'<span style="font-size:10px;color:var(--muted);font-family:var(--mono)"> · '+s.peso_teorico+' kg/batch</span>':''}${s.ingredientes&&s.ingredientes.length?'<span style="font-size:10px;color:var(--muted)"> · '+s.ingredientes.length+' ing.</span>':''}</div><div class="sab-actions"><label class="toggle"><input type="checkbox" ${s.activo?'checked':''} onchange="toggleSabor(${i})"><span class="slider"></span></label><button type="button" class="btn-d" onclick="editSabor(${i})">Editar</button><button type="button" class="btn-d" onclick="rmSabor(${i})">Eliminar</button></div></div>`).join('')}
+function renderSabores(){const e=$('sabor-list');if(!sabores.length){e.innerHTML='<div class="empty">Sin sabores</div>';return}e.innerHTML=sabores.map((s,i)=>`<div class="sab-item"><div class="sab-info"><span class="${s.activo?'':'sab-inactive'}">${s.nombre}</span><span class="sab-code">${s.codigo.toUpperCase()}</span>${s.peso_teorico?'<span style="font-size:10px;color:var(--muted);font-family:var(--mono)"> · '+s.peso_teorico+' kg/batch</span>':''}${s.ingredientes&&s.ingredientes.length?'<span style="font-size:10px;color:var(--muted)"> · '+s.ingredientes.length+' ing.</span>':''}</div><div class="sab-actions"><label class="toggle"><input type="checkbox" ${s.activo?'checked':''} onchange="toggleSabor(${i})"><span class="slider"></span></label><button type="button" class="btn-d" onclick="editSabor(${i})">Editar</button><button type="button" class="btn-d" onclick="rmSabor(${i})">Eliminar</button></div></div>`).join('')}
 
 async function saveSabor(){const n=$('sab-name').value.trim(),c=$('sab-code').value.trim().toUpperCase(),pt=parseFloat($('sab-peso').value)||null;if(!n||!c||c.length!==3){alert('Nombre y código de 3 letras requeridos');return}if(editingSaborIdx!==null){const id=sabores[editingSaborIdx].id;const{error}=await sb.from('sabores').update({nombre:n,codigo:c,peso_teorico:pt,ingredientes:currentSabIngr}).eq('id',id);if(error){alert('Error: '+error.message);return}sabores[editingSaborIdx].nombre=n;sabores[editingSaborIdx].codigo=c;sabores[editingSaborIdx].peso_teorico=pt;sabores[editingSaborIdx].ingredientes=[...currentSabIngr];cancelEditSabor()}else{const dup=sabores.find(s=>s.codigo===c);if(dup){alert('Ya existe un sabor con código '+c);return}const{data,error}=await sb.from('sabores').insert({nombre:n,codigo:c,peso_teorico:pt,ingredientes:currentSabIngr}).select();if(error){alert('Error: '+error.message);return}if(data&&data[0])sabores.push({id:data[0].id,nombre:n,codigo:c,activo:true,peso_teorico:pt,ingredientes:[...currentSabIngr]});$('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';currentSabIngr=[];renderSabIngrList()}renderSabores();renderSaborSelect()}
 
-function editSabor(i){editingSaborIdx=i;$('sab-name').value=sabores[i].nombre;$('sab-code').value=sabores[i].codigo;$('sab-peso').value=sabores[i].peso_teorico||'';currentSabIngr=[...(sabores[i].ingredientes||[])];renderSabIngrList();renderSabIngrPicker('');if($('sab-ip-search'))$('sab-ip-search').value='';$('sab-ingr-section').style.display='block';$('btn-sab').textContent='Actualizar';$('btn-sab-cancel').style.display='inline-block';$('sabor-sec-t').textContent='Editar sabor';$('sab-name').focus()}
+function editSabor(i){editingSaborIdx=i;$('sab-name').value=sabores[i].nombre;$('sab-code').value=sabores[i].codigo;$('sab-peso').value=sabores[i].peso_teorico||'';currentSabIngr=[...(sabores[i].ingredientes||[])];renderSabIngrList();$('sab-ingr-section').style.display='block';$('btn-sab').textContent='Actualizar';$('btn-sab-cancel').style.display='inline-block';$('sabor-sec-t').textContent='Editar sabor';$('sab-name').focus()}
 
-function cancelEditSabor(){editingSaborIdx=null;$('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';currentSabIngr=[];renderSabIngrList();$('btn-sab').textContent='Agregar';$('btn-sab-cancel').style.display='none';$('sab-ingr-section').style.display='none';$('sabor-sec-t').textContent='Sabores'}
+function cancelEditSabor(){editingSaborIdx=null;$('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';currentSabIngr=[];renderSabIngrList();$('btn-sab').textContent='Agregar';$('btn-sab-cancel').style.display='none';$('sabor-sec-t').textContent='Sabores'}
 
 async function toggleSabor(i){const nv=!sabores[i].activo;const{error}=await sb.from('sabores').update({activo:nv}).eq('id',sabores[i].id);if(error){alert('Error: '+error.message);return}sabores[i].activo=nv;renderSabores();renderSaborSelect()}
 
@@ -1503,161 +1625,19 @@ async function applyCustomShift(){
 }
 
 async function exportHorPNG(){
+  const wrap=$('hor-table-wrap');
+  if(!wrap){alert('No hay grilla para exportar');return}
   const days=getWeekDates(horCurrentWeekOffset);
-  const sch=getSchedule();
-  const activeTeam=horEmpleados;
-  if(!activeTeam.length){alert('Sin empleados para exportar');return}
   const d0=days[0],d6=days[6];
-  const MN=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
-  const DIAS_A=['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
-  const fmtTitle=d=>String(d.getDate()).padStart(2,'0')+' '+MN[d.getMonth()]+' '+d.getFullYear();
-  const fmtDay=d=>DIAS_A[d.getDay()];
-  const fmtDate=d=>String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
-  function cellStyle(s){
-    if(!s||s===''||s==='OFF')return'';
-    if(s==='P')return'background:#fff3cd;color:#856404';
-    const c=shiftClass(s);
-    return({'sc-morning':'background:#d4edda;color:#2d7a4f','sc-midday':'background:#c5e8d2;color:#276a48','sc-evening':'background:#c5ddf0;color:#1a5a8a','sc-night':'background:#b8ccf0;color:#1a3a8a'})[c]||'';
-  }
-  let tRows='';
-  activeTeam.forEach(emp=>{
-    const nombre=emp.nombre||'';const esch=sch[nombre]||{};let cells='';
-    days.forEach((d,i)=>{
-      const s=esch[i]||'';const sh=parseShiftHours(s);
-      const cs=cellStyle(s);
-      cells+=`<td style="text-align:center;padding:10px 4px;border:.5px solid #ddd8d0;${cs};font-weight:700;letter-spacing:.5px;font-size:12px">${s&&s!=='OFF'?s:`<span style="color:#b0a898;font-weight:400;font-size:11px">OFF</span>`}</td>`;
-    });
-    tRows+=`<tr><td style="padding:10px 12px;border:.5px solid #ddd8d0;background:#f5f3ee"><span style="font-weight:700;font-size:12px;display:block;color:#1a1714">${nombre}</span>${emp.cargo?`<span style="font-size:9px;color:#8a8078;letter-spacing:.5px;text-transform:uppercase">${emp.cargo}</span>`:''}</td>${cells}</tr>`;
-  });
-  // Horario local row
-  let localRow=`<td style="padding:7px 12px;border:.5px solid #ddd8d0;background:#eeebe6;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#8a8078">Horario local</td>`;
-  days.forEach((d,i)=>{const hl=horLocal[i]||{};localRow+=`<td style="text-align:center;padding:7px 4px;border:.5px solid #ddd8d0;background:#eeebe6;font-size:10px;font-weight:700;color:#4a4440">${hl.a&&hl.c?hl.a+'–'+hl.c:'—'}</td>`});
-  // Responsable de turno row
-  let respRow=`<td style="padding:7px 12px;border:.5px solid #ddd8d0;background:#f0ebe0;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#8a7060">Responsable</td>`;
-  days.forEach((d,i)=>{
-    const resp=activeTeam.filter(emp=>{
-      const cargo=(emp.cargo||'').toLowerCase();
-      const s=(sch[emp.nombre]||{})[i]||'';
-      return s&&s!=='OFF'&&(cargo.includes('resp')||cargo.includes('encarg'));
-    });
-    const name=resp.length?resp.map(e=>e.nombre.split(' ')[0]).join(', '):'—';
-    respRow+=`<td style="text-align:center;padding:7px 4px;border:.5px solid #ddd8d0;background:#f0ebe0;font-size:10px;font-weight:700;color:#6a4820">${name}</td>`;
-  });
-  let headCells='';
-  days.forEach(d=>{headCells+=`<th style="padding:12px 4px;border:.5px solid #ddd8d0;background:#eeebe6;text-align:center;font-weight:700;font-size:11px;letter-spacing:1.5px;color:#1a1714">${fmtDay(d)}<br><span style="font-weight:400;font-size:10px;letter-spacing:0;color:#6a6058">${fmtDate(d)}</span></th>`});
-  const tbl=`<table style="width:100%;border-collapse:collapse"><thead><tr><th style="padding:12px 14px;border:.5px solid #ddd8d0;background:#eeebe6;text-align:left;font-size:9px;letter-spacing:2px;font-weight:600;color:#8a8078;text-transform:uppercase">Empleado</th>${headCells}</tr></thead><tbody>${tRows}</tbody><tfoot><tr>${localRow}</tr><tr>${respRow}</tr></tfoot></table>`;
-  const html=`<div style="background:#faf9f6;padding:28px 24px;font-family:Inter,system-ui,-apple-system,sans-serif;display:inline-block;min-width:760px"><div style="font-size:11px;font-weight:700;letter-spacing:2.5px;color:#1a1714;margin-bottom:18px;text-transform:uppercase">ANOMALY — HORARIOS · ${fmtTitle(d0)} – ${fmtTitle(d6)}</div>${tbl}<div style="margin-top:14px;font-size:9px;color:#8a8078;font-style:italic">* El horario indica cuándo deben estar listos para operar, no el ingreso al local. ¡Gracias por tu puntualidad! 🙂</div></div>`;
-  const wrap=document.createElement('div');
-  wrap.style.cssText='position:fixed;left:-9999px;top:0;z-index:-1;white-space:nowrap';
-  wrap.innerHTML=html;
-  document.body.appendChild(wrap);
+  const fmt=d=>d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'});
+  const nombre=`horario_${fmt(d0).replace('/','')}_${fmt(d6).replace('/','')}.png`;
   try{
-    const canvas=await html2canvas(wrap.firstChild,{backgroundColor:'#faf9f6',scale:2,useCORS:true,logging:false});
+    const canvas=await html2canvas(wrap,{backgroundColor:'#1a1a2e',scale:2,useCORS:true});
     const a=document.createElement('a');
     a.href=canvas.toDataURL('image/png');
-    a.download=`horario_${fmtDate(d0).replace('/','')}_${fmtDate(d6).replace('/','')}.png`;
+    a.download=nombre;
     a.click();
   }catch(e){alert('Error al generar PNG: '+e.message)}
-  finally{document.body.removeChild(wrap)}
-}
-
-function printHorario(){
-  const days=getWeekDates(horCurrentWeekOffset);
-  const sch=getSchedule();
-  const activeTeam=horEmpleados;
-  if(!activeTeam.length){alert('Sin empleados para imprimir');return}
-  const MN=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
-  const DIAS_A=['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
-  const fmtTitle=d=>String(d.getDate()).padStart(2,'0')+' '+MN[d.getMonth()]+' '+d.getFullYear();
-  const fmtDay=d=>DIAS_A[d.getDay()];
-  const fmtDate=d=>String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
-  function cellStyle(s){
-    if(!s||s===''||s==='OFF')return'';
-    if(s==='P')return'background:#fff3cd;color:#856404';
-    const c=shiftClass(s);
-    return({'sc-morning':'background:#d4edda;color:#2d7a4f','sc-midday':'background:#c5e8d2;color:#276a48','sc-evening':'background:#c5ddf0;color:#1a5a8a','sc-night':'background:#b8ccf0;color:#1a3a8a'})[c]||'';
-  }
-  // Build rows: for each employee, two <tr>: shifts + real hours
-  let tRows='';
-  activeTeam.forEach(emp=>{
-    const nombre=emp.nombre||'';
-    const esch=sch[nombre]||{};
-    // Row 1: name + shifts
-    let shiftCells='';
-    days.forEach((d,i)=>{
-      const s=esch[i]||'OFF';
-      const cs=cellStyle(s);
-      shiftCells+=`<td style="text-align:center;padding:8px 4px;border:.5px solid #bbb;${cs};font-weight:700;font-size:12px;letter-spacing:.5px">${s&&s!=='OFF'?s:'<span style="color:#b0a898;font-weight:400;font-size:11px">OFF</span>'}</td>`;
-    });
-    // Firma cell spans 2 rows
-    tRows+=`<tr>
-      <td rowspan="2" style="padding:8px 8px;border:.5px solid #bbb;vertical-align:top;background:#f5f3ee;width:100px;min-width:100px;word-break:break-word">
-        <span style="font-weight:700;font-size:12px;display:block;color:#1a1714">${nombre}</span>
-        ${emp.cargo?`<span style="font-size:9px;color:#8a8078;letter-spacing:.5px;text-transform:uppercase">${emp.cargo}</span>`:''}
-      </td>
-      ${shiftCells}
-      <td rowspan="2" style="border:.5px solid #bbb;background:#fff;min-width:120px;width:120px"></td>
-    </tr>`;
-    // Row 2: empty cells for real entry/exit
-    let realCells='';
-    days.forEach(()=>{
-      realCells+=`<td style="border:.5px solid #bbb;height:28px;background:#fff;font-size:9px;color:#aaa;text-align:center;vertical-align:bottom;padding-bottom:2px">entrada / salida</td>`;
-    });
-    tRows+=`<tr>${realCells}</tr>`;
-  });
-  // Horario local row
-  let localRow=`<td style="padding:6px 8px;border:.5px solid #bbb;background:#eeebe6;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#8a8078;width:100px">Horario local</td>`;
-  days.forEach((d,i)=>{const hl=horLocal[i]||{};localRow+=`<td style="text-align:center;padding:6px 4px;border:.5px solid #bbb;background:#eeebe6;font-size:10px;font-weight:700;color:#4a4440">${hl.a&&hl.c?hl.a+'–'+hl.c:'—'}</td>`});
-  localRow+=`<td style="border:.5px solid #bbb;background:#eeebe6"></td>`;
-  // Responsable row
-  let respRow=`<td style="padding:6px 8px;border:.5px solid #bbb;background:#f0ebe0;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#8a7060;width:100px">Responsable</td>`;
-  days.forEach((d,i)=>{
-    const resp=activeTeam.filter(emp=>{
-      const cargo=(emp.cargo||'').toLowerCase();
-      const s=(sch[emp.nombre]||{})[i]||'';
-      return s&&s!=='OFF'&&(cargo.includes('resp')||cargo.includes('encarg'));
-    });
-    const name=resp.length?resp.map(e=>e.nombre.split(' ')[0]).join(', '):'—';
-    respRow+=`<td style="text-align:center;padding:6px 4px;border:.5px solid #bbb;background:#f0ebe0;font-size:10px;font-weight:700;color:#6a4820">${name}</td>`;
-  });
-  respRow+=`<td style="border:.5px solid #bbb;background:#f0ebe0"></td>`;
-  // Header row
-  let headCells='';
-  days.forEach(d=>{headCells+=`<th style="padding:10px 4px;border:.5px solid #bbb;background:#eeebe6;text-align:center;font-weight:700;font-size:11px;letter-spacing:1.5px;color:#1a1714">${fmtDay(d)}<br><span style="font-weight:400;font-size:10px;letter-spacing:0;color:#6a6058">${fmtDate(d)}</span></th>`});
-  const d0=days[0],d6=days[6];
-  const tbl=`<table style="width:100%;border-collapse:collapse">
-    <thead>
-      <tr>
-        <th style="padding:10px 8px;border:.5px solid #bbb;background:#eeebe6;text-align:left;font-size:9px;letter-spacing:2px;font-weight:600;color:#8a8078;text-transform:uppercase;width:100px;min-width:100px">Empleado</th>
-        ${headCells}
-        <th style="padding:10px 6px;border:.5px solid #bbb;background:#eeebe6;text-align:center;font-size:9px;letter-spacing:1.5px;font-weight:600;color:#8a8078;text-transform:uppercase;min-width:120px;width:120px">Firma</th>
-      </tr>
-    </thead>
-    <tbody>${tRows}</tbody>
-    <tfoot>
-      <tr>${localRow}</tr>
-      <tr>${respRow}</tr>
-    </tfoot>
-  </table>`;
-  const printHtml=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-  <title>Horario ${fmtTitle(d0)} – ${fmtTitle(d6)}</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#fff;padding:20px}
-    @page{size:A4 landscape;margin:12mm}
-    @media print{body{padding:0}}
-    h1{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#1a1714;margin-bottom:14px}
-    .footer{margin-top:12px;font-size:8px;color:#8a8078;font-style:italic}
-  </style>
-  </head><body>
-  <h1>ANOMALY — HORARIOS · ${fmtTitle(d0)} – ${fmtTitle(d6)}</h1>
-  ${tbl}
-  <p class="footer">* El horario indica cuándo deben estar listos para operar, no el ingreso al local.</p>
-  <script>window.onload=()=>window.print()<\/script>
-  </body></html>`;
-  const win=window.open('','_blank');
-  win.document.write(printHtml);
-  win.document.close();
 }
 
 function sendWhatsApp(){
@@ -1705,7 +1685,6 @@ function horMainTab(tab){
   if(tab==='resumen'){populateMesSel();renderHorReporteMes()}
   if(tab==='vacaciones'){renderVacPanel()}
   if(tab==='liquidar'){populateLiqMesSel();renderLiquidacion()}
-  if(tab==='empleados'){renderHempList()}
 }
 
 function horTab(tab){horMainTab(tab)}
@@ -1768,16 +1747,15 @@ function editHorEmpleado(i){
   $('hemp-noct-pct').value=e.noct_pct||25;$('hemp-fest-pct').value=e.fest_pct||75;
   $('hemp-vacdays').value=e.dias_vacaciones||22;$('hemp-ingreso').value=e.fecha_ingreso||'';
   $('hemp-sec-t').textContent='Editar empleado';$('btn-hemp').textContent='Actualizar';$('btn-hemp').style.display='';
-  $('btn-hemp-cancel').style.display='inline-block';$('btn-hemp-del').style.display='inline-block';$('hemp-form-sec').style.display='block';$('hemp-name').focus();window.scrollTo({top:0,behavior:'smooth'});
+  $('btn-hemp-cancel').style.display='inline-block';$('hemp-form-sec').style.display='block';$('hemp-name').focus();window.scrollTo({top:0,behavior:'smooth'});
 }
 
 function cancelHorEmpleado(){
   horEmpEditIdx=null;['hemp-name','hemp-cargo','hemp-horas','hemp-salario','hemp-ingreso'].forEach(x=>{$(x).value=''});
   $('hemp-noct-pct').value='25';$('hemp-fest-pct').value='75';$('hemp-tipo').value='parcial';$('hemp-vacdays').value='22';
-  $('hemp-sec-t').textContent='Nuevo empleado';$('btn-hemp').textContent='Agregar empleado';$('btn-hemp').style.display='';$('btn-hemp-cancel').style.display='none';$('btn-hemp-del').style.display='none';
+  $('hemp-sec-t').textContent='Nuevo empleado';$('btn-hemp').textContent='Agregar empleado';$('btn-hemp').style.display='';$('btn-hemp-cancel').style.display='none';
 }
 
-function deleteHorEmpleadoForm(){if(horEmpEditIdx===null)return;deleteHorEmpleado(horEmpEditIdx);cancelHorEmpleado()}
 async function deleteHorEmpleado(i){
   if(!confirm('¿Eliminar empleado "'+horEmpleados[i].nombre+'" del plantel de horarios?'))return;
   const{error}=await sb.from('hor_empleados').delete().eq('id',horEmpleados[i].id);
@@ -2092,10 +2070,10 @@ function renderHorGrilla(){
   for(let i=0;i<7;i++)html+=`<col style="width:${dayPct}%">`;
   html+=`<col style="width:${totalColW}px;min-width:${totalColW}px"></colgroup>`;
   html+='<thead><tr><th class="ht-emp">Empleado</th>';
-  days.forEach((d,di)=>{
+  days.forEach(d=>{
     const fest=esFestivo(d);
     const dl=dayLabel(d);
-    html+=`<th style="${fest?'background:#fffbe6;':''}cursor:pointer" onclick="showCoverageModal(${di})" title="Ver cobertura">${dl}${fest?'<span class="hor-festivo-dot"></span>':''}</th>`;
+    html+=`<th${fest?' style="background:#fffbe6"':''}>${dl}${fest?'<span class="hor-festivo-dot"></span>':''}</th>`;
   });
   html+='<th style="width:36px;min-width:36px;text-align:center">H</th></tr></thead><tbody>';
   activeTeam.forEach(emp=>{
@@ -2105,15 +2083,14 @@ function renderHorGrilla(){
     let totalH=0;
     let rowHTML=`<tr><td class="ht-emp" title="${nombre}${emp.cargo?' · '+emp.cargo:''}"><span style="display:flex;align-items:center;justify-content:space-between;gap:2px"><span>${nombre}${emp.cargo?`<span style="display:block;font-size:8px;font-weight:400;color:var(--hint);letter-spacing:.3px">${emp.cargo}</span>`:''}</span><span onclick="editHorEmpleadoFromGrilla(${activeTeam.indexOf(emp)})" style="cursor:pointer;font-size:9px;opacity:.5;flex-shrink:0;padding:1px 3px;border-radius:3px;line-height:1" title="Editar empleado">✏</span></span></td>`;
     days.forEach((d,i)=>{
-      const s=esch[i]||'';const sh=parseShiftHours(s);totalH+=sh;
+      const s=esch[i]||'';totalH+=parseShiftHours(s);
       const noct=nocturnasHoras(s)>0;const fest=esFestivo(d)&&s&&s!=='OFF';
       const escapedName=nombre.replace(/'/g,"\\'");
       const isVac=isVacDay(nombre,d);
-      const cellDisp=s&&s!=='OFF'?s+(sh?`<span style="display:block;font-size:8px;opacity:.6;font-weight:400">(${sh}h)</span>`:''):s||'—';
       if(isVac&&!s){
         rowHTML+=`<td style="background:rgba(39,174,96,.12)"><span class="shift-cell" style="background:#27ae60;color:#fff;opacity:.7;font-size:9px" title="Vacaciones">VAC</span></td>`;
       } else {
-        rowHTML+=`<td class="${fest?'ht-festivo':''}"${isVac?' style="background:rgba(39,174,96,.08)"':''}><span class="shift-cell ${shiftClass(s)}${noct?' sc-nocturno':''}" onclick="openShiftModal('${escapedName}',${i},'${s}')" title="${s||'—'}">${cellDisp}</span></td>`;
+        rowHTML+=`<td class="${fest?'ht-festivo':''}"${isVac?' style="background:rgba(39,174,96,.08)"':''}><span class="shift-cell ${shiftClass(s)}${noct?' sc-nocturno':''}" onclick="openShiftModal('${escapedName}',${i},'${s}')" title="${s||'—'}">${s||'—'}</span></td>`;
       }
     });
     rowHTML+=`<td style="text-align:center;font-size:10px;font-weight:500">${totalH||''}</td></tr>`;
@@ -2133,87 +2110,6 @@ function renderHorGrilla(){
   html+='<td></td></tr></tfoot>';
   html+='</tbody>';
   tbl.innerHTML=html;
-}
-
-// ─── COBERTURA MODAL ──────────────────────────────────────────────────────────
-function shiftCoversHour(s,h){
-  if(!s||s===''||s==='OFF')return false;
-  if(s==='P')return false;
-  const m=s.match(/^(\d+)A(\d+)$/);if(!m)return false;
-  let a=parseInt(m[1]),b=parseInt(m[2]);
-  if(b<=a)b+=24;
-  return h>=a&&h<b;
-}
-
-function showCoverageModal(dayIdx){
-  const days=getWeekDates(horCurrentWeekOffset);
-  const sch=getSchedule();
-  const d=days[dayIdx];
-  const hl=horLocal[dayIdx]||{};
-  const DIAS_L=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-  const MN_L=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-  const dayName=DIAS_L[d.getDay()]+' '+d.getDate()+' '+MN_L[d.getMonth()];
-
-  const aperH=hl.a?parseInt(hl.a):null;
-  let cierreH=hl.c?parseInt(hl.c):null;
-  if(aperH!==null&&cierreH!==null&&cierreH<=aperH)cierreH+=24;
-
-  // Find hour range from shifts
-  let minH=9,maxH=25;
-  horEmpleados.forEach(emp=>{
-    const s=(sch[emp.nombre]||{})[dayIdx]||'';
-    const m=s.match(/^(\d+)A(\d+)$/);
-    if(m){
-      const a=parseInt(m[1]);let b=parseInt(m[2]);if(b<=a)b+=24;
-      minH=Math.min(minH,a-1);maxH=Math.max(maxH,b+1);
-    }
-  });
-  minH=Math.max(minH,6);maxH=Math.min(maxH,30);
-
-  const slots=[];
-  for(let h=minH;h<maxH;h++){
-    const staff=horEmpleados.filter(emp=>shiftCoversHour((sch[emp.nombre]||{})[dayIdx]||'',h));
-    const isOpen=aperH!==null&&cierreH!==null&&h>=aperH&&h<cierreH;
-    slots.push({h,count:staff.length,names:staff.map(e=>e.nombre),isOpen});
-  }
-  const maxCount=Math.max(...slots.map(s=>s.count),1);
-
-  const BAR_W=30,GAP=3,CHART_H=110,PAD=12;
-  const svgW=PAD*2+slots.length*(BAR_W+GAP)-GAP;
-  let bars='';
-  slots.forEach((sl,i)=>{
-    const x=PAD+i*(BAR_W+GAP);
-    const barH=sl.count>0?Math.max(Math.round((sl.count/maxCount)*CHART_H),5):2;
-    const y=CHART_H-barH;
-    const color=sl.count===0?'#e0dbd4':sl.isOpen?'#27ae60':'#4a8fd9';
-    bars+=`<rect x="${x}" y="${y}" width="${BAR_W}" height="${barH}" fill="${color}" rx="3"/>`;
-    if(sl.count>0)bars+=`<text x="${x+BAR_W/2}" y="${y-4}" text-anchor="middle" font-size="10" fill="#4a4440">${sl.count}</text>`;
-    if(sl.h%2===0)bars+=`<text x="${x+BAR_W/2}" y="${CHART_H+14}" text-anchor="middle" font-size="9" fill="#8a8078">${String(sl.h%24).padStart(2,'0')}</text>`;
-  });
-
-  const hasShifts=slots.some(s=>s.count>0);
-  const modal=document.createElement('div');
-  modal.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(26,23,20,.5)';
-  modal.onclick=e=>{if(e.target===modal)modal.remove()};
-  modal.innerHTML=`<div style="background:#faf9f6;border-radius:14px;padding:24px;max-width:92vw;box-shadow:0 12px 40px rgba(0,0,0,.2)">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
-      <div>
-        <div style="font-size:14px;font-weight:700;color:#1a1714">${dayName}</div>
-        <div style="font-size:10px;color:#8a8078;letter-spacing:.8px;text-transform:uppercase;margin-top:3px">Cobertura de personal</div>
-        ${aperH!==null?`<div style="font-size:10px;color:#4a4440;margin-top:4px">Apertura <b>${hl.a}</b> · Cierre <b>${hl.c}</b></div>`:''}
-      </div>
-      <button onclick="this.closest('div').parentElement.remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#8a8078;line-height:1;padding:0 0 0 16px">×</button>
-    </div>
-    ${hasShifts?`<svg width="${svgW}" height="${CHART_H+20}" style="display:block;overflow:visible">${bars}</svg>
-    <div style="display:flex;gap:14px;margin-top:10px;font-size:10px;color:#8a8078;flex-wrap:wrap">
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#27ae60;margin-right:4px;vertical-align:middle"></span>Dentro de horario</span>
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#4a8fd9;margin-right:4px;vertical-align:middle"></span>Fuera de horario</span>
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e0dbd4;margin-right:4px;vertical-align:middle"></span>Sin personal</span>
-    </div>
-    <div style="margin-top:12px;font-size:10px;color:#8a8078;border-top:.5px solid #ddd8d0;padding-top:8px">Máxima cobertura: <b>${maxCount} persona${maxCount!==1?'s':''}</b></div>`
-    :'<div style="text-align:center;padding:24px;font-size:12px;color:#b0a898">No hay turnos cargados para este día</div>'}
-  </div>`;
-  document.body.appendChild(modal);
 }
 
 // ─── EGRESOS ─────────────────────────────────────────────────
@@ -2504,7 +2400,76 @@ function applyAllEgOcr(){
 <button type="button" class="btn-s" onclick="registrarInventario()" style="margin-bottom:10px">📋 Registrar inventario ahora</button>
 </div>
   <div id="inv-content"><div class="empty">Cargando...</div></div>
-  <div id="inv-historial" style="margin-top:1.5rem"></div>
 </div>
 
 >
+<div class="view" id="v10">
+<div id="fin-tabs" class="hor-tabbar" style="margin-bottom:1.5rem">
+<button class="hor-maintab on" onclick="finTab(0)">Ventas</button>
+<button class="hor-maintab" onclick="finTab(1)">Nóminas</button>
+<button class="hor-maintab" onclick="finTab(2)">Gastos</button>
+<button class="hor-maintab" onclick="finTab(3)">P&amp;L</button>
+</div>
+
+<div id="fin-t0">
+<div class="sec"><div class="sec-t">Importar ventas Square</div>
+<div class="f"><label>Mes</label><input type="month" id="fin-ventas-mes"></div>
+<label style="display:block;margin-bottom:1rem">
+<input type="file" accept=".csv" style="display:none" onchange="importVentasCSV(this)">
+<span class="btn" style="display:block;margin-top:0;cursor:pointer;text-align:center">📊 Subir CSV de Square</span>
+</label>
+</div>
+<div class="sec"><div class="sec-t">Historial ventas</div><div id="fin-ventas-list"><div class="empty">Sin datos</div></div></div>
+</div>
+
+<div id="fin-t1" style="display:none">
+<div class="sec"><div class="sec-t">Registrar nóminas del mes</div>
+<div class="note" style="margin-bottom:1rem">Ingresá los totales del PDF de la gestoría (Listado Imputación de Costes).</div>
+<div class="f"><label>Mes</label><input type="month" id="nom-mes"></div>
+<div class="r2">
+<div class="f"><label>Total bruto (€)</label><input type="number" id="nom-bruto" step="0.01" placeholder="0.00" oninput="calcCostEmpresa()"></div>
+<div class="f"><label>SS Empresa (€)</label><input type="number" id="nom-ss" step="0.01" placeholder="0.00" oninput="calcCostEmpresa()"></div>
+</div>
+<div class="r2">
+<div class="f"><label>Coste empresa (€)</label><input type="number" id="nom-coste" step="0.01" placeholder="Auto: bruto + SS"></div>
+<div class="f"><label>IRPF retenido (€)</label><input type="number" id="nom-irpf" step="0.01" placeholder="0.00"></div>
+</div>
+<div class="f"><label>Nº empleados</label><input type="number" id="nom-emps" placeholder="0" min="1"></div>
+<button type="button" class="btn" onclick="saveNomina()">Guardar nóminas</button>
+<div id="nom-ok" class="ok" style="display:none">✓ Nóminas guardadas</div>
+</div>
+<div class="sec"><div class="sec-t">Historial nóminas</div><div id="fin-nominas-list"><div class="empty">Sin datos</div></div></div>
+</div>
+
+<div id="fin-t2" style="display:none">
+<div class="sec"><div class="sec-t">Nuevo gasto fijo</div>
+<div class="r2">
+<div class="f"><label>Mes</label><input type="month" id="gasto-mes"></div>
+<div class="f"><label>Categoría</label><select id="gasto-cat">
+<option value="alquiler">Alquiler</option>
+<option value="suministros">Suministros</option>
+<option value="seguros">Seguros</option>
+<option value="gestoría">Gestoría</option>
+<option value="marketing">Marketing</option>
+<option value="mantenimiento">Mantenimiento</option>
+<option value="otros">Otros</option>
+</select></div>
+</div>
+<div class="r2">
+<div class="f"><label>Concepto</label><input type="text" id="gasto-concepto" placeholder="Ej: Alquiler local"></div>
+<div class="f"><label>Importe (€)</label><input type="number" id="gasto-importe" step="0.01" placeholder="0.00"></div>
+</div>
+<div class="f"><label>Notas</label><textarea id="gasto-notas" placeholder="Opcional..."></textarea></div>
+<button type="button" class="btn" onclick="saveGasto()">Agregar gasto</button>
+<div id="gasto-ok" class="ok" style="display:none">✓ Gasto guardado</div>
+</div>
+<div class="sec"><div class="sec-t">Gastos por mes</div><div id="fin-gastos-list"><div class="empty">Sin datos</div></div></div>
+</div>
+
+<div id="fin-t3" style="display:none">
+<div class="sec"><div class="sec-t">Cuenta de resultados</div>
+<div class="f"><label>Mes</label><input type="month" id="pl-mes" onchange="renderPL()"></div>
+<div id="pl-content"><div class="empty">Seleccioná un mes para ver el P&L</div></div>
+</div>
+</div>
+</div>
