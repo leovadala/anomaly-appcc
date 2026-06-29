@@ -1591,7 +1591,7 @@ function printHorario(){
     });
     // Firma cell spans 2 rows
     tRows+=`<tr>
-      <td rowspan="2" style="padding:8px 10px;border:.5px solid #bbb;vertical-align:top;background:#f5f3ee">
+      <td rowspan="2" style="padding:8px 8px;border:.5px solid #bbb;vertical-align:top;background:#f5f3ee;width:100px;min-width:100px;word-break:break-word">
         <span style="font-weight:700;font-size:12px;display:block;color:#1a1714">${nombre}</span>
         ${emp.cargo?`<span style="font-size:9px;color:#8a8078;letter-spacing:.5px;text-transform:uppercase">${emp.cargo}</span>`:''}
       </td>
@@ -1606,11 +1606,11 @@ function printHorario(){
     tRows+=`<tr>${realCells}</tr>`;
   });
   // Horario local row
-  let localRow=`<td style="padding:6px 10px;border:.5px solid #bbb;background:#eeebe6;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#8a8078">Horario local</td>`;
+  let localRow=`<td style="padding:6px 8px;border:.5px solid #bbb;background:#eeebe6;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#8a8078;width:100px">Horario local</td>`;
   days.forEach((d,i)=>{const hl=horLocal[i]||{};localRow+=`<td style="text-align:center;padding:6px 4px;border:.5px solid #bbb;background:#eeebe6;font-size:10px;font-weight:700;color:#4a4440">${hl.a&&hl.c?hl.a+'–'+hl.c:'—'}</td>`});
   localRow+=`<td style="border:.5px solid #bbb;background:#eeebe6"></td>`;
   // Responsable row
-  let respRow=`<td style="padding:6px 10px;border:.5px solid #bbb;background:#f0ebe0;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#8a7060">Responsable</td>`;
+  let respRow=`<td style="padding:6px 8px;border:.5px solid #bbb;background:#f0ebe0;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#8a7060;width:100px">Responsable</td>`;
   days.forEach((d,i)=>{
     const resp=activeTeam.filter(emp=>{
       const cargo=(emp.cargo||'').toLowerCase();
@@ -1628,7 +1628,7 @@ function printHorario(){
   const tbl=`<table style="width:100%;border-collapse:collapse">
     <thead>
       <tr>
-        <th style="padding:10px 12px;border:.5px solid #bbb;background:#eeebe6;text-align:left;font-size:9px;letter-spacing:2px;font-weight:600;color:#8a8078;text-transform:uppercase">Empleado</th>
+        <th style="padding:10px 8px;border:.5px solid #bbb;background:#eeebe6;text-align:left;font-size:9px;letter-spacing:2px;font-weight:600;color:#8a8078;text-transform:uppercase;width:100px;min-width:100px">Empleado</th>
         ${headCells}
         <th style="padding:10px 6px;border:.5px solid #bbb;background:#eeebe6;text-align:center;font-size:9px;letter-spacing:1.5px;font-weight:600;color:#8a8078;text-transform:uppercase;min-width:120px;width:120px">Firma</th>
       </tr>
