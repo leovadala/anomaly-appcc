@@ -517,7 +517,16 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div class="f"><label>Dirección</label><input id="cfg-dir" placeholder="Dirección del local"></div>
 <div class="f"><label>Nº Registro Sanitario</label><input id="cfg-rs" placeholder="RGSEAA: ..."></div>
 <div class="f"><label>PIN Supervisor (4 dígitos)</label><div class="tg-row"><input id="cfg-pin-sup" type="password" maxlength="4" inputmode="numeric" placeholder="••••" style="font-family:var(--mono);letter-spacing:4px;text-align:center;width:100px"><button type="button" class="btn-s" onclick="savePinSup()">Guardar</button></div><div class="note" id="pin-sup-ok" style="display:none;color:var(--muted)">PIN supervisor actualizado</div></div>
-<div class="f"><label>PIN Finanzas (4 dígitos)</label><div class="tg-row"><input id="cfg-pin-fin" type="password" maxlength="4" inputmode="numeric" placeholder="••••" style="font-family:var(--mono);letter-spacing:4px;text-align:center;width:100px"><button type="button" class="btn-s" onclick="saveFinanzasPin()">Guardar</button></div><div class="note" id="pin-fin-ok" style="display:none;color:var(--muted)">PIN Finanzas actualizado</div></div>
+<div class="f"><label>PIN Finanzas</label>
+<div class="note" style="margin-bottom:6px">Para cambiar el PIN necesitás ingresar el PIN actual (o el PIN de supervisor si es la primera vez).</div>
+<div class="r2" style="margin-bottom:6px">
+<div class="f" style="margin:0"><label style="font-size:10px">PIN actual</label><input id="cfg-pin-fin-old" type="password" maxlength="4" inputmode="numeric" placeholder="••••" style="font-family:var(--mono);letter-spacing:4px;text-align:center;width:100%"></div>
+<div class="f" style="margin:0"><label style="font-size:10px">PIN nuevo (4 dígitos)</label><input id="cfg-pin-fin" type="password" maxlength="4" inputmode="numeric" placeholder="••••" style="font-family:var(--mono);letter-spacing:4px;text-align:center;width:100%"></div>
+</div>
+<button type="button" class="btn-s" onclick="saveFinanzasPin()">Actualizar PIN Finanzas</button>
+<div class="note" id="pin-fin-ok" style="display:none;color:var(--muted);margin-top:4px">✓ PIN Finanzas actualizado</div>
+<div class="note" id="pin-fin-err" style="display:none;color:#b33;margin-top:4px">PIN actual incorrecto</div>
+</div>
 </div>
 <div class="sec"><div class="sec-t" id="sabor-sec-t">Sabores</div>
 <div class="r2"><div class="f"><label>Nombre</label><input id="sab-name" placeholder="Ej: Vainilla"></div><div class="f"><label>Código (3 letras)</label><input id="sab-code" maxlength="3" placeholder="VAI" style="text-transform:uppercase;font-family:var(--mono)"></div></div>
@@ -925,11 +934,17 @@ function checkFinanzasPin(){
   else{$('fin-pin-err').style.display='block';$('fin-pin-input').value='';$('fin-pin-input').focus();}
 }
 async function saveFinanzasPin(){
-  const p=($('cfg-pin-fin').value||'').trim();
-  if(!/^\d{4}$/.test(p)){alert('PIN debe ser 4 dígitos');return}
-  const{error}=await sb.from('config').upsert({key:'pin_finanzas',value:p});
+  const oldPin=($('cfg-pin-fin-old').value||'').trim();
+  const newPin=($('cfg-pin-fin').value||'').trim();
+  $('pin-fin-err').style.display='none';
+  // Verify old PIN: must match current pinFinanzas, OR supervisor PIN if no finanzas PIN set yet
+  const validOld=pinFinanzas?oldPin===pinFinanzas:oldPin===pinSupervisor;
+  if(!validOld){$('pin-fin-err').style.display='block';$('cfg-pin-fin-old').value='';$('cfg-pin-fin-old').focus();return}
+  if(!/^\d{4}$/.test(newPin)){alert('PIN nuevo debe ser 4 dígitos');return}
+  const{error}=await sb.from('config').upsert({key:'pin_finanzas',value:newPin});
   if(error){alert('Error: '+error.message);return}
-  pinFinanzas=p;_finUnlocked=true;$('cfg-pin-fin').value='';
+  pinFinanzas=newPin;_finUnlocked=true;
+  $('cfg-pin-fin-old').value='';$('cfg-pin-fin').value='';
   $('pin-fin-ok').style.display='block';setTimeout(()=>$('pin-fin-ok').style.display='none',2000);
 }
 
