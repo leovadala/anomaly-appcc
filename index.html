@@ -2081,11 +2081,39 @@ function renderSabIngrList(){const e=$('sab-ingr-list');if(!e)return;e.innerHTML
 function calcMerma(){const sab=sabores.find(s=>s.nombre===$('ap').value);const pesoR=parseFloat($('apeso-real').value)||0;const note=$('merma-note');if(!note)return;if(sab&&sab.peso_teorico&&pesoR){const merma=sab.peso_teorico-pesoR;const pct=(merma/sab.peso_teorico*100).toFixed(1);note.textContent='Peso teórico: '+sab.peso_teorico+' kg · Real: '+pesoR+' kg · Merma: '+merma.toFixed(2)+' kg ('+pct+'%)';note.style.display='block'}else if(sab&&sab.peso_teorico){note.textContent='Peso teórico del sabor: '+sab.peso_teorico+' kg';note.style.display='block'}else{note.style.display='none'}}
 function renderSaborSelect(){const sel=$('ap');sel.innerHTML='<option value="">Seleccionar...</option>'+[...sabores].filter(s=>s.activo).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')).map(s=>`<option>${s.nombre}</option>`).join('')+'<option value="otro">Otro...</option>'}
 
-function renderSabores(){const e=$('sabor-list');if(!sabores.length){e.innerHTML='<div class="empty">Sin sabores</div>';return}e.innerHTML=sabores.map((s,i)=>`<div class="sab-item"><div class="sab-info"><span class="${s.activo?'':'sab-inactive'}">${s.nombre}</span><span class="sab-code">${s.codigo.toUpperCase()}</span>${s.peso_teorico?'<span style="font-size:10px;color:var(--muted);font-family:var(--mono)"> · '+s.peso_teorico+' kg/batch</span>':''}${s.ingredientes&&s.ingredientes.length?'<span style="font-size:10px;color:var(--muted)"> · '+s.ingredientes.length+' ing.</span>':''}</div><div class="sab-actions"><label class="toggle"><input type="checkbox" ${s.activo?'checked':''} onchange="toggleSabor(${i})"><span class="slider"></span></label><button type="button" class="btn-d" onclick="editSabor(${i})">Editar</button><button type="button" class="btn-d" onclick="rmSabor(${i})">Eliminar</button></div></div>`).join('')}
+function renderSabores(){const e=$('sabor-list');const sorted=[...sabores].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));if(!sorted.length){e.innerHTML='<div class="empty">Sin sabores</div>';return}e.innerHTML=sorted.map(s=>`<div class="sab-item"><div class="sab-info"><span class="${s.activo?'':'sab-inactive'}">${s.nombre}</span><span class="sab-code">${s.codigo.toUpperCase()}</span>${s.peso_teorico?'<span style="font-size:10px;color:var(--muted);font-family:var(--mono)"> · '+s.peso_teorico+' kg/batch</span>':''}${Array.isArray(s.ingredientes)&&s.ingredientes.length?'<span style="font-size:10px;color:var(--muted)"> · '+s.ingredientes.length+' ing.</span>':''}</div><div class="sab-actions"><label class="toggle"><input type="checkbox" ${s.activo?'checked':''} onchange="editSaborById('${s.id}','toggle')"><span class="slider"></span></label><button type="button" class="btn-d" onclick="editSaborById('${s.id}')">Editar</button><button type="button" class="btn-d" onclick="rmSaborById('${s.id}')">Eliminar</button></div></div>`).join('')}
 
 async function saveSabor(){const n=$('sab-name').value.trim().toUpperCase(),c=$('sab-code').value.trim().toUpperCase(),pt=parseFloat($('sab-peso').value)||null;if(!n||!c||c.length!==3){alert('Nombre y código de 3 letras requeridos');return}if(editingSaborIdx!==null){const id=sabores[editingSaborIdx].id;const{error}=await sb.from('sabores').update({nombre:n,codigo:c,peso_teorico:pt,ingredientes:currentSabIngr}).eq('id',id);if(error){alert('Error: '+error.message);return}sabores[editingSaborIdx].nombre=n;sabores[editingSaborIdx].codigo=c;sabores[editingSaborIdx].peso_teorico=pt;sabores[editingSaborIdx].ingredientes=[...currentSabIngr];cancelEditSabor()}else{const dup=sabores.find(s=>s.codigo===c);if(dup){alert('Ya existe un sabor con código '+c);return}const{data,error}=await sb.from('sabores').insert({nombre:n,codigo:c,peso_teorico:pt,ingredientes:currentSabIngr}).select();if(error){alert('Error: '+error.message);return}if(data&&data[0])sabores.push({id:data[0].id,nombre:n,codigo:c,activo:true,peso_teorico:pt,ingredientes:[...currentSabIngr]});$('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';currentSabIngr=[];renderSabIngrList();$('new-sabor-modal').style.display='none';}renderSabores();renderSaborSelect()}
 
-function editSabor(i){editingSaborIdx=i;$('sab-name').value=sabores[i].nombre;$('sab-code').value=sabores[i].codigo;$('sab-peso').value=sabores[i].peso_teorico||'';currentSabIngr=[...(sabores[i].ingredientes||[])];renderSabIngrList();$('sab-ingr-section').style.display='block';$('btn-sab').textContent='Actualizar sabor';$('btn-sab-cancel').style.display='block';$('sabor-modal-title').textContent='Editar sabor';$('new-sabor-modal').style.display='flex';setTimeout(()=>$('sab-name').focus(),100);}
+
+function editSaborById(id,action){
+  const i=sabores.findIndex(s=>s.id===id);
+  if(i===-1)return;
+  if(action==='toggle'){toggleSabor(i);return;}
+  editSabor(i);
+}
+async function rmSaborById(id){
+  const i=sabores.findIndex(s=>s.id===id);
+  if(i===-1)return;
+  rmSabor(i);
+}
+function editSabor(i){
+  editingSaborIdx=i;
+  const s=sabores[i];
+  $('sab-name').value=s.nombre||'';
+  $('sab-code').value=s.codigo||'';
+  $('sab-peso').value=s.peso_teorico||'';
+  // ingredientes puede venir como array o como string JSON desde Supabase
+  let ingr=s.ingredientes||[];
+  if(typeof ingr==='string'){try{ingr=JSON.parse(ingr);}catch(e){ingr=[];}}
+  currentSabIngr=Array.isArray(ingr)?[...ingr]:[];
+  renderSabIngrList();
+  $('btn-sab').textContent='Actualizar sabor';
+  $('btn-sab-cancel').style.display='block';
+  $('sabor-modal-title').textContent='Editar sabor';
+  $('new-sabor-modal').style.display='flex';
+  setTimeout(()=>{const el=$('sab-name');if(el)el.focus();},100);
+}
 
 function cancelEditSabor(){editingSaborIdx=null;$('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';currentSabIngr=[];renderSabIngrList();$('btn-sab').textContent='Agregar sabor';$('btn-sab-cancel').style.display='none';$('new-sabor-modal').style.display='none';}
 
