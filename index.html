@@ -1575,28 +1575,52 @@ function renderOcrResults(textOrData){
   renderOcrLineas();
 }
 
+function ocrSetTemp(i,mode){
+  if(!window._ocrAlbaran)return;
+  const l=window._ocrAlbaran.lineas[i];
+  if(mode==='pos'){l.requiere_frio=true;l.temperatura=4;}
+  else if(mode==='neg'){l.requiere_frio=true;l.temperatura=-11;}
+  else{l.requiere_frio=false;l.temperatura=null;}
+  renderOcrLineas();
+}
+
 function renderOcrLineas(){
   const el=$('ocr-lineas-tabla');if(!el)return;
   const ls=window._ocrAlbaran?window._ocrAlbaran.lineas:[];
   if(!ls.length){el.innerHTML='<div class="empty" style="margin:0 0 8px">Sin líneas. Agregá una manualmente.</div>';
     const btn=$('ocr-confirm-btn');if(btn)btn.textContent='✓ Confirmar recepción';return;}
-  let t=`<table style="width:100%;font-size:11px;border-collapse:collapse;min-width:540px">`;
-  t+=`<tr style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)"><th style="padding:4px 3px;text-align:left;min-width:160px">Descripción</th><th style="padding:4px 3px;min-width:75px">Lote</th><th style="padding:4px 3px;min-width:100px">Vencimiento</th><th style="padding:4px 3px;min-width:45px">Uds</th><th style="padding:4px 3px;min-width:65px">Precio</th><th style="padding:4px 3px;min-width:65px">Importe</th><th style="padding:4px 3px">Frío</th><th></th></tr>`;
-  ls.forEach((l,i)=>{
-    t+=`<tr style="border-top:1px solid var(--border,#eee)">`;
-    t+=`<td style="padding:3px"><input style="font-size:11px;width:100%;min-width:150px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${(l.descripcion||'').replace(/"/g,'&quot;')}" oninput="window._ocrAlbaran.lineas[${i}].descripcion=this.value"></td>`;
-    t+=`<td style="padding:3px"><input style="font-size:11px;width:75px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${(l.lote||'').replace(/"/g,'&quot;')}" oninput="window._ocrAlbaran.lineas[${i}].lote=this.value"></td>`;
-    t+=`<td style="padding:3px"><input type="date" style="font-size:11px;width:110px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.vencimiento||''}" onchange="window._ocrAlbaran.lineas[${i}].vencimiento=this.value"></td>`;
-    t+=`<td style="padding:3px"><input type="number" style="font-size:11px;width:45px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.unidades!=null?l.unidades:''}" oninput="window._ocrAlbaran.lineas[${i}].unidades=parseInt(this.value)||null"></td>`;
-    t+=`<td style="padding:3px"><input type="number" step="0.001" style="font-size:11px;width:65px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.precio_unitario!=null?l.precio_unitario:''}" oninput="window._ocrAlbaran.lineas[${i}].precio_unitario=parseFloat(this.value)||null"></td>`;
-    t+=`<td style="padding:3px"><input type="number" step="0.01" style="font-size:11px;width:65px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.importe!=null?l.importe:''}" oninput="window._ocrAlbaran.lineas[${i}].importe=parseFloat(this.value)||null"></td>`;
-    t+=`<td style="padding:3px;text-align:center"><input type="checkbox" ${l.requiere_frio?'checked':''} onchange="window._ocrAlbaran.lineas[${i}].requiere_frio=this.checked"></td>`;
-    t+=`<td style="padding:3px"><button type="button" onclick="ocrDelLinea(${i})" style="background:none;border:none;color:#b33;cursor:pointer;font-size:15px;padding:0 4px" title="Eliminar fila">✕</button></td>`;
-    t+=`</tr>`;
-  });
-  t+=`</table>`;
-  el.innerHTML=t;
-  const btn=$('ocr-confirm-btn');if(btn)btn.textContent=`✓ Confirmar recepción (${ls.length} producto${ls.length!==1?'s':''})`;
+  const bSt=(a)=>`padding:7px 4px;flex:1;border:1px solid ${a?'var(--black)':'var(--border)'};background:${a?'var(--black)':'transparent'};color:${a?'#fff':'var(--muted)'};font-size:10px;cursor:pointer`;
+  const cards=ls.map((l,i)=>{
+    const frio=!!l.requiere_frio;
+    const temp=l.temperatura!=null?l.temperatura:null;
+    const mode=!frio?'amb':(temp!==null&&temp<0?'neg':'pos');
+    return `<div style="border:1px solid var(--border);background:var(--white,#fff);padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px">
+        <input style="flex:1;font-size:13px;font-weight:600;border:none;background:transparent;border-bottom:1.5px solid var(--border);padding-bottom:4px;color:var(--text)"
+          value="${(l.descripcion||'').replace(/"/g,'&quot;')}"
+          placeholder="Nombre del producto"
+          oninput="window._ocrAlbaran.lineas[${i}].descripcion=this.value">
+        <button type="button" onclick="ocrDelLinea(${i})" style="background:none;border:none;color:#c00;cursor:pointer;font-size:17px;flex-shrink:0;padding:0 2px">✕</button>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">Temperatura de recepción</div>
+        <div style="display:flex;gap:5px">
+          <button type="button" onclick="ocrSetTemp(${i},'pos')" style="${bSt(mode==='pos')}">🌡 Frío+ · 4°C</button>
+          <button type="button" onclick="ocrSetTemp(${i},'neg')" style="${bSt(mode==='neg')}">❄ Frío− · −11°C</button>
+          <button type="button" onclick="ocrSetTemp(${i},'amb')" style="${bSt(mode==='amb')}">○ Ambiente</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="f"><label style="font-size:9px">Lote</label><input style="width:100%;border:none;background:transparent;border-bottom:1px solid var(--border);font-size:12px" value="${(l.lote||'').replace(/"/g,'&quot;')}" oninput="window._ocrAlbaran.lineas[${i}].lote=this.value"></div>
+        <div class="f"><label style="font-size:9px">Vencimiento</label><input type="date" style="width:100%;border:none;background:transparent;border-bottom:1px solid var(--border);font-size:12px" value="${l.vencimiento||''}" onchange="window._ocrAlbaran.lineas[${i}].vencimiento=this.value"></div>
+        <div class="f"><label style="font-size:9px">Uds / Cantidad</label><input type="number" style="width:100%;border:none;background:transparent;border-bottom:1px solid var(--border);font-size:12px" value="${l.unidades!=null?l.unidades:''}" oninput="window._ocrAlbaran.lineas[${i}].unidades=parseInt(this.value)||null"></div>
+        <div class="f"><label style="font-size:9px">Importe (€)</label><input type="number" step="0.01" style="width:100%;border:none;background:transparent;border-bottom:1px solid var(--border);font-size:12px" value="${l.importe!=null?l.importe:''}" oninput="window._ocrAlbaran.lineas[${i}].importe=parseFloat(this.value)||null"></div>
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML=cards;
+  const btn=$('ocr-confirm-btn');
+  if(btn)btn.textContent=`✓ Confirmar recepción (${ls.length} producto${ls.length!==1?'s':''})`;
 }
 
 function ocrDelLinea(i){
@@ -1607,7 +1631,7 @@ function ocrDelLinea(i){
 
 function ocrAddLinea(){
   if(!window._ocrAlbaran){window._ocrAlbaran={cabecera:{},lineas:[]};}
-  window._ocrAlbaran.lineas.push({descripcion:'',lote:'',vencimiento:'',unidades:null,precio_unitario:null,importe:null,requiere_frio:false});
+  window._ocrAlbaran.lineas.push({descripcion:'',lote:'',vencimiento:'',unidades:null,precio_unitario:null,importe:null,requiere_frio:false,temperatura:null});
   renderOcrLineas();
   setTimeout(()=>{const el=$('ocr-lineas-tabla');if(!el)return;const inputs=el.querySelectorAll('input');if(inputs.length)inputs[inputs.length-4].focus();},50);
 }
