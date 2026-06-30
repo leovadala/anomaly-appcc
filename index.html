@@ -1079,7 +1079,7 @@ async function _loadPDFJS(){
   window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
-// Extrae empleados y coste empresa (v5 — debug + permissive)
+// Extrae empleados y coste empresa (v6 — detecta fila por cantidad de valores numéricos)
 async function _extractNominasData(file){
   await _loadPDFJS();
   const buf=await file.arrayBuffer();
@@ -1094,23 +1094,25 @@ async function _extractNominasData(file){
       .map(it=>({str:it.str.trim(),x:Math.round(it.transform[4]),y:Math.round(it.transform[5])}))
       .filter(it=>it.str.length>0);
 
-    if(pi===1) dbg.push(`P1: ${raw.length} items totales`);
+    if(pi===1) dbg.push(`P1: ${raw.length} items`);
 
-    // Fila COSTE EMPRESA
-    const costeLabel=raw.find(it=>/COSTE/i.test(it.str));
-    if(!costeLabel){dbg.push('P'+pi+': sin COSTE');continue;}
-    const costeY=costeLabel.y;
-    if(pi===1) dbg.push(`costeLabel="${costeLabel.str}" y=${costeY}`);
-
-    // Valores numéricos en esa fila
-    const costValues=raw
-      .filter(it=>Math.abs(it.y-costeY)<=8&&it.x>costeLabel.x+5&&/^[\d.,]+$/.test(it.str))
-      .sort((a,b)=>a.x-b.x);
-    if(!costValues.length){dbg.push('P'+pi+': sin costValues');continue;}
+    // Detectar fila COSTE EMPRESA: fila con MÁS valores de tipo moneda (ej: "3.077,43" o "921,75")
+    // No buscamos por texto — evitamos falsos positivos con el título del PDF
+    const isCurrency=s=>/^[\d.]+,\d{2}$/.test(s)&&s.length>=4;
+    const byY={};
+    raw.filter(it=>isCurrency(it.str)).forEach(it=>{
+      const ky=Math.round(it.y/6)*6;
+      if(!byY[ky])byY[ky]=[];
+      byY[ky].push(it);
+    });
+    const best=Object.entries(byY).sort((a,b)=>b[1].length-a[1].length)[0];
+    if(!best||best[1].length<2){dbg.push(`P${pi}: sin fila de costes`);continue;}
+    const costeY=parseInt(best[0]);
+    const costValues=best[1].sort((a,b)=>a.x-b.x);
     const N=costValues.length;
-    if(pi===1) dbg.push(`N=${N} costes=[${costValues.map(c=>c.str).join(',')}]`);
+    if(pi===1) dbg.push(`costeY≈${costeY} N=${N} costes=[${costValues.map(c=>c.str).join(',')}]`);
 
-    // Agrupar en filas (y ±5px), solo SOBRE costeY
+    // Agrupar items en filas (y ±5px), solo SOBRE costeY
     const rowMap=[];
     raw.filter(it=>it.y>costeY+3).forEach(it=>{
       const row=rowMap.find(r=>Math.abs(r.y-it.y)<=5);
@@ -1120,25 +1122,25 @@ async function _extractNominasData(file){
     rowMap.forEach(r=>r.items.sort((a,b)=>a.x-b.x));
     if(pi===1) dbg.push(`Filas sobre coste: ${rowMap.length}`);
 
-    // Ítem de nombre: tiene letras, no es número puro, no es símbolo
+    // Ítem de nombre: tiene letras, no es número puro
     const isNm=it=>it.str.length>1&&/[A-Za-z]/.test(it.str)&&!/^[\d.,€%\-]+$/.test(it.str);
 
-    // Mostrar primeras 5 filas con ítems de nombre (debug)
+    // Debug primeras 6 filas con ítems de nombre
     if(pi===1){
-      const fdbg=rowMap.filter(r=>r.items.filter(isNm).length>0).slice(0,6);
-      fdbg.forEach(r=>dbg.push(`  y=${r.y}(${r.items.filter(isNm).length}nm): ${r.items.filter(isNm).map(i=>'"'+i.str+'"@'+i.x).join(' ')}`));
+      rowMap.filter(r=>r.items.filter(isNm).length>0).slice(0,6).forEach(r=>{
+        dbg.push(`  y=${r.y}(${r.items.filter(isNm).length}): ${r.items.filter(isNm).map(i=>'"'+i.str+'"@'+i.x).join(' ')}`);
+      });
     }
 
-    // Buscar fila de referencia con exactamente N ítems de nombre
+    // Fila de referencia: exactamente N ítems de nombre → define X de columnas
     const fullRow=rowMap.find(r=>r.items.filter(isNm).length===N);
     if(!fullRow){
-      dbg.push(`P${pi}: sin fullRow (buscando N=${N}) - usando fallback x-costes`);
-      // Fallback: usar X de costValues como ancla (menos preciso)
+      dbg.push(`P${pi}: sin fullRow N=${N}`);
+      // Fallback: midpoints de costValues
       const midsF=[];
-      for(let i=0;i<costValues.length-1;i++) midsF.push((costValues[i].x+costValues[i+1].x)/2);
-      const allNm=raw.filter(it=>it.y>costeY+3&&isNm(it));
-      const colsF=costValues.map((cv,i)=>({cost:parseFloat(cv.str.replace(/\./g,'').replace(',','.')),parts:[]}));
-      allNm.forEach(it=>{
+      for(let i=0;i<N-1;i++) midsF.push((costValues[i].x+costValues[i+1].x)/2);
+      const colsF=costValues.map(cv=>({cost:parseFloat(cv.str.replace(/\./g,'').replace(',','.')),parts:[]}));
+      raw.filter(it=>it.y>costeY+3&&isNm(it)).forEach(it=>{
         let ci=colsF.length-1;
         for(let i=0;i<midsF.length;i++) if(it.x<midsF[i]){ci=i;break;}
         colsF[ci].parts.push({str:it.str,y:it.y});
@@ -1162,10 +1164,8 @@ async function _extractNominasData(file){
       const ni=r.items.filter(isNm);
       if(!ni.length) return;
       if(ni.length===N){
-        // Fila completa: asignar por índice
         ni.sort((a,b)=>a.x-b.x).forEach((it,i)=>cols[i].parts.push({str:it.str,y:r.y}));
       } else {
-        // Fila parcial: asignar por midpoints
         ni.forEach(it=>{
           let ci=cols.length-1;
           for(let i=0;i<mids.length;i++) if(it.x<mids[i]){ci=i;break;}
@@ -1181,7 +1181,6 @@ async function _extractNominasData(file){
     });
   }
 
-  // Guardar debug en global (importNominasPDF lo mostrará si no hay resultados)
   window._nomPDFDebug=`DEBUG PDF:\n${dbg.join('\n')}`;
   console.log(window._nomPDFDebug);
   return result;
