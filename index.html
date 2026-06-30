@@ -568,6 +568,15 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 
 <!-- V8: EGRESOS -->
 <div class="view" id="v8">
+<div class="sec" id="eg-quick-sec">
+<div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">
+  Egresos rápidos
+  <button type="button" class="btn-d" onclick="openQuickEdit()" style="font-size:10px;padding:4px 10px;letter-spacing:1px">⚙ Editar</button>
+</div>
+<div class="note" style="margin-bottom:.8rem">Toca para registrar un gasto rápido sin factura.</div>
+<div id="eg-quick-btns" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+</div>
+
 <div class="sec"><div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">Nuevo egreso <button type="button" class="btn-d" onclick="openEgrOcr()" style="font-size:10px;padding:5px 10px;letter-spacing:1px">📷 Escanear factura</button></div>
 <div class="r2"><div class="f"><label>Fecha</label><input type="date" id="eg-fecha"></div><div class="f"><label>Importe (€)</label><input type="number" id="eg-importe" step="0.01" min="0" placeholder="0.00"></div></div>
 <div class="f"><label>Proveedor / emisor</label><input id="eg-prov" placeholder="Ej: Mercadona, Telefónica..."></div>
@@ -589,11 +598,131 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 </div>
 </div><!-- /v8 -->
 
+<div class="view" id="v9">
+<div class="sec"><div class="sec-t">Inventario mensual</div>
+<div class="note">Registra el inventario físico el día 1 de cada mes.</div>
+<button type="button" class="btn-s" onclick="registrarInventario()" style="margin-bottom:10px">📋 Registrar inventario ahora</button>
+</div>
+  <div id="inv-content"><div class="empty">Cargando...</div></div>
+</div>
+
+
+<div class="view" id="v10">
+<div id="fin-tabs" class="hor-tabbar" style="margin-bottom:1.5rem">
+<button class="hor-maintab on" onclick="finTab(0)">Ventas</button>
+<button class="hor-maintab" onclick="finTab(1)">Nóminas</button>
+<button class="hor-maintab" onclick="finTab(2)">Gastos</button>
+<button class="hor-maintab" onclick="finTab(3)">P&amp;L</button>
+</div>
+
+<div id="fin-t0">
+<div class="sec"><div class="sec-t">Importar ventas Square</div>
+<div class="f"><label>Mes</label><input type="month" id="fin-ventas-mes"></div>
+<label style="display:block;margin-bottom:1rem">
+<input type="file" accept=".csv" style="display:none" onchange="importVentasCSV(this)">
+<span class="btn" style="display:block;margin-top:0;cursor:pointer;text-align:center">📊 Subir CSV de Square</span>
+</label>
+</div>
+<div class="sec"><div class="sec-t">Historial ventas</div><div id="fin-ventas-list"><div class="empty">Sin datos</div></div></div>
+</div>
+
+<div id="fin-t1" style="display:none">
+<div class="sec"><div class="sec-t">Registrar nóminas del mes</div>
+<div class="note" style="margin-bottom:1rem">Ingresá los totales del PDF de la gestoría (Listado Imputación de Costes).</div>
+<div class="f"><label>Mes</label><input type="month" id="nom-mes"></div>
+<div class="r2">
+<div class="f"><label>Total bruto (€)</label><input type="number" id="nom-bruto" step="0.01" placeholder="0.00" oninput="calcCostEmpresa()"></div>
+<div class="f"><label>SS Empresa (€)</label><input type="number" id="nom-ss" step="0.01" placeholder="0.00" oninput="calcCostEmpresa()"></div>
+</div>
+<div class="r2">
+<div class="f"><label>Coste empresa (€)</label><input type="number" id="nom-coste" step="0.01" placeholder="Auto: bruto + SS"></div>
+<div class="f"><label>IRPF retenido (€)</label><input type="number" id="nom-irpf" step="0.01" placeholder="0.00"></div>
+</div>
+<div class="f"><label>Nº empleados</label><input type="number" id="nom-emps" placeholder="0" min="1"></div>
+<button type="button" class="btn" onclick="saveNomina()">Guardar nóminas</button>
+<div id="nom-ok" class="ok" style="display:none">✓ Nóminas guardadas</div>
+</div>
+<div class="sec"><div class="sec-t">Historial nóminas</div><div id="fin-nominas-list"><div class="empty">Sin datos</div></div></div>
+</div>
+
+<div id="fin-t2" style="display:none">
+<div class="sec"><div class="sec-t">Nuevo gasto fijo</div>
+<div class="r2">
+<div class="f"><label>Mes</label><input type="month" id="gasto-mes"></div>
+<div class="f"><label>Categoría</label><select id="gasto-cat">
+<option value="alquiler">Alquiler</option>
+<option value="suministros">Suministros</option>
+<option value="seguros">Seguros</option>
+<option value="gestoría">Gestoría</option>
+<option value="marketing">Marketing</option>
+<option value="mantenimiento">Mantenimiento</option>
+<option value="otros">Otros</option>
+</select></div>
+</div>
+<div class="r2">
+<div class="f"><label>Concepto</label><input type="text" id="gasto-concepto" placeholder="Ej: Alquiler local"></div>
+<div class="f"><label>Importe (€)</label><input type="number" id="gasto-importe" step="0.01" placeholder="0.00"></div>
+</div>
+<div class="f"><label>Notas</label><textarea id="gasto-notas" placeholder="Opcional..."></textarea></div>
+<button type="button" class="btn" onclick="saveGasto()">Agregar gasto</button>
+<div id="gasto-ok" class="ok" style="display:none">✓ Gasto guardado</div>
+</div>
+<div class="sec"><div class="sec-t">Gastos por mes</div><div id="fin-gastos-list"><div class="empty">Sin datos</div></div></div>
+</div>
+
+<div id="fin-t3" style="display:none">
+<div class="sec"><div class="sec-t">Cuenta de resultados</div>
+<div class="f"><label>Mes</label><input type="month" id="pl-mes" onchange="renderPL()"></div>
+<div id="pl-content"><div class="empty">Seleccioná un mes para ver el P&L</div></div>
+</div>
+</div><!-- /v10 -->
+
 </div><!-- /main -->
 </div><!-- /app -->
 
+<div id="eg-quick-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.65);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:.5px solid var(--border);padding:1.5rem;width:300px">
+    <div id="eq-title" style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase;margin-bottom:1.2rem"></div>
+    <div class="f"><label>Fecha</label><input type="date" id="eq-fecha"></div>
+    <div class="f"><label>Concepto</label><input type="text" id="eq-concepto"></div>
+    <div class="f"><label>Importe (€)</label><input type="number" id="eq-importe" step="0.01" placeholder="0.00" inputmode="decimal"></div>
+    <div style="display:flex;gap:8px;margin-top:1rem">
+      <button class="btn" onclick="saveEgresoRapido()" style="flex:1;margin-top:0">Guardar</button>
+      <button class="btn-s" onclick="$('eg-quick-modal').style.display='none'" style="padding:10px 14px">✕</button>
+    </div>
+  </div>
+</div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js">
+<div id="eg-quick-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.65);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:.5px solid var(--border);padding:1.5rem;width:300px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase;margin-bottom:1.2rem">Editar egresos rápidos</div>
+    <div id="eq-edit-list" style="margin-bottom:1rem"></div>
+    <div style="display:flex;gap:8px;margin-bottom:1rem">
+      <input type="text" id="eq-new-name" placeholder="Ej: Chino, Hielo..." style="flex:1">
+      <button class="btn-s" onclick="addQuickBtn()" style="padding:8px 12px">+ Agregar</button>
+    </div>
+    <button class="btn-d" onclick="$('eg-quick-edit-modal').style.display='none'" style="width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1.5px;text-transform:uppercase">Cerrar</button>
+  </div>
+</div>
+
+<div id="fin-pin-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.65);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:.5px solid var(--border);padding:2rem 1.5rem;width:280px;text-align:center">
+    <div style="font-size:10px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--hint);margin-bottom:1.5rem">Finanzas — Acceso restringido</div>
+    <input id="fin-pin-input" type="password" maxlength="4" inputmode="numeric" placeholder="••••"
+      style="font-family:var(--mono);font-size:28px;letter-spacing:12px;text-align:center;width:100%;border:none;border-bottom:.5px solid var(--border);outline:none;background:transparent;color:var(--black);padding:.5rem 0;margin-bottom:1.5rem"
+      onkeydown="if(event.key==='Enter')checkFinanzasPin()">
+    <div id="fin-pin-err" style="display:none;font-size:11px;color:#b33;margin-bottom:.8rem">PIN incorrecto</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="checkFinanzasPin()" style="flex:1;margin-top:0">Entrar</button>
+      <button class="btn-s" onclick="$('fin-pin-modal').style.display='none'" style="padding:10px 14px">✕</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
 // ===== FINANZAS =====
 let _finTabIdx=0,_VentasMes=[],_NominasMes=[],_GastosFijos=[];
 
@@ -808,10 +937,7 @@ async function renderPL(){
   </table>`;
 }
 
-</script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script>
+
 const SB_URL='https://mknqxqkjtjogbjrlpzbj.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rbnF4cWtqdGpvZ2JqcmxwemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMDY4NjEsImV4cCI6MjA5MzU4Mjg2MX0.47JXMAtPvK2QVDGJoMMUFNX86-zmpRGCcmhddthNEr0';
 let OPENAI_KEY='';
@@ -1575,6 +1701,79 @@ h+='<div style="text-align:center;font-size:8px;color:#999;margin-top:1.5rem">AN
 h+='</div>';$('rprev').innerHTML=h}
 
 function expPDF(){const p=document.querySelector('.rp');if(!p)return;const w=window.open('','_blank');w.document.write("<!DOCTYPE html><html><head><title>ANOMALY APPCC</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500');body{font-family:'DM Sans',sans-serif;padding:2rem;color:#1a1a1a;font-size:11px}h4{font-size:16px;font-weight:500;letter-spacing:2px;margin:0 0 2px}.rp-s{font-size:10px;color:#999;margin-bottom:1.5rem}.rp-sec{font-weight:500;font-size:11px;margin:1.5rem 0 .4rem;border-bottom:1px solid #1a1a1a;padding-bottom:3px;letter-spacing:1px;text-transform:uppercase}table{width:100%;border-collapse:collapse;margin-bottom:.8rem}th,td{padding:4px 6px;border:.5px solid #e0ddd6;text-align:left}th{font-weight:500;text-transform:uppercase;font-size:9px;color:#666}.rp-f{margin-top:3rem;display:flex;justify-content:space-between}.rp-f div{border-top:.5px solid #999;padding-top:6px;width:28%;text-align:center;font-size:10px}@media print{body{padding:1rem}}</style></head><body>"+p.innerHTML+"<script>window.onload=function(){window.print()}<\/script></body></html>");w.document.close()}
+
+
+// ─── EGRESOS RÁPIDOS ──────────────────────────────────────────────────────────
+const EQ_DEFAULT = ['Hielo','Chino','Mercadona'];
+let _eqBtns = JSON.parse(localStorage.getItem('eq_btns')||JSON.stringify(EQ_DEFAULT));
+let _eqActive = '';
+
+function renderQuickBtns(){
+  const el=$('eg-quick-btns');if(!el)return;
+  el.innerHTML=_eqBtns.map((name,i)=>`<button type="button" onclick="openQuickModal(${i})"
+    style="padding:10px 18px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .2s"
+    onmouseover="this.style.background='var(--black)';this.style.color='var(--bg)'"
+    onmouseout="this.style.background='var(--surface)';this.style.color='var(--black)'">${name}</button>`).join('');
+}
+
+function openQuickModal(i){
+  const name=_eqBtns[i]||'';
+  _eqActive=name;
+  $('eq-title').textContent=name;
+  $('eq-fecha').value=new Date().toISOString().split('T')[0];
+  $('eq-concepto').value=name;
+  $('eq-importe').value='';
+  const m=$('eg-quick-modal');m.style.display='flex';
+  setTimeout(()=>$('eq-importe').focus(),50);
+}
+
+async function saveEgresoRapido(){
+  const fecha=$('eq-fecha').value;
+  const concepto=$('eq-concepto').value.trim();
+  const importe=parseFloat($('eq-importe').value)||0;
+  if(!importe){alert('Ingresá el importe');return}
+  const{error}=await sb.from('egresos').insert({
+    fecha,proveedor:_eqActive,concepto,importe,
+    categoria:'Otros',nro_factura:'Ticket',notas:'Egreso rápido'
+  });
+  if(error){alert('Error: '+error.message);return}
+  $('eg-quick-modal').style.display='none';
+  await initEgresos();
+}
+
+function openQuickEdit(){
+  renderQuickEditList();
+  $('eg-quick-edit-modal').style.display='flex';
+  $('eq-new-name').value='';
+}
+
+function renderQuickEditList(){
+  $('eq-edit-list').innerHTML=_eqBtns.map((name,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="flex:1;font-size:13px">${name}</span>
+      <button type="button" onclick="removeQuickBtn(${i})" style="background:none;border:none;color:#b33;cursor:pointer;font-size:14px;padding:2px 6px">✕</button>
+    </div>
+  `).join('')||'<div class="empty" style="margin:0 0 8px">Sin botones</div>';
+}
+
+function addQuickBtn(){
+  const name=($('eq-new-name').value||'').trim();
+  if(!name)return;
+  _eqBtns.push(name);
+  localStorage.setItem('eq_btns',JSON.stringify(_eqBtns));
+  $('eq-new-name').value='';
+  renderQuickBtns();
+  renderQuickEditList();
+}
+
+function removeQuickBtn(i){
+  _eqBtns.splice(i,1);
+  localStorage.setItem('eq_btns',JSON.stringify(_eqBtns));
+  renderQuickBtns();
+  renderQuickEditList();
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 
 // ─── HORARIOS MODULE (Supabase) ───────────────────────────────────────────────
 
@@ -2427,98 +2626,5 @@ function applyAllEgOcr(){
   setTimeout(()=>{$('ocr-modal').style.display='none';window._ocrMode=null},600);
 }
 </script>
-
-<div id="fin-pin-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.65);z-index:2000;align-items:center;justify-content:center">
-  <div style="background:var(--surface);border:.5px solid var(--border);padding:2rem 1.5rem;width:280px;text-align:center">
-    <div style="font-size:10px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--hint);margin-bottom:1.5rem">Finanzas — Acceso restringido</div>
-    <input id="fin-pin-input" type="password" maxlength="4" inputmode="numeric" placeholder="••••"
-      style="font-family:var(--mono);font-size:28px;letter-spacing:12px;text-align:center;width:100%;border:none;border-bottom:.5px solid var(--border);outline:none;background:transparent;color:var(--black);padding:.5rem 0;margin-bottom:1.5rem"
-      onkeydown="if(event.key==='Enter')checkFinanzasPin()">
-    <div id="fin-pin-err" style="display:none;font-size:11px;color:#b33;margin-bottom:.8rem">PIN incorrecto</div>
-    <div style="display:flex;gap:8px">
-      <button class="btn" onclick="checkFinanzasPin()" style="flex:1;margin-top:0">Entrar</button>
-      <button class="btn-s" onclick="$('fin-pin-modal').style.display='none'" style="padding:10px 14px">✕</button>
-    </div>
-  </div>
-</div>
 </body>
-</html
-<div class="view" id="v9">
-<div class="sec"><div class="sec-t">Inventario mensual</div>
-<div class="note">Registra el inventario físico el día 1 de cada mes.</div>
-<button type="button" class="btn-s" onclick="registrarInventario()" style="margin-bottom:10px">📋 Registrar inventario ahora</button>
-</div>
-  <div id="inv-content"><div class="empty">Cargando...</div></div>
-</div>
-
->
-<div class="view" id="v10">
-<div id="fin-tabs" class="hor-tabbar" style="margin-bottom:1.5rem">
-<button class="hor-maintab on" onclick="finTab(0)">Ventas</button>
-<button class="hor-maintab" onclick="finTab(1)">Nóminas</button>
-<button class="hor-maintab" onclick="finTab(2)">Gastos</button>
-<button class="hor-maintab" onclick="finTab(3)">P&amp;L</button>
-</div>
-
-<div id="fin-t0">
-<div class="sec"><div class="sec-t">Importar ventas Square</div>
-<div class="f"><label>Mes</label><input type="month" id="fin-ventas-mes"></div>
-<label style="display:block;margin-bottom:1rem">
-<input type="file" accept=".csv" style="display:none" onchange="importVentasCSV(this)">
-<span class="btn" style="display:block;margin-top:0;cursor:pointer;text-align:center">📊 Subir CSV de Square</span>
-</label>
-</div>
-<div class="sec"><div class="sec-t">Historial ventas</div><div id="fin-ventas-list"><div class="empty">Sin datos</div></div></div>
-</div>
-
-<div id="fin-t1" style="display:none">
-<div class="sec"><div class="sec-t">Registrar nóminas del mes</div>
-<div class="note" style="margin-bottom:1rem">Ingresá los totales del PDF de la gestoría (Listado Imputación de Costes).</div>
-<div class="f"><label>Mes</label><input type="month" id="nom-mes"></div>
-<div class="r2">
-<div class="f"><label>Total bruto (€)</label><input type="number" id="nom-bruto" step="0.01" placeholder="0.00" oninput="calcCostEmpresa()"></div>
-<div class="f"><label>SS Empresa (€)</label><input type="number" id="nom-ss" step="0.01" placeholder="0.00" oninput="calcCostEmpresa()"></div>
-</div>
-<div class="r2">
-<div class="f"><label>Coste empresa (€)</label><input type="number" id="nom-coste" step="0.01" placeholder="Auto: bruto + SS"></div>
-<div class="f"><label>IRPF retenido (€)</label><input type="number" id="nom-irpf" step="0.01" placeholder="0.00"></div>
-</div>
-<div class="f"><label>Nº empleados</label><input type="number" id="nom-emps" placeholder="0" min="1"></div>
-<button type="button" class="btn" onclick="saveNomina()">Guardar nóminas</button>
-<div id="nom-ok" class="ok" style="display:none">✓ Nóminas guardadas</div>
-</div>
-<div class="sec"><div class="sec-t">Historial nóminas</div><div id="fin-nominas-list"><div class="empty">Sin datos</div></div></div>
-</div>
-
-<div id="fin-t2" style="display:none">
-<div class="sec"><div class="sec-t">Nuevo gasto fijo</div>
-<div class="r2">
-<div class="f"><label>Mes</label><input type="month" id="gasto-mes"></div>
-<div class="f"><label>Categoría</label><select id="gasto-cat">
-<option value="alquiler">Alquiler</option>
-<option value="suministros">Suministros</option>
-<option value="seguros">Seguros</option>
-<option value="gestoría">Gestoría</option>
-<option value="marketing">Marketing</option>
-<option value="mantenimiento">Mantenimiento</option>
-<option value="otros">Otros</option>
-</select></div>
-</div>
-<div class="r2">
-<div class="f"><label>Concepto</label><input type="text" id="gasto-concepto" placeholder="Ej: Alquiler local"></div>
-<div class="f"><label>Importe (€)</label><input type="number" id="gasto-importe" step="0.01" placeholder="0.00"></div>
-</div>
-<div class="f"><label>Notas</label><textarea id="gasto-notas" placeholder="Opcional..."></textarea></div>
-<button type="button" class="btn" onclick="saveGasto()">Agregar gasto</button>
-<div id="gasto-ok" class="ok" style="display:none">✓ Gasto guardado</div>
-</div>
-<div class="sec"><div class="sec-t">Gastos por mes</div><div id="fin-gastos-list"><div class="empty">Sin datos</div></div></div>
-</div>
-
-<div id="fin-t3" style="display:none">
-<div class="sec"><div class="sec-t">Cuenta de resultados</div>
-<div class="f"><label>Mes</label><input type="month" id="pl-mes" onchange="renderPL()"></div>
-<div id="pl-content"><div class="empty">Seleccioná un mes para ver el P&L</div></div>
-</div>
-</div>
-</div>
+</html>
