@@ -1079,7 +1079,7 @@ async function _loadPDFJS(){
   window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
-// Extrae empleados y coste empresa (v7)
+// Extrae empleados y coste empresa (v8)
 async function _extractNominasData(file){
   await _loadPDFJS();
   const buf=await file.arrayBuffer();
@@ -1087,13 +1087,13 @@ async function _extractNominasData(file){
   const result=[];
   const dbg=[];
 
-  // Convierte importe español a float
   const parseAmt=s=>parseFloat(s.replace(/\./g,'').replace(',','.'));
-  // Valor monetario: dígitos con puntos de miles y coma decimal (ej: "3.077,43" o "921,75")
+  // Valor monetario tipo "3.077,43" o "921,75"
   const isCurr=s=>/^\d[\d.]*,\d{2}$/.test(s);
-  // Ítem de nombre: SOLO mayúsculas y espacios/guiones, sin dígitos ni minúsculas
-  // Esto excluye "Listado Imputación...", "N.I.F.", "B56791932", "Fecha", etc.
-  const isNm=it=>it.str.length>1&&/^[A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ\s\-]*$/.test(it.str)&&!/\d/.test(it.str);
+  // Palabras que no son nombres (currency, totals)
+  const notNm=new Set(['EUROS','TOTAL','TOTALES','NETO','BRUTO','HORAS','DIAS','PAGINA','FECHA']);
+  // Ítem de nombre: solo mayúsculas, sin dígitos, no en blacklist
+  const isNm=it=>it.str.length>1&&/^[A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ\s\-]*$/.test(it.str)&&!/\d/.test(it.str)&&!notNm.has(it.str.trim());
 
   for(let pi=1;pi<=pdf.numPages;pi++){
     const page=await pdf.getPage(pi);
@@ -1103,29 +1103,25 @@ async function _extractNominasData(file){
       .filter(it=>it.str.length>0);
     if(pi===1) dbg.push(`P1: ${raw.length} items`);
 
-    // Agrupar ítems monetarios por fila (y ±5px)
+    // Fila COSTE EMPRESA: fila con valores >100€ y mayor suma total
     const byY={};
     raw.filter(it=>isCurr(it.str)).forEach(it=>{
       const ky=Math.round(it.y/5)*5;
       if(!byY[ky])byY[ky]=[];
       byY[ky].push(it);
     });
-
-    // Fila COSTE EMPRESA: valores todos > 100€ Y la de MAYOR suma total
-    // Esto discrimina "30,00 días" de "3.077,43 coste empresa"
     const validRows=Object.entries(byY)
       .filter(([,items])=>items.length>=2&&items.every(it=>parseAmt(it.str)>100))
       .map(([y,items])=>({y:parseInt(y),items,sum:items.reduce((s,it)=>s+parseAmt(it.str),0)}))
       .sort((a,b)=>b.sum-a.sum);
-    if(!validRows.length){dbg.push(`P${pi}: sin fila de costes valida`);continue;}
-
+    if(!validRows.length){dbg.push(`P${pi}: sin fila de costes`);continue;}
     const costeRow=validRows[0];
     const costeY=costeRow.y;
     const costValues=costeRow.items.sort((a,b)=>a.x-b.x);
     const N=costValues.length;
-    if(pi===1) dbg.push(`costeY≈${costeY} N=${N} suma=${Math.round(costeRow.sum)} costes=[${costValues.map(c=>c.str).join(',')}]`);
+    if(pi===1) dbg.push(`costeY≈${costeY} N=${N} suma=${Math.round(costeRow.sum)}`);
 
-    // Agrupar ítems en filas, solo SOBRE la fila de coste
+    // Agrupar items en filas (y ±5px), solo SOBRE la fila de coste
     const rowMap=[];
     raw.filter(it=>it.y>costeY+3).forEach(it=>{
       const row=rowMap.find(r=>Math.abs(r.y-it.y)<=5);
@@ -1133,26 +1129,34 @@ async function _extractNominasData(file){
       else rowMap.push({y:it.y,items:[it]});
     });
     rowMap.forEach(r=>r.items.sort((a,b)=>a.x-b.x));
-    if(pi===1) dbg.push(`Filas sobre coste: ${rowMap.length}`);
 
-    // Debug primeras 6 filas con ítems de nombre
+    // CLAVE: filtrar solo filas SIN valores monetarios (filas de nombres, no de componentes de costo)
+    // Esto elimina "COTIZACION DESEMPLEO" que convive con valores numéricos en su fila,
+    // y permite que fullRow detecte exactamente N ítems de nombre por fila.
+    const nameRows=rowMap.filter(r=>!r.items.some(it=>isCurr(it.str)));
+    if(pi===1) dbg.push(`Filas sin moneda: ${nameRows.length} / ${rowMap.length}`);
+
+    // Debug primeras 5 filas con ítems de nombre
     if(pi===1){
-      rowMap.filter(r=>r.items.filter(isNm).length>0).slice(0,6).forEach(r=>{
+      nameRows.filter(r=>r.items.filter(isNm).length>0).slice(0,5).forEach(r=>{
         dbg.push(`  y=${r.y}(${r.items.filter(isNm).length}nm): ${r.items.filter(isNm).map(i=>'"'+i.str+'"@'+i.x).join(' ')}`);
       });
     }
 
-    // Fila de referencia: exactamente N ítems de nombre → define X de columnas
-    const fullRow=rowMap.find(r=>r.items.filter(isNm).length===N);
+    // Fila de referencia: exactamente N ítems de nombre
+    const fullRow=nameRows.find(r=>r.items.filter(isNm).length===N);
     if(!fullRow){
-      dbg.push(`P${pi}: sin fullRow N=${N}, usando midpoints costes`);
+      dbg.push(`P${pi}: sin fullRow N=${N}`);
+      // Fallback: midpoints de costValues (menos preciso)
       const midsF=[];
       for(let i=0;i<N-1;i++) midsF.push((costValues[i].x+costValues[i+1].x)/2);
       const colsF=costValues.map(cv=>({cost:parseAmt(cv.str),parts:[]}));
-      raw.filter(it=>it.y>costeY+3&&isNm(it)).forEach(it=>{
-        let ci=colsF.length-1;
-        for(let i=0;i<midsF.length;i++) if(it.x<midsF[i]){ci=i;break;}
-        colsF[ci].parts.push({str:it.str,y:it.y});
+      nameRows.forEach(r=>{
+        r.items.filter(isNm).forEach(it=>{
+          let ci=colsF.length-1;
+          for(let i=0;i<midsF.length;i++) if(it.x<midsF[i]){ci=i;break;}
+          colsF[ci].parts.push({str:it.str,y:r.y});
+        });
       });
       colsF.forEach(col=>{
         col.parts.sort((a,b)=>b.y-a.y);
@@ -1168,13 +1172,16 @@ async function _extractNominasData(file){
     const cols=colX.map((ax,i)=>({ax,cost:parseAmt(costValues[i].str),parts:[]}));
     const mids=[];
     for(let i=0;i<cols.length-1;i++) mids.push((cols[i].ax+cols[i+1].ax)/2);
+    if(pi===1) dbg.push(`colX=[${colX.join(',')}] mids=[${mids.map(m=>Math.round(m)).join(',')}]`);
 
-    rowMap.forEach(r=>{
+    nameRows.forEach(r=>{
       const ni=r.items.filter(isNm);
       if(!ni.length)return;
       if(ni.length===N){
+        // Fila completa: asignar por índice (100% preciso)
         ni.sort((a,b)=>a.x-b.x).forEach((it,i)=>cols[i].parts.push({str:it.str,y:r.y}));
       } else {
+        // Fila parcial: asignar por midpoints de colX (mismas X que los nombres)
         ni.forEach(it=>{
           let ci=cols.length-1;
           for(let i=0;i<mids.length;i++) if(it.x<mids[i]){ci=i;break;}
