@@ -1181,13 +1181,9 @@ async function _extractNominasData(file){
     });
   }
 
-  // Mostrar debug en status si hubo problemas
-  const st=document.getElementById('nom-pdf-status');
-  if(st){
-    const info=`DEBUG PDF:\n${dbg.join('\n')}`;
-    if(result.length===0) st.innerHTML='<pre style="font-size:10px;text-align:left;white-space:pre-wrap;max-height:300px;overflow:auto">'+info+'</pre>';
-    else console.log(info);
-  }
+  // Guardar debug en global (importNominasPDF lo mostrará si no hay resultados)
+  window._nomPDFDebug=`DEBUG PDF:\n${dbg.join('\n')}`;
+  console.log(window._nomPDFDebug);
   return result;
 }
 
@@ -1199,7 +1195,7 @@ async function importNominasPDF(input){
   st.style.display='block';st.textContent='⏳ Extrayendo datos del PDF...';
   try{
     const items=await _extractNominasData(file);
-    if(!items||!items.length){st.textContent='⚠ No se encontraron datos. Verificá el formato del PDF.';input.value='';return}
+    if(!items||!items.length){st.innerHTML='<pre style="font-size:10px;text-align:left;white-space:pre-wrap;max-height:280px;overflow:auto">⚠ No se encontraron datos.\n'+(window._nomPDFDebug||'')+'</pre>';input.value='';return}
     _nomPdfItems=items;_nomPdfMes=mes;
     renderNominasPreview(items,mes);
     st.style.display='none';
