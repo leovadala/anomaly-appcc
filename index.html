@@ -1079,7 +1079,7 @@ async function _loadPDFJS(){
   window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
-// Extrae empleados y coste empresa usando posiciones X/Y — sin GPT, sin ambigüedad
+// Extrae empleados y coste empresa usando posiciones X/Y — sin GPT
 async function _extractNominasData(file){
   await _loadPDFJS();
   const buf=await file.arrayBuffer();
@@ -1088,42 +1088,47 @@ async function _extractNominasData(file){
   for(let pi=1;pi<=pdf.numPages;pi++){
     const page=await pdf.getPage(pi);
     const content=await page.getTextContent();
-    // Todos los ítems con posición
     const items=content.items
       .map(it=>({str:it.str.trim(),x:it.transform[4],y:it.transform[5]}))
       .filter(it=>it.str.length>0);
-    // Buscar fila "COSTE EMPRESA"
-    const costeLabel=items.find(it=>/COSTE/i.test(it.str)&&/[A-Z]{3,}/.test(it.str));
-    if(!costeLabel)continue; // página de totales, la saltamos
-    const costeY=costeLabel.y,costeX=costeLabel.x;
-    // Valores numéricos en la misma fila, a la derecha del label
-    const costValues=items.filter(it=>
-      Math.abs(it.y-costeY)<=8&&it.x>costeX&&/^[\d.,]+$/.test(it.str)&&it.str.length>=4
-    ).sort((a,b)=>a.x-b.x);
+    // Fila COSTE EMPRESA: buscar ítem que contenga "COSTE"
+    const costeLabel=items.find(it=>/COSTE/i.test(it.str)&&/[A-Z]{3,}/i.test(it.str));
+    if(!costeLabel)continue;
+    const costeY=costeLabel.y;
+    // Valores numéricos en la fila COSTE EMPRESA (a la derecha del label)
+    const costValues=items
+      .filter(it=>Math.abs(it.y-costeY)<=8&&it.x>costeLabel.x+5&&/^[\d.,]+$/.test(it.str))
+      .sort((a,b)=>a.x-b.x);
     if(!costValues.length)continue;
-    // Ancho medio de columna (para asignar ítems de nombre)
-    let halfW=80;
-    if(costValues.length>1){
-      const spans=[];
-      for(let i=1;i<costValues.length;i++)spans.push(costValues[i].x-costValues[i-1].x);
-      halfW=spans.reduce((s,v)=>s+v,0)/spans.length/2;
-    }
-    // Preparar columnas
-    const cols=costValues.map(cv=>({x:cv.x,costStr:cv.str,nameItems:[]}));
-    // Asignar ítems de nombre a la columna más cercana
-    items.filter(it=>it.y>costeY+4).forEach(it=>{
-      if(/^\d+$/.test(it.str))return; // códigos de empleado tipo 000001
-      if(!/[A-ZÁÉÍÓÚÜÑ]/i.test(it.str))return; // solo texto con letras
-      let near=cols[0],minD=Math.abs(it.x-cols[0].x);
-      cols.forEach(c=>{const d=Math.abs(it.x-c.x);if(d<minD){minD=d;near=c;}});
-      if(minD<=halfW+10)near.nameItems.push({str:it.str,y:it.y});
+    // Códigos de empleado (6 dígitos, ej 000001) — definen el X de cada columna
+    // misma alineación que los nombres, a diferencia de los valores de coste
+    const empCodes=items
+      .filter(it=>it.y>costeY+10&&/^\d{5,6}$/.test(it.str))
+      .sort((a,b)=>a.x-b.x);
+    // Anclas X: usar códigos si coincide cantidad, si no usar valores de coste
+    const nCols=costValues.length;
+    const anchors=(empCodes.length===nCols)?empCodes.map(e=>e.x):costValues.map(v=>v.x);
+    // Construir columnas: ancla X + coste (por índice izq→der)
+    const cols=anchors.map((ax,i)=>({ax,cost:parseFloat(costValues[i].str.replace(/\./g,'').replace(',','.')),parts:[]}));
+    // Midpoints entre columnas → límites de asignación por rango
+    const mids=[];
+    for(let i=0;i<cols.length-1;i++)mids.push((cols[i].ax+cols[i+1].ax)/2);
+    // Asignar ítems de nombre a columna por rango (no por distancia)
+    items.filter(it=>
+      it.y>costeY+3&&
+      /[A-ZÁÉÍÓÚÜÑ]/i.test(it.str)&&
+      !/^\d+$/.test(it.str)&&
+      it.str.length>1
+    ).forEach(it=>{
+      let ci=cols.length-1;
+      for(let i=0;i<mids.length;i++){if(it.x<mids[i]){ci=i;break;}}
+      cols[ci].parts.push({str:it.str,y:it.y});
     });
-    // Construir resultado por columna
+    // Resultado: concatenar fragmentos de nombre top→bottom
     cols.forEach(col=>{
-      col.nameItems.sort((a,b)=>b.y-a.y); // top-to-bottom (y desc en PDF)
-      const name=col.nameItems.map(it=>it.str).join(' ').trim();
-      const cost=parseFloat(col.costStr.replace(/\./g,'').replace(',','.'));
-      if(name&&cost>0)result.push({empleado:name,coste_empresa:cost});
+      col.parts.sort((a,b)=>b.y-a.y);
+      const name=col.parts.map(p=>p.str).join(' ').trim();
+      if(name&&col.cost>0)result.push({empleado:name,coste_empresa:col.cost});
     });
   }
   return result;
