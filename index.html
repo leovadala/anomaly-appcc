@@ -1079,73 +1079,96 @@ async function _loadPDFJS(){
   window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
-// Extrae empleados y coste empresa — enfoque por FILAS
+// Extrae empleados y coste empresa (v5 — debug + permissive)
 async function _extractNominasData(file){
   await _loadPDFJS();
   const buf=await file.arrayBuffer();
   const pdf=await window.pdfjsLib.getDocument({data:buf}).promise;
   const result=[];
+  const dbg=[];
+
   for(let pi=1;pi<=pdf.numPages;pi++){
     const page=await pdf.getPage(pi);
     const content=await page.getTextContent();
     const raw=content.items
-      .map(it=>({str:it.str.trim(),x:it.transform[4],y:it.transform[5]}))
+      .map(it=>({str:it.str.trim(),x:Math.round(it.transform[4]),y:Math.round(it.transform[5])}))
       .filter(it=>it.str.length>0);
 
-    // Fila COSTE EMPRESA
-    const costeLabel=raw.find(it=>/COSTE/i.test(it.str)&&/[A-Z]{3,}/i.test(it.str));
-    if(!costeLabel)continue;
-    const costeY=costeLabel.y;
+    if(pi===1) dbg.push(`P1: ${raw.length} items totales`);
 
-    // Valores numéricos en fila COSTE EMPRESA
+    // Fila COSTE EMPRESA
+    const costeLabel=raw.find(it=>/COSTE/i.test(it.str));
+    if(!costeLabel){dbg.push('P'+pi+': sin COSTE');continue;}
+    const costeY=costeLabel.y;
+    if(pi===1) dbg.push(`costeLabel="${costeLabel.str}" y=${costeY}`);
+
+    // Valores numéricos en esa fila
     const costValues=raw
       .filter(it=>Math.abs(it.y-costeY)<=8&&it.x>costeLabel.x+5&&/^[\d.,]+$/.test(it.str))
       .sort((a,b)=>a.x-b.x);
-    if(!costValues.length)continue;
+    if(!costValues.length){dbg.push('P'+pi+': sin costValues');continue;}
     const N=costValues.length;
+    if(pi===1) dbg.push(`N=${N} costes=[${costValues.map(c=>c.str).join(',')}]`);
 
-    // Agrupar todos los items en filas (mismo y ±4px)
+    // Agrupar en filas (y ±5px), solo SOBRE costeY
     const rowMap=[];
-    raw.forEach(it=>{
-      const row=rowMap.find(r=>Math.abs(r.y-it.y)<=4);
+    raw.filter(it=>it.y>costeY+3).forEach(it=>{
+      const row=rowMap.find(r=>Math.abs(r.y-it.y)<=5);
       if(row)row.items.push(it);
       else rowMap.push({y:it.y,items:[it]});
     });
     rowMap.forEach(r=>r.items.sort((a,b)=>a.x-b.x));
+    if(pi===1) dbg.push(`Filas sobre coste: ${rowMap.length}`);
 
-    // Solo filas SOBRE COSTE EMPRESA
-    const aboveRows=rowMap.filter(r=>r.y>costeY+3);
+    // Ítem de nombre: tiene letras, no es número puro, no es símbolo
+    const isNm=it=>it.str.length>1&&/[A-Za-z]/.test(it.str)&&!/^[\d.,€%\-]+$/.test(it.str);
 
-    // Filtrar ítems de nombre en cada fila: sólo letras mayúsculas, sin dígitos puros
-    const nameItemOf=r=>r.items.filter(it=>/^[A-ZÁÉÍÓÚÜÑ]{2,}$/.test(it.str));
+    // Mostrar primeras 5 filas con ítems de nombre (debug)
+    if(pi===1){
+      const fdbg=rowMap.filter(r=>r.items.filter(isNm).length>0).slice(0,6);
+      fdbg.forEach(r=>dbg.push(`  y=${r.y}(${r.items.filter(isNm).length}nm): ${r.items.filter(isNm).map(i=>'"'+i.str+'"@'+i.x).join(' ')}`));
+    }
 
-    // Buscar una fila "completa" con exactamente N palabras de nombre → define X de columnas
-    const fullRow=aboveRows.find(r=>nameItemOf(r).length===N);
-    if(!fullRow)continue; // sin fila de referencia, saltar página
+    // Buscar fila de referencia con exactamente N ítems de nombre
+    const fullRow=rowMap.find(r=>r.items.filter(isNm).length===N);
+    if(!fullRow){
+      dbg.push(`P${pi}: sin fullRow (buscando N=${N}) - usando fallback x-costes`);
+      // Fallback: usar X de costValues como ancla (menos preciso)
+      const midsF=[];
+      for(let i=0;i<costValues.length-1;i++) midsF.push((costValues[i].x+costValues[i+1].x)/2);
+      const allNm=raw.filter(it=>it.y>costeY+3&&isNm(it));
+      const colsF=costValues.map((cv,i)=>({cost:parseFloat(cv.str.replace(/\./g,'').replace(',','.')),parts:[]}));
+      allNm.forEach(it=>{
+        let ci=colsF.length-1;
+        for(let i=0;i<midsF.length;i++) if(it.x<midsF[i]){ci=i;break;}
+        colsF[ci].parts.push({str:it.str,y:it.y});
+      });
+      colsF.forEach(col=>{
+        col.parts.sort((a,b)=>b.y-a.y);
+        const name=col.parts.map(p=>p.str).join(' ').trim();
+        if(name&&col.cost>0) result.push({empleado:name,coste_empresa:col.cost});
+      });
+      continue;
+    }
+    if(pi===1) dbg.push(`fullRow y=${fullRow.y}: ${fullRow.items.filter(isNm).map(i=>'"'+i.str+'"@'+i.x).join(' ')}`);
 
-    // X de cada columna según la fila de referencia (izq→der)
-    const colX=nameItemOf(fullRow).map(it=>it.x);
-    const cols=colX.map((ax,i)=>({
-      ax,
-      cost:parseFloat(costValues[i].str.replace(/\./g,'').replace(',','.')),
-      parts:[]
-    }));
-    // Midpoints para filas parciales
+    // X de cada columna desde la fila de referencia
+    const colX=fullRow.items.filter(isNm).sort((a,b)=>a.x-b.x).map(it=>it.x);
+    const cols=colX.map((ax,i)=>({ax,cost:parseFloat(costValues[i].str.replace(/\./g,'').replace(',','.')),parts:[]}));
     const mids=[];
-    for(let i=0;i<cols.length-1;i++)mids.push((cols[i].ax+cols[i+1].ax)/2);
+    for(let i=0;i<cols.length-1;i++) mids.push((cols[i].ax+cols[i+1].ax)/2);
 
-    // Recorrer todas las filas sobre COSTE EMPRESA
-    aboveRows.forEach(r=>{
-      const ni=nameItemOf(r);
-      if(!ni.length)return;
+    rowMap.forEach(r=>{
+      const ni=r.items.filter(isNm);
+      if(!ni.length) return;
       if(ni.length===N){
-        // Fila completa: asignar por índice (100% preciso)
+        // Fila completa: asignar por índice
         ni.sort((a,b)=>a.x-b.x).forEach((it,i)=>cols[i].parts.push({str:it.str,y:r.y}));
       } else {
         // Fila parcial: asignar por midpoints
         ni.forEach(it=>{
           let ci=cols.length-1;
-          for(let i=0;i<mids.length;i++)if(it.x<mids[i]){ci=i;break;}
+          for(let i=0;i<mids.length;i++) if(it.x<mids[i]){ci=i;break;}
           cols[ci].parts.push({str:it.str,y:r.y});
         });
       }
@@ -1154,8 +1177,16 @@ async function _extractNominasData(file){
     cols.forEach(col=>{
       col.parts.sort((a,b)=>b.y-a.y);
       const name=col.parts.map(p=>p.str).join(' ').trim();
-      if(name&&col.cost>0)result.push({empleado:name,coste_empresa:col.cost});
+      if(name&&col.cost>0) result.push({empleado:name,coste_empresa:col.cost});
     });
+  }
+
+  // Mostrar debug en status si hubo problemas
+  const st=document.getElementById('nom-pdf-status');
+  if(st){
+    const info=`DEBUG PDF:\n${dbg.join('\n')}`;
+    if(result.length===0) st.innerHTML='<pre style="font-size:10px;text-align:left;white-space:pre-wrap;max-height:300px;overflow:auto">'+info+'</pre>';
+    else console.log(info);
   }
   return result;
 }
