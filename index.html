@@ -1574,22 +1574,7 @@ h+='<div class="rp-f"><div>Responsable<br><br>_________________</div><div>Verifi
 h+='<div style="text-align:center;font-size:8px;color:#999;margin-top:1.5rem">ANOMALY Gelato & Specialty Coffee \u2014 Sistema APPCC \u2014 Generado: '+new Date().toLocaleString('es-ES')+'</div>';
 h+='</div>';$('rprev').innerHTML=h}
 
-function expPDF(){const p=document.querySelector('.rp');if(!p)return;const w=window.open('','_blank');w.document.write("<!DOCTYPE html><html><head><title>ANOMALY APPCC</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500');body{font-family:'DM Sans',sans-serif;padding:2rem;color:#1a1a1a;font-size:11px}h4{font-size:16px;font-weight:500;letter-spacing:2px;margin:0 0 2px}.rp-s{font-size:10px;color:#999;margin-bottom:1.5rem}.rp-sec{font-weight:500;font-size:11px;margin:1.5rem 0 .4rem;border-bottom:1px solid #1a1a1a;padding-bottom:3px;letter-spacing:1px;text-transform:uppercase}table{width:100%;border-collapse:collapse;margin-bottom:.8rem}th,td{padding:4px 6px;border:.5px solid #e0ddd6;text-align:left}th{font-weight:500;text-transform:uppercase;font-size:9px;color:#666}.rp-f{margin-top:3rem;display:flex;justify-content:space-between}.rp-f div{border-top:.5px solid #999;padding-top:6px;width:28%;text-align:center;font-size:10px}@media print{body{padding:1rem}}</style></head><body>"+p.innerHTML+"<script>window.onload=function(){window.print()}<\/script>
-<div id="fin-pin-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.65);z-index:2000;display:none;align-items:center;justify-content:center">
-  <div style="background:var(--surface);border:.5px solid var(--border);padding:2rem 1.5rem;width:280px;text-align:center">
-    <div style="font-size:10px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--hint);margin-bottom:1.5rem">Finanzas — Acceso restringido</div>
-    <input id="fin-pin-input" type="password" maxlength="4" inputmode="numeric" placeholder="••••"
-      style="font-family:var(--mono);font-size:28px;letter-spacing:12px;text-align:center;width:100%;border:none;border-bottom:.5px solid var(--border);outline:none;background:transparent;color:var(--black);padding:.5rem 0;margin-bottom:1.5rem"
-      onkeydown="if(event.key==='Enter')checkFinanzasPin()">
-    <div id="fin-pin-err" style="display:none;font-size:11px;color:#b33;margin-bottom:.8rem">PIN incorrecto</div>
-    <div style="display:flex;gap:8px">
-      <button class="btn" onclick="checkFinanzasPin()" style="flex:1;margin-top:0">Entrar</button>
-      <button class="btn-s" onclick="$('fin-pin-modal').style.display='none'" style="padding:10px 14px">✕</button>
-    </div>
-  </div>
-</div>
-
-</body></html>");w.document.close()}
+function expPDF(){const p=document.querySelector('.rp');if(!p)return;const w=window.open('','_blank');w.document.write("<!DOCTYPE html><html><head><title>ANOMALY APPCC</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500');body{font-family:'DM Sans',sans-serif;padding:2rem;color:#1a1a1a;font-size:11px}h4{font-size:16px;font-weight:500;letter-spacing:2px;margin:0 0 2px}.rp-s{font-size:10px;color:#999;margin-bottom:1.5rem}.rp-sec{font-weight:500;font-size:11px;margin:1.5rem 0 .4rem;border-bottom:1px solid #1a1a1a;padding-bottom:3px;letter-spacing:1px;text-transform:uppercase}table{width:100%;border-collapse:collapse;margin-bottom:.8rem}th,td{padding:4px 6px;border:.5px solid #e0ddd6;text-align:left}th{font-weight:500;text-transform:uppercase;font-size:9px;color:#666}.rp-f{margin-top:3rem;display:flex;justify-content:space-between}.rp-f div{border-top:.5px solid #999;padding-top:6px;width:28%;text-align:center;font-size:10px}@media print{body{padding:1rem}}</style></head><body>"+p.innerHTML+"<script>window.onload=function(){window.print()}<\/script></body></html>");w.document.close()}
 
 // ─── HORARIOS MODULE (Supabase) ───────────────────────────────────────────────
 
@@ -2442,6 +2427,20 @@ function applyAllEgOcr(){
   setTimeout(()=>{$('ocr-modal').style.display='none';window._ocrMode=null},600);
 }
 </script>
+
+<div id="fin-pin-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.65);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:.5px solid var(--border);padding:2rem 1.5rem;width:280px;text-align:center">
+    <div style="font-size:10px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--hint);margin-bottom:1.5rem">Finanzas — Acceso restringido</div>
+    <input id="fin-pin-input" type="password" maxlength="4" inputmode="numeric" placeholder="••••"
+      style="font-family:var(--mono);font-size:28px;letter-spacing:12px;text-align:center;width:100%;border:none;border-bottom:.5px solid var(--border);outline:none;background:transparent;color:var(--black);padding:.5rem 0;margin-bottom:1.5rem"
+      onkeydown="if(event.key==='Enter')checkFinanzasPin()">
+    <div id="fin-pin-err" style="display:none;font-size:11px;color:#b33;margin-bottom:.8rem">PIN incorrecto</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="checkFinanzasPin()" style="flex:1;margin-top:0">Entrar</button>
+      <button class="btn-s" onclick="$('fin-pin-modal').style.display='none'" style="padding:10px 14px">✕</button>
+    </div>
+  </div>
+</div>
 </body>
 </html
 <div class="view" id="v9">
