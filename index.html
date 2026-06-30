@@ -1658,22 +1658,61 @@ function ocrSetTemp(i,mode){
   renderOcrLineas();
 }
 
+function _ocrCatMap(){
+  // Build name->category map from existing stock
+  const map={};
+  S.forEach(s=>{if(s.producto&&s.categoria&&CONTEO_CATS.includes(s.categoria)){
+    map[s.producto.trim().toLowerCase()]=s.categoria;
+  }});
+  return map;
+}
+function ocrAutoCategoria(i){
+  if(!window._ocrAlbaran)return;
+  const l=window._ocrAlbaran.lineas[i];
+  const map=_ocrCatMap();
+  const key=(l.descripcion||'').trim().toLowerCase();
+  if(key&&map[key]&&!l._catManual){l.categoria=map[key];l._catAuto=true;}
+  renderOcrLineas();
+}
+function ocrSetCat(i,val){
+  if(!window._ocrAlbaran)return;
+  const l=window._ocrAlbaran.lineas[i];
+  l.categoria=val||null;l._catManual=!!val;l._catAuto=false;
+  renderOcrLineas();
+}
 function renderOcrLineas(){
   const el=$('ocr-lineas-tabla');if(!el)return;
   const ls=window._ocrAlbaran?window._ocrAlbaran.lineas:[];
   if(!ls.length){el.innerHTML='<div class="empty" style="margin:0 0 8px">Sin líneas. Agregá una manualmente.</div>';
     const btn=$('ocr-confirm-btn');if(btn)btn.textContent='✓ Confirmar recepción';return;}
+  // Auto-categorize lines that haven't been manually set
+  const catMap=_ocrCatMap();
+  ls.forEach(l=>{
+    if(!l._catManual&&!l._catAuto&&l.descripcion){
+      const key=l.descripcion.trim().toLowerCase();
+      if(catMap[key]){l.categoria=catMap[key];l._catAuto=true;}
+    }
+  });
   const bSt=(a)=>`padding:7px 4px;flex:1;border:1px solid ${a?'var(--black)':'var(--border)'};background:${a?'var(--black)':'transparent'};color:${a?'#fff':'var(--muted)'};font-size:10px;cursor:pointer`;
+  const catOpts=`<option value="">— Sin categoría —</option>`+CONTEO_CATS.map(c=>`<option value="${c}">${c}</option>`).join('');
   const cards=ls.map((l,i)=>{
     const frio=!!l.requiere_frio;
     const temp=l.temperatura!=null?l.temperatura:null;
     const mode=!frio?'amb':(temp!==null&&temp<0?'neg':'pos');
+    const catHtml=l._catAuto
+      ?`<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:#eaf6ea;border-radius:4px;font-size:11px;color:#27ae60">
+          🏷 ${l.categoria}
+          <button type="button" onclick="ocrSetCat(${i},'')" style="background:none;border:none;cursor:pointer;color:#888;font-size:11px;padding:0;line-height:1" title="Cambiar">✏</button>
+        </div>`
+      :`<select onchange="ocrSetCat(${i},this.value)" style="width:100%;border:none;background:transparent;border-bottom:1px solid ${l.categoria?'var(--black)':'#e67e22'};font-size:12px;padding:3px 0;color:${l.categoria?'var(--text)':'#e67e22'}">
+          ${catOpts.replace(`value="${l.categoria||''}"`,`value="${l.categoria||''}" selected`)}
+        </select>`;
     return `<div style="border:1px solid var(--border);background:var(--white,#fff);padding:12px 14px;margin-bottom:10px">
       <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px">
         <input style="flex:1;font-size:13px;font-weight:600;border:none;background:transparent;border-bottom:1.5px solid var(--border);padding-bottom:4px;color:var(--text)"
           value="${(l.descripcion||'').replace(/"/g,'&quot;')}"
           placeholder="Nombre del producto"
-          oninput="window._ocrAlbaran.lineas[${i}].descripcion=this.value">
+          oninput="window._ocrAlbaran.lineas[${i}].descripcion=this.value;window._ocrAlbaran.lineas[${i}]._catAuto=false;window._ocrAlbaran.lineas[${i}]._catManual=false;ocrAutoCategoria(${i})">
         <button type="button" onclick="ocrDelLinea(${i})" style="background:none;border:none;color:#c00;cursor:pointer;font-size:17px;flex-shrink:0;padding:0 2px">✕</button>
       </div>
       <div style="margin-bottom:10px">
@@ -1684,17 +1723,19 @@ function renderOcrLineas(){
           <button type="button" onclick="ocrSetTemp(${i},'amb')" style="${bSt(mode==='amb')}">○ Ambiente</button>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div class="f"><label style="font-size:9px">Lote</label><input style="width:100%;border:none;background:transparent;border-bottom:1px solid var(--border);font-size:12px" value="${(l.lote||'').replace(/"/g,'&quot;')}" oninput="window._ocrAlbaran.lineas[${i}].lote=this.value"></div>
         <div class="f"><label style="font-size:9px">Vencimiento</label><input type="date" style="width:100%;border:none;background:transparent;border-bottom:1px solid var(--border);font-size:12px" value="${l.vencimiento||''}" onchange="window._ocrAlbaran.lineas[${i}].vencimiento=this.value"></div>
         <div class="f"><label style="font-size:9px">Uds / Cantidad</label><input type="number" style="width:100%;border:none;background:transparent;border-bottom:1px solid var(--border);font-size:12px" value="${l.unidades!=null?l.unidades:''}" oninput="window._ocrAlbaran.lineas[${i}].unidades=parseInt(this.value)||null"></div>
         <div class="f"><label style="font-size:9px">Importe (€)</label><input type="number" step="0.01" style="width:100%;border:none;background:transparent;border-bottom:1px solid var(--border);font-size:12px" value="${l.importe!=null?l.importe:''}" oninput="window._ocrAlbaran.lineas[${i}].importe=parseFloat(this.value)||null"></div>
       </div>
+      <div class="f"><label style="font-size:9px;color:${l.categoria?'var(--muted)':'#e67e22'}">Categoría${l.categoria?'':' ⚠ sin asignar'}</label>${catHtml}</div>
     </div>`;
   }).join('');
   el.innerHTML=cards;
+  const sinCat=ls.filter(l=>!l.categoria).length;
   const btn=$('ocr-confirm-btn');
-  if(btn)btn.textContent=`✓ Confirmar recepción (${ls.length} producto${ls.length!==1?'s':''})`;
+  if(btn)btn.textContent=`✓ Confirmar recepción (${ls.length} producto${ls.length!==1?'s':''}${sinCat?' · '+sinCat+' sin categoría':''})`;
 }
 
 function ocrDelLinea(i){
@@ -1732,7 +1773,7 @@ async function saveAlbaranRecepcion(){
   if(albErr){alert('Error guardando albarán: '+albErr.message);return}
   const albId=albData[0].id;
   // 2. Insert recepciones (una por línea)
-  const recRows=data.lineas.map(l=>({albaran_id:albId,proveedor:provNombre,producto:l.descripcion||'Sin descripción',lote:l.lote||'S/L',vencimiento:l.vencimiento||null,cantidad:l.unidades!=null?String(l.unidades)+(l.kg?' ('+l.kg+'kg)':''):null,precio_unitario:l.precio_unitario||null,importe:l.importe||null,ref_proveedor:l.ref||null,temperatura:temp,requiere_frio:l.requiere_frio||false,nro_albaran:data.cabecera.num_albaran,fecha:data.cabecera.fecha,hora:new Date().toTimeString().slice(0,5),observaciones:obs,estado:'activo'}));
+  const recRows=data.lineas.map(l=>({albaran_id:albId,proveedor:provNombre,producto:l.descripcion||'Sin descripción',lote:l.lote||'S/L',vencimiento:l.vencimiento||null,cantidad:l.unidades!=null?String(l.unidades)+(l.kg?' ('+l.kg+'kg)':''):null,precio_unitario:l.precio_unitario||null,importe:l.importe||null,ref_proveedor:l.ref||null,temperatura:temp,requiere_frio:l.requiere_frio||false,nro_albaran:data.cabecera.num_albaran,fecha:data.cabecera.fecha,hora:new Date().toTimeString().slice(0,5),observaciones:obs,estado:'activo',categoria:l.categoria||null}));
   const{error:recErr}=await sb.from('recepciones').insert(recRows);
   if(recErr){alert('Error guardando recepciones: '+recErr.message);return}
   // 3. Upsert proveedor_productos (catálogo)
@@ -1744,7 +1785,7 @@ async function saveAlbaranRecepcion(){
   }
   // 4. Recargar datos
   const{data:freshRecs}=await sb.from('recepciones').select('*').eq('albaran_id',albId);
-  if(freshRecs)freshRecs.forEach(r=>S.push({id:r.id,producto:r.producto,lote:r.lote,temp:r.temperatura,proveedor:r.proveedor||'',vencimiento:r.vencimiento||'',frio:r.requiere_frio,cantidad:r.cantidad||'',obs:r.observaciones||'',albaran:r.nro_albaran||'',fecha:r.fecha,hora:(r.hora||'').slice(0,5),estado:'activo',fecha_salida:'',motivo_salida:'',precio_unitario:r.precio_unitario||null,importe:r.importe||null}));
+  if(freshRecs)freshRecs.forEach(r=>S.push({id:r.id,producto:r.producto,lote:r.lote,temp:r.temperatura,proveedor:r.proveedor||'',vencimiento:r.vencimiento||'',frio:r.requiere_frio,cantidad:r.cantidad||'',obs:r.observaciones||'',albaran:r.nro_albaran||'',fecha:r.fecha,hora:(r.hora||'').slice(0,5),estado:'activo',fecha_salida:'',motivo_salida:'',precio_unitario:r.precio_unitario||null,importe:r.importe||null,categoria:r.categoria||null}));
   AB.push({id:albId,...albRow});
   if(provId){const{data:ppData}=await sb.from('proveedor_productos').select('*').eq('proveedor_id',provId);if(ppData){PP=PP.filter(p=>p.proveedor_id!==provId);ppData.forEach(p=>PP.push({id:p.id,proveedor_id:p.proveedor_id,ref:p.ref||'',descripcion:p.descripcion,ultimo_precio:p.ultimo_precio,ultima_fecha:p.ultima_fecha}));}}
   rRH();rS();rPL();
