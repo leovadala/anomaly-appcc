@@ -2889,20 +2889,29 @@ function setConteoTab(tab){
 
 function renderConteoProductos(tab){
   const el=$('conteo-productos-list');if(!el)return;
-  const seen=new Set();const prods=[];
-  S.forEach(s=>{
-    const cat=mapConteoCategoria(s.categoria||s.producto);
-    if(cat===tab&&s.producto&&!seen.has(s.producto)){seen.add(s.producto);prods.push(s.producto);}
-  });
-  prods.sort((a,b)=>a.localeCompare(b,'es'));
+  let prods=[];
+  if(tab==='Helado'){
+    if(typeof sabores!=='undefined'&&sabores.length){
+      prods=sabores.filter(s=>s.activo!==false).map(s=>s.nombre).sort((a,b)=>a.localeCompare(b,'es'));
+    }
+  }else{
+    const seen=new Set();
+    S.forEach(s=>{
+      const cat=mapConteoCategoria(s.categoria||'');
+      if(cat===tab&&s.producto&&!seen.has(s.producto)){seen.add(s.producto);prods.push(s.producto);}
+    });
+    prods.sort((a,b)=>a.localeCompare(b,'es'));
+  }
   const defaultCont=CONTEO_CONT_DEFAULT[tab]||'libre';
-  let html=prods.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border,#eee)">
+  const empty=tab==='Helado'?'Sin sabores activos':'Sin productos recibidos en esta categoría';
+  let html=prods.length?prods.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border,#eee)">
     <span style="font-size:13px">${p}</span>
-    <button type="button" class="btn-s" onclick="abrirPesar('${p.replace(/'/g,"\\'").replace(/"/g,'&quot;')}','${tab}','${defaultCont}')">Pesar →</button>
-  </div>`).join('');
+    <button type="button" class="btn-s" onclick="abrirPesar('${p.replace(/'/g,"\\'")}','${tab}','${defaultCont}')">Pesar \u2192</button>
+  </div>`).join(''):`<div class="empty" style="padding:16px 0">${empty}</div>`;
   html+=`<button type="button" class="btn-s" onclick="abrirPesarLibre('${tab}','${defaultCont}')" style="margin-top:14px;width:100%;text-align:center">+ Agregar producto libre</button>`;
   el.innerHTML=html;
 }
+
 
 function abrirPesar(nombre,categoria,defaultCont){
   _pesarProd={nombre,categoria};
