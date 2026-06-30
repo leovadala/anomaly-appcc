@@ -681,6 +681,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div class="sec-t">Estadísticas por proveedor</div>
 <div id="dash-proveedores"></div>
 </div>
+<div class="sec">
+<div class="sec-t">Coste por empleado <span id="dash-nom-mes-lbl" style="font-weight:400;font-size:10px;color:var(--muted)"></span></div>
+<div id="dash-nominas-emps"><div class="empty">Sin datos de nóminas</div></div>
+</div>
 </div>
 
 <!-- V8: EGRESOS -->
@@ -747,8 +751,16 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 </div>
 
 <div id="fin-t1" style="display:none">
-<div class="sec"><div class="sec-t">Registrar nóminas del mes</div>
-<div class="note" style="margin-bottom:1rem">Ingresá los totales del PDF de la gestoría (Listado Imputación de Costes).</div>
+<div class="sec"><div class="sec-t">📄 Importar PDF del asesor</div>
+<div class="note" style="margin-bottom:.8rem">Subí el "Listado de Imputación de Costes" que manda la gestoría. La IA extrae automáticamente el coste por empleado.</div>
+<div class="f"><label>Mes</label><input type="month" id="nom-pdf-mes"></div>
+<input type="file" id="nom-pdf-input" accept=".pdf" style="display:none" onchange="importNominasPDF(this)">
+<button type="button" class="btn" style="display:block;width:100%;text-align:center;margin-bottom:.5rem" onclick="if(!$('nom-pdf-mes').value){alert('Seleccioná el mes primero');return}if(!OPENAI_KEY){alert('Configurá tu clave OpenAI en Configuración → Local → OpenAI API Key');return}$('nom-pdf-input').click()">📄 Subir PDF del asesor</button>
+<div id="nom-pdf-status" style="display:none;font-size:11px;color:var(--muted);text-align:center;padding:.5rem"></div>
+<div id="nom-pdf-preview"></div>
+</div>
+<div class="sec"><div class="sec-t">Registrar manualmente</div>
+<div class="note" style="margin-bottom:.8rem;font-size:11px">Opción alternativa si no usás la importación por PDF.</div>
 <div class="f"><label>Mes</label><input type="month" id="nom-mes"></div>
 <div class="r2">
 <div class="f"><label>Total bruto (€)</label><input type="number" id="nom-bruto" step="0.01" placeholder="0.00" oninput="calcCostEmpresa()"></div>
@@ -943,7 +955,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 // ===== FINANZAS =====
-let _finTabIdx=0,_VentasMes=[],_NominasMes=[],_GastosFijos=[];
+let _finTabIdx=0,_VentasMes=[],_NominasMes=[],_GastosFijos=[],_NominasDetalle=[];
+let _nomPdfItems=[],_nomPdfMes='';
 
 function finTab(n){
   _finTabIdx=n;
@@ -956,12 +969,13 @@ function finTab(n){
 }
 
 async function initFinanzas(){
-  const[vR,nR,gR]=await Promise.all([
+  const[vR,nR,gR,dR]=await Promise.all([
     sb.from('ventas_mes').select('*').order('mes',{ascending:false}),
     sb.from('nominas_mes').select('*').order('mes',{ascending:false}),
-    sb.from('gastos_fijos').select('*').order('mes',{ascending:false})
+    sb.from('gastos_fijos').select('*').order('mes',{ascending:false}),
+    sb.from('nominas_detalle').select('*').order('coste_empresa',{ascending:false})
   ]);
-  _VentasMes=vR.data||[];_NominasMes=nR.data||[];_GastosFijos=gR.data||[];
+  _VentasMes=vR.data||[];_NominasMes=nR.data||[];_GastosFijos=gR.data||[];_NominasDetalle=dR.data||[];
   finTab(_finTabIdx);
 }
 
@@ -1021,8 +1035,13 @@ async function importVentasCSV(input){
 function renderNominasList(){
   const el=$('fin-nominas-list');if(!el)return;
   if(!_NominasMes.length){el.innerHTML='<div class="empty">Sin nóminas registradas.</div>';return}
-  el.innerHTML=_NominasMes.map(n=>`
-    <div class="card">
+  el.innerHTML=_NominasMes.map(n=>{
+    const detalle=_NominasDetalle.filter(d=>d.mes&&d.mes.substring(0,7)===n.mes.substring(0,7));
+    const detalleHTML=detalle.length?`<div style="margin-top:8px;border-top:.5px solid var(--border);padding-top:6px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px">Desglose por empleado</div>
+      ${detalle.map(d=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0"><span style="color:var(--muted);flex:1;margin-right:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.empleado}</span><span style="font-family:var(--mono);flex-shrink:0">${(d.coste_empresa||0).toFixed(2)} €</span></div>`).join('')}
+    </div>`:'';
+    return`<div class="card">
       <div class="card-top"><span class="card-nm">${_fmtMes(n.mes)}</span><span style="font-size:13px;font-weight:500;color:#2d6a2d">${(n.coste_empresa||0).toFixed(2)} €</span></div>
       <div class="card-row">
         <div><div class="card-l">Bruto</div><div class="card-v">${(n.total_bruto||0).toFixed(2)} €</div></div>
@@ -1030,8 +1049,111 @@ function renderNominasList(){
         <div><div class="card-l">IRPF</div><div class="card-v">${n.irpf?(n.irpf.toFixed(2)+' €'):'—'}</div></div>
         <div><div class="card-l">Empleados</div><div class="card-v">${n.num_empleados||'—'}</div></div>
       </div>
+      ${detalleHTML}
       <button class="btn-d" onclick="delNomina('${n.id}')" style="margin-top:6px;font-size:10px">Eliminar</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+// — PDF NOMINAS IMPORT —
+async function _loadPDFJS(){
+  if(window.pdfjsLib)return;
+  await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s)});
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+async function _extractPDFText(file){
+  await _loadPDFJS();
+  const buf=await file.arrayBuffer();
+  const pdf=await window.pdfjsLib.getDocument({data:buf}).promise;
+  let text='';
+  for(let i=1;i<=pdf.numPages;i++){
+    const page=await pdf.getPage(i);
+    const content=await page.getTextContent();
+    text+=`\n--- PÁGINA ${i} ---\n`+content.items.map(item=>item.str).join(' ');
+  }
+  return text;
+}
+
+async function _parseNominasGPT(text){
+  if(!OPENAI_KEY){alert('Configurá la clave OpenAI en Configuración → Local → OpenAI API Key');return null}
+  const prompt=`Eres un extractor de datos de nóminas españolas. Del siguiente texto extraído de un PDF "Listado de Imputación de Costes", extrae el nombre completo de cada empleado y su "COSTE EMPRESA".\n\nREGLAS:\n- Solo empleados individuales. Ignora filas de totales como "TOTAL WORDCREAM", "TOTAL EMPRESA" o similares.\n- Formato numérico español: 1.234,56 = 1234.56\n- Los nombres de empleados aparecen en el encabezado de cada columna, a veces en varias líneas. Concaténalos.\n- Responde ÚNICAMENTE con un JSON array, sin texto extra ni markdown.\n\nFormato: [{"empleado":"APELLIDOS NOMBRE","coste_empresa":1234.56},...]\n\nTEXTO DEL PDF:\n${text}`;
+  const resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'user',content:prompt}],temperature:0})});
+  if(!resp.ok){const e=await resp.json();alert('Error GPT-4: '+(e.error?.message||resp.status));return null}
+  const json=await resp.json();
+  const raw=(json.choices[0].message.content||'').trim();
+  try{return JSON.parse(raw)}catch(e){const m=raw.match(/\[[\s\S]*\]/);if(m)try{return JSON.parse(m[0])}catch(e2){}alert('No se pudo parsear la respuesta: '+raw.substring(0,200));return null}
+}
+
+async function importNominasPDF(input){
+  const file=input.files[0];if(!file)return;
+  const mes=$('nom-pdf-mes').value;
+  if(!mes){alert('Seleccioná el mes primero');input.value='';return}
+  const st=$('nom-pdf-status');
+  st.style.display='block';st.textContent='⏳ Extrayendo texto del PDF...';
+  try{
+    const text=await _extractPDFText(file);
+    st.textContent='⏳ Analizando con IA...';
+    const items=await _parseNominasGPT(text);
+    if(!items||!items.length){st.textContent='⚠ No se encontraron datos. Verificá el PDF.';input.value='';return}
+    _nomPdfItems=items;_nomPdfMes=mes;
+    renderNominasPreview(items,mes);
+    st.style.display='none';
+  }catch(e){st.textContent='⚠ Error: '+e.message;console.error(e)}
+  input.value='';
+}
+
+function renderNominasPreview(items,mes){
+  const el=$('nom-pdf-preview');if(!el)return;
+  const total=items.reduce((s,r)=>s+(parseFloat(r.coste_empresa)||0),0);
+  el.innerHTML=`<div style="border:.5px solid var(--border);border-radius:6px;padding:1rem;margin-top:.5rem">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;font-weight:500;margin-bottom:.4rem">Vista previa — ${_fmtMes(mes+'-01')}</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:.6rem">Revisá y editá antes de confirmar.</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:.5rem">
+      <tr style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)"><th style="text-align:left;padding:5px 2px">Empleado</th><th style="text-align:right;padding:5px 2px;min-width:80px">Coste (€)</th><th style="width:24px"></th></tr>
+      ${items.map((r,i)=>`<tr style="border-top:.5px solid var(--border)">
+        <td style="padding:4px 2px"><input type="text" value="${(r.empleado||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}" style="border:none;background:transparent;font-size:11px;width:100%;font-family:var(--font)" onchange="_nomPdfItems[${i}].empleado=this.value"></td>
+        <td style="padding:4px 2px;text-align:right"><input type="number" step="0.01" value="${(parseFloat(r.coste_empresa)||0).toFixed(2)}" style="border:none;background:transparent;font-size:11px;width:75px;text-align:right;font-family:var(--mono)" onchange="_nomPdfItems[${i}].coste_empresa=parseFloat(this.value)||0;_updNomTotal()"></td>
+        <td style="padding:2px;text-align:center"><button type="button" onclick="_nomPdfItems.splice(${i},1);renderNominasPreview(_nomPdfItems,_nomPdfMes)" style="border:none;background:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0">×</button></td>
+      </tr>`).join('')}
+    </table>
+    <div style="display:flex;justify-content:space-between;padding:6px 2px;border-top:2px solid var(--black);font-weight:500;margin-bottom:.8rem">
+      <span style="font-size:12px">Total (${items.length} empleados)</span>
+      <span id="nom-pdf-total" style="font-family:var(--mono);font-size:13px">${total.toFixed(2)} €</span>
+    </div>
+    <div style="display:flex;gap:.5rem">
+      <button type="button" class="btn" onclick="saveNominasDetalle()" style="flex:1">✓ Confirmar y guardar</button>
+      <button type="button" class="btn-d" onclick="$('nom-pdf-preview').innerHTML=''" style="padding:10px 14px">Cancelar</button>
+    </div>
+  </div>`;
+}
+
+function _updNomTotal(){
+  const t=_nomPdfItems.reduce((s,r)=>s+(parseFloat(r.coste_empresa)||0),0);
+  const el=$('nom-pdf-total');if(el)el.textContent=t.toFixed(2)+' €';
+}
+
+async function saveNominasDetalle(){
+  if(!_nomPdfItems.length){alert('Sin datos');return}
+  if(!_nomPdfMes){alert('Sin mes seleccionado');return}
+  const mes=_nomPdfMes+'-01';
+  const rows=_nomPdfItems.map(r=>({mes,empleado:(r.empleado||'').trim(),coste_empresa:parseFloat(r.coste_empresa)||0})).filter(r=>r.empleado&&r.coste_empresa>0);
+  if(!rows.length){alert('Sin filas válidas');return}
+  const total=rows.reduce((s,r)=>s+r.coste_empresa,0);
+  await sb.from('nominas_detalle').delete().eq('mes',mes);
+  const{error:e1}=await sb.from('nominas_detalle').insert(rows);
+  if(e1){alert('Error guardando detalle: '+e1.message);return}
+  const{error:e2}=await sb.from('nominas_mes').upsert({mes,coste_empresa:total,num_empleados:rows.length},{onConflict:'mes'});
+  if(e2){alert('Error actualizando total: '+e2.message);return}
+  const[nd,nm]=await Promise.all([
+    sb.from('nominas_detalle').select('*').order('coste_empresa',{ascending:false}),
+    sb.from('nominas_mes').select('*').order('mes',{ascending:false})
+  ]);
+  _NominasDetalle=nd.data||[];_NominasMes=nm.data||[];
+  renderNominasList();
+  $('nom-pdf-preview').innerHTML='';
+  _nomPdfItems=[];_nomPdfMes='';
+  $('nom-ok').style.display='block';setTimeout(()=>$('nom-ok').style.display='none',2500);
 }
 
 function calcCostEmpresa(){
@@ -1202,7 +1324,7 @@ async function loadAll(){
 }
 loadAll();
 
-function renderDashboard(){
+async function renderDashboard(){
   const all=[...S,...SH];
   // Summary cards
   const cadCount=SH.filter(r=>r.estado==='caducado').length;
@@ -1241,6 +1363,23 @@ function renderDashboard(){
   const provRanked=Object.entries(byProv).sort(([,a],[,b])=>b.total-a.total);
   if(!provRanked.length){$('dash-proveedores').innerHTML='<div class="empty">Sin datos de proveedores</div>'}
   else{$('dash-proveedores').innerHTML='<table style="width:100%;font-size:11px;border-collapse:collapse"><tr style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted,#999)"><th style="text-align:left;padding:6px 4px">Proveedor</th><th style="text-align:center;padding:6px 4px">Total</th><th style="text-align:center;padding:6px 4px;color:#27ae60">Cons.</th><th style="text-align:center;padding:6px 4px;color:#e74c3c">Cad.</th><th style="text-align:center;padding:6px 4px">Desperd.</th></tr>'+provRanked.map(([p,d])=>`<tr style="border-top:1px solid var(--border,#eee)"><td style="padding:6px 4px">${p}</td><td style="text-align:center;padding:6px 4px">${d.total}</td><td style="text-align:center;padding:6px 4px;color:#27ae60">${d.cons}</td><td style="text-align:center;padding:6px 4px;color:#e74c3c">${d.cad}</td><td style="text-align:center;padding:6px 4px">${d.total?Math.round((d.cad/d.total)*100)+'%':'—'}</td></tr>`).join('')+'</table>'}
+
+  // Coste por empleado (latest month from DB)
+  _renderDashNominas();
+}
+
+async function _renderDashNominas(){
+  const elEmp=$('dash-nominas-emps'),elLbl=$('dash-nom-mes-lbl');
+  if(!elEmp)return;
+  const{data:latestMes}=await sb.from('nominas_detalle').select('mes').order('mes',{ascending:false}).limit(1);
+  if(!latestMes||!latestMes.length){elEmp.innerHTML='<div class="empty">Sin datos de nóminas aún</div>';return}
+  const mes=latestMes[0].mes;
+  const{data:rows}=await sb.from('nominas_detalle').select('empleado,coste_empresa').eq('mes',mes).order('coste_empresa',{ascending:false});
+  if(!rows||!rows.length){elEmp.innerHTML='<div class="empty">Sin datos</div>';return}
+  if(elLbl)elLbl.textContent='('+_fmtMes(mes)+')';
+  const max=rows[0].coste_empresa||1;
+  const total=rows.reduce((s,r)=>s+(r.coste_empresa||0),0);
+  elEmp.innerHTML=rows.map(r=>`<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="flex:1;margin-right:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.empleado}</span><span style="font-family:var(--mono);color:var(--muted);flex-shrink:0">${(r.coste_empresa||0).toFixed(2)} €</span></div><div style="background:var(--border,#eee);border-radius:4px;height:6px"><div style="background:#2d6a2d;height:6px;border-radius:4px;width:${Math.round(((r.coste_empresa||0)/max)*100)}%"></div></div></div>`).join('')+`<div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border,#eee);font-size:12px;font-weight:500"><span>Total</span><span style="font-family:var(--mono)">${total.toFixed(2)} €</span></div>`;
 }
 
 $('ppi').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addTag()}});
