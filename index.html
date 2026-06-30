@@ -266,7 +266,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div class="view" id="v1">
 <div style="display:flex;gap:10px;margin-bottom:1.2rem">
   <button type="button" class="btn" onclick="openNewRecModal()" style="flex:1;font-size:12px">+ Nueva recepción</button>
-  <button type="button" class="btn-d" onclick="openOcrModal()" style="flex:1;font-size:12px">📷 Escanear albarán</button>
+  <button type="button" class="btn" onclick="openOcrModal()" style="flex:1;font-size:12px">📷 Escanear albarán</button>
 </div>
 <div class="sec"><div class="sec-t">Recepciones recientes</div><div id="rli"></div></div>
 <div class="sec"><div class="sec-t">Historial de recepciones</div><div id="rhist"></div></div>
@@ -423,6 +423,35 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 
 </div><!-- /v5 -->
 
+
+
+<!-- Nuevo Egreso modal -->
+<div class="ocr-modal" id="new-egreso-modal" style="display:none" onclick="closeNewEgresoModal(event)">
+  <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:12px 12px 0 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4rem">
+      <span id="eg-modal-title" style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Nuevo egreso</span>
+      <button type="button" onclick="closeNewEgresoModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0">✕</button>
+    </div>
+    <div class="r2"><div class="f"><label>Fecha</label><input type="date" id="eg-fecha"></div><div class="f"><label>Importe (€)</label><input type="number" id="eg-importe" step="0.01" min="0" placeholder="0.00"></div></div>
+    <div class="f"><label>Proveedor / emisor</label><input id="eg-prov" placeholder="Ej: Mercadona, Telefónica..."></div>
+    <div class="f"><label>Concepto</label><input id="eg-concepto" placeholder="Descripción del gasto"></div>
+    <div class="r2">
+      <div class="f"><label>Categoría</label><select id="eg-cat"><option value="Suministros">Suministros</option><option value="Servicios">Servicios</option><option value="Alquiler">Alquiler</option><option value="Personal">Personal</option><option value="Mantenimiento">Mantenimiento</option><option value="Impuestos">Impuestos</option><option value="Otros">Otros</option></select></div>
+      <div class="f"><label>Nº Factura / Ticket</label><input id="eg-nfact" placeholder="Nº factura"></div>
+    </div>
+    <div class="f"><label>Foto del comprobante</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="file" id="eg-foto-input" accept="image/*" capture="environment" style="display:none" onchange="previewEgFoto(event)">
+        <button type="button" class="btn-d" onclick="$('eg-foto-input').click()" style="font-size:10px;padding:6px 10px;letter-spacing:1px">📎 Adjuntar foto</button>
+        <span id="eg-foto-name" style="font-size:11px;color:var(--muted)">Sin foto</span>
+      </div>
+      <img id="eg-foto-preview" style="display:none;max-height:100px;margin-top:8px;border:.5px solid var(--border)" alt="preview">
+    </div>
+    <div class="f"><label>Notas</label><input id="eg-notas" placeholder="Observaciones..."></div>
+    <button type="button" class="btn" onclick="saveEgreso()" style="width:100%;margin-top:.5rem">Registrar egreso</button>
+    <button type="button" class="btn-d" id="btn-eg-cancel" onclick="cancelEgreso()" style="display:none;margin-top:8px;width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
+  </div>
+</div>
 
 <!-- Nueva Recepción modal -->
 <div class="ocr-modal" id="new-rec-modal" style="display:none" onclick="closeNewRecModal(event)">
@@ -609,15 +638,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div id="eg-quick-btns" style="display:flex;flex-wrap:wrap;gap:8px"></div>
 </div>
 
-<div class="sec"><div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">Nuevo egreso <button type="button" class="btn-d" onclick="openEgrOcr()" style="font-size:10px;padding:5px 10px;letter-spacing:1px">📷 Escanear factura</button></div>
-<div class="r2"><div class="f"><label>Fecha</label><input type="date" id="eg-fecha"></div><div class="f"><label>Importe (€)</label><input type="number" id="eg-importe" step="0.01" min="0" placeholder="0.00"></div></div>
-<div class="f"><label>Proveedor / emisor</label><input id="eg-prov" placeholder="Ej: Mercadona, Telefónica..."></div>
-<div class="f"><label>Concepto</label><input id="eg-concepto" placeholder="Descripción del gasto"></div>
-<div class="r2"><div class="f"><label>Categoría</label><select id="eg-cat"><option value="Suministros">Suministros</option><option value="Servicios">Servicios</option><option value="Alquiler">Alquiler</option><option value="Personal">Personal</option><option value="Mantenimiento">Mantenimiento</option><option value="Impuestos">Impuestos</option><option value="Otros">Otros</option></select></div><div class="f"><label>Nº Factura / Ticket</label><input id="eg-nfact" placeholder="Nº factura"></div></div>
-<div class="f"><label>Foto del comprobante</label><div style="display:flex;gap:8px;align-items:center"><input type="file" id="eg-foto-input" accept="image/*" capture="environment" style="display:none" onchange="previewEgFoto(event)"><button type="button" class="btn-d" onclick="$('eg-foto-input').click()" style="font-size:10px;padding:6px 10px;letter-spacing:1px">📎 Adjuntar foto</button><span id="eg-foto-name" style="font-size:11px;color:var(--muted)">Sin foto</span></div><img id="eg-foto-preview" style="display:none;max-height:100px;margin-top:8px;border:.5px solid var(--border)" alt="preview"></div>
-<div class="f"><label>Notas</label><input id="eg-notas" placeholder="Observaciones..."></div>
-<button type="button" class="btn" onclick="saveEgreso()">Registrar egreso</button>
-<button type="button" class="btn-d" id="btn-eg-cancel" onclick="cancelEgreso()" style="display:none;margin-top:8px;width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
+<div style="display:flex;gap:10px;margin-bottom:1.2rem">
+  <button type="button" class="btn" onclick="openNewEgresoModal()" style="flex:1;font-size:12px">+ Nuevo egreso</button>
+  <button type="button" class="btn" onclick="openEgrOcr()" style="flex:1;font-size:12px">📷 Escanear factura</button>
 </div>
 
 <div class="sec"><div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">Egresos <div style="display:flex;gap:6px;align-items:center"><select id="eg-filter-mes" onchange="renderEgresos()" style="font-size:11px;padding:4px 6px;border:.5px solid var(--border);background:transparent"></select><span id="eg-total-mes" style="font-size:11px;font-weight:500"></span></div></div>
@@ -2766,6 +2789,7 @@ async function saveEgreso(){
     const{data}=await sb.from('egresos').insert(row).select();
     if(data&&data[0])Egresos.unshift(data[0]);
     resetEgForm();
+    $('new-egreso-modal').style.display='none';
   }
   buildEgMesFiltro();
   renderEgresos();
@@ -2794,13 +2818,15 @@ function editEgreso(idx){
   if(e.foto_url){$('eg-foto-preview').src=e.foto_url;$('eg-foto-preview').style.display='block'}
   egFotoFile=null;
   $('btn-eg-cancel').style.display='block';
-  window.scrollTo({top:0,behavior:'smooth'});
+  $('eg-modal-title').textContent='Editar egreso';
+  $('new-egreso-modal').style.display='flex';
 }
 
 function cancelEgreso(){
   editingEgIdx=null;
   resetEgForm();
   $('btn-eg-cancel').style.display='none';
+  $('new-egreso-modal').style.display='none';
 }
 
 async function deleteEgreso(idx){
@@ -2813,6 +2839,20 @@ async function deleteEgreso(idx){
 }
 
 // Reusar OCR de recepciones para facturas de egresos
+
+function openNewEgresoModal(title){
+  editingEgIdx=null;
+  resetEgForm();
+  $('eg-modal-title').textContent=title||'Nuevo egreso';
+  $('btn-eg-cancel').style.display='none';
+  $('new-egreso-modal').style.display='flex';
+  setTimeout(()=>{const el=$('eg-importe');if(el)el.focus();},100);
+}
+function closeNewEgresoModal(e){
+  if(!e||e.target===$('new-egreso-modal')){
+    $('new-egreso-modal').style.display='none';
+  }
+}
 function openEgrOcr(){
   $('ocr-modal').style.display='flex';
   $('ocr-preview').style.display='none';
