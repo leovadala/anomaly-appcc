@@ -416,6 +416,40 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 
 
 
+<!-- Nuevo integrante modal -->
+<div class="ocr-modal" id="new-team-modal" style="display:none" onclick="closeTeamModal(event)">
+  <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:12px 12px 0 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4rem">
+      <span id="team-modal-title" style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Nuevo integrante</span>
+      <button type="button" onclick="closeTeamModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0">✕</button>
+    </div>
+    <div class="r3"><div class="f" style="grid-column:1/3"><label>Nombre completo</label><input id="cfg-name" placeholder="Ej: Sofía García"></div><div class="f"><label>PIN (4 dígitos)</label><input id="cfg-pin" type="password" maxlength="4" inputmode="numeric" placeholder="••••" style="font-family:var(--mono);letter-spacing:4px;text-align:center"></div></div>
+    <div class="r2"><div class="f"><label>Horas contrato / semana</label><input id="cfg-horas" type="number" min="0" max="40" step="1" placeholder="Ej: 20"></div><div class="f"><label>Tipo contrato</label><select id="cfg-tipo"><option value="parcial">Parcial</option><option value="completa">Jornada completa</option></select></div></div>
+    <button type="button" class="btn" id="btn-team" onclick="addTeam()" style="width:100%;margin-top:.5rem">Agregar integrante</button>
+    <button type="button" class="btn-d" id="btn-team-cancel" onclick="cancelEditTeam()" style="display:none;margin-top:8px;width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
+  </div>
+</div>
+
+<!-- Nuevo sabor modal -->
+<div class="ocr-modal" id="new-sabor-modal" style="display:none" onclick="closeSaborModal(event)">
+  <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:12px 12px 0 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4rem">
+      <span id="sabor-modal-title" style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Nuevo sabor</span>
+      <button type="button" onclick="closeSaborModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0">✕</button>
+    </div>
+    <div class="r2"><div class="f"><label>Nombre</label><input id="sab-name" placeholder="Ej: Vainilla"></div><div class="f"><label>Código (3 letras)</label><input id="sab-code" maxlength="3" placeholder="VAI" style="text-transform:uppercase;font-family:var(--mono)"></div></div>
+    <div class="r2"><div class="f"><label>Peso teórico (kg/batch)</label><input id="sab-peso" type="number" min="0" step="0.1" placeholder="Ej: 5.5"></div></div>
+    <div id="sab-ingr-section" style="margin-top:10px;padding:10px;background:var(--surface,#f5f3ee);border-radius:8px">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Ingredientes de la receta</div>
+      <div class="note" style="margin-bottom:8px">Define los productos del stock que se usan en este sabor.</div>
+      <div class="r2"><div class="f"><label>Nombre del producto</label><input id="sab-ingr-input" placeholder="Ej: Azúcar blanquilla 25kg" onkeydown="if(event.key==='Enter'){addSabIngr();event.preventDefault()}"></div><div class="f" style="display:flex;align-items:flex-end"><button type="button" class="btn-s" onclick="addSabIngr()">+ Agregar</button></div></div>
+      <div id="sab-ingr-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:24px"></div>
+    </div>
+    <button type="button" class="btn" id="btn-sab" onclick="saveSabor()" style="width:100%;margin-top:1rem">Agregar sabor</button>
+    <button type="button" class="btn-d" id="btn-sab-cancel" onclick="cancelEditSabor()" style="display:none;margin-top:8px;width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
+  </div>
+</div>
+
 <!-- Nuevo Proveedor modal -->
 <div class="ocr-modal" id="new-prov-modal" style="display:none" onclick="closeNewProvModal(event)">
   <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:12px 12px 0 0">
@@ -584,13 +618,27 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 
 <!-- V6: CONFIG (was v5) -->
 <div class="view" id="v6">
-<div class="sec"><div class="sec-t">Equipo de trabajo</div>
-<div class="r3"><div class="f" style="grid-column:1/3"><label>Nombre del integrante</label><input id="cfg-name" placeholder="Nombre completo"></div><div class="f"><label>PIN (4 dígitos)</label><input id="cfg-pin" type="password" maxlength="4" inputmode="numeric" placeholder="••••" style="font-family:var(--mono);letter-spacing:4px;text-align:center"></div></div>
-<div class="r2"><div class="f"><label>Horas contrato / semana</label><input id="cfg-horas" type="number" min="0" max="40" step="1" placeholder="Ej: 20"></div><div class="f"><label>Tipo contrato</label><select id="cfg-tipo"><option value="parcial">Parcial</option><option value="completa">Jornada completa</option></select></div></div>
-<button type="button" class="btn-s" onclick="addTeam()" id="btn-team" style="margin-bottom:10px">Agregar integrante</button>
-<button type="button" class="btn-d" id="btn-team-cancel" onclick="cancelEditTeam()" style="display:none;margin-bottom:10px;margin-left:8px;padding:6px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar</button>
-<div id="team-list"></div>
+<!-- Tab bar -->
+<div class="hor-tabbar" style="margin-bottom:1.2rem">
+  <button class="hor-maintab on" id="cfg-tab-equipo"   onclick="cfgTab('equipo')">Equipo</button>
+  <button class="hor-maintab"    id="cfg-tab-sabores"  onclick="cfgTab('sabores')">Sabores</button>
+  <button class="hor-maintab"    id="cfg-tab-local"    onclick="cfgTab('local')">Local</button>
 </div>
+
+<!-- Equipo -->
+<div id="cfg-panel-equipo">
+  <button type="button" class="btn" onclick="openTeamModal()" style="width:100%;margin-bottom:1.2rem;font-size:12px">+ Nuevo integrante</button>
+  <div id="team-list"></div>
+</div>
+
+<!-- Sabores -->
+<div id="cfg-panel-sabores" style="display:none">
+  <button type="button" class="btn" onclick="openSaborModal()" style="width:100%;margin-bottom:1.2rem;font-size:12px">+ Nuevo sabor</button>
+  <div id="sabor-list"></div>
+</div>
+
+<!-- Local -->
+<div id="cfg-panel-local" style="display:none">
 <div class="sec"><div class="sec-t">Datos del local</div>
 <div class="f"><label>Nombre del establecimiento</label><input value="ANOMALY Gelato & Specialty Coffee" readonly></div>
 <div class="f"><label>Dirección</label><input id="cfg-dir" placeholder="Dirección del local"></div>
@@ -607,18 +655,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div class="note" id="pin-fin-err" style="display:none;color:#b33;margin-top:4px">PIN actual incorrecto</div>
 </div>
 </div>
-<div class="sec"><div class="sec-t" id="sabor-sec-t">Sabores</div>
-<div class="r2"><div class="f"><label>Nombre</label><input id="sab-name" placeholder="Ej: Vainilla"></div><div class="f"><label>Código (3 letras)</label><input id="sab-code" maxlength="3" placeholder="VAI" style="text-transform:uppercase;font-family:var(--mono)"></div></div>
-<div class="r2"><div class="f"><label>Peso teórico (kg/batch)</label><input id="sab-peso" type="number" min="0" step="0.1" placeholder="Ej: 5.5"></div><div class="f" style="display:flex;align-items:flex-end"><button type="button" class="btn-s" id="btn-sab" onclick="saveSabor()">Agregar</button></div></div>
-<button type="button" class="btn-d" id="btn-sab-cancel" onclick="cancelEditSabor()" style="display:none;margin-bottom:10px;padding:6px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
-<div id="sab-ingr-section" style="margin-top:10px;padding:10px;background:var(--surface,#f5f3ee);border-radius:8px">
-<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Ingredientes de la receta</div>
-<div class="note" style="margin-bottom:8px">Define los productos del stock que se usan en este sabor. Filtrará la lista en producción.</div>
-<div class="r2"><div class="f"><label>Nombre del producto</label><input id="sab-ingr-input" placeholder="Ej: Azúcar blanquilla 25kg" onkeydown="if(event.key==='Enter'){addSabIngr();event.preventDefault()}"></div><div class="f" style="display:flex;align-items:flex-end"><button type="button" class="btn-s" onclick="addSabIngr()">+ Agregar</button></div></div>
-<div id="sab-ingr-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:24px"></div>
 </div>
-<div id="sabor-list"></div>
-</div>
+
 </div>
 
 <!-- V7: DASHBOARD -->
@@ -1224,10 +1262,41 @@ function enterApp(){const v=$('ob-user').value;if(!v){alert('Seleccion\u00e1 un 
 function logout(){currentUser='';$('main').style.display='none';$('onboard').style.display='flex';$('ob-user').value='';window.scrollTo(0,0)}
 function renderTeamSelect(){$('ob-user').innerHTML='<option value="">Seleccionar...</option>'+team.map(n=>`<option>${n.nombre}</option>`).join('')}
 
-async function addTeam(){const n=$('cfg-name').value.trim(),p=$('cfg-pin').value.trim(),h=parseInt($('cfg-horas').value)||0,tp=$('cfg-tipo').value;if(!n){alert('Nombre requerido');return}if(p&&!/^\d{4}$/.test(p)){alert('PIN debe ser 4 dígitos');return}if(editingTeamIdx!==null){const id=team[editingTeamIdx].id;const row={nombre:n,horas_contrato:h||null,tipo_contrato:tp};if(p)row.pin=p;const{error}=await sb.from('team').update(row).eq('id',id);if(error){alert('Error: '+error.message);return}team[editingTeamIdx].nombre=n;if(p)team[editingTeamIdx].pin=p;team[editingTeamIdx].horas_contrato=h;team[editingTeamIdx].tipo_contrato=tp;cancelEditTeam()}else{const{data}=await sb.from('team').insert({nombre:n,pin:p||null,horas_contrato:h||null,tipo_contrato:tp}).select();if(data&&data[0])team.push({id:data[0].id,nombre:n,pin:p||'',horas_contrato:h,tipo_contrato:tp});$('cfg-name').value='';$('cfg-pin').value='';$('cfg-horas').value='';$('cfg-tipo').value='parcial'}renderTeam();renderTeamSelect()}
+async 
+function cfgTab(tab){
+  ['equipo','sabores','local'].forEach(t=>{
+    $('cfg-panel-'+t).style.display=t===tab?'block':'none';
+    const btn=$('cfg-tab-'+t);if(btn)btn.classList.toggle('on',t===tab);
+  });
+}
+function openTeamModal(title){
+  $('team-modal-title').textContent=title||'Nuevo integrante';
+  $('btn-team').textContent='Agregar integrante';
+  $('btn-team-cancel').style.display='none';
+  $('cfg-name').value='';$('cfg-pin').value='';$('cfg-pin').placeholder='••••';
+  $('cfg-horas').value='';$('cfg-tipo').value='parcial';
+  $('new-team-modal').style.display='flex';
+  setTimeout(()=>$('cfg-name').focus(),100);
+}
+function closeTeamModal(e){
+  if(!e||e.target===$('new-team-modal'))$('new-team-modal').style.display='none';
+}
+function openSaborModal(title){
+  $('sabor-modal-title').textContent=title||'Nuevo sabor';
+  $('btn-sab').textContent='Agregar sabor';
+  $('btn-sab-cancel').style.display='none';
+  $('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';
+  currentSabIngr=[];renderSabIngrList();
+  $('new-sabor-modal').style.display='flex';
+  setTimeout(()=>$('sab-name').focus(),100);
+}
+function closeSaborModal(e){
+  if(!e||e.target===$('new-sabor-modal'))$('new-sabor-modal').style.display='none';
+}
+async function addTeam(){const n=$('cfg-name').value.trim(),p=$('cfg-pin').value.trim(),h=parseInt($('cfg-horas').value)||0,tp=$('cfg-tipo').value;if(!n){alert('Nombre requerido');return}if(p&&!/^\d{4}$/.test(p)){alert('PIN debe ser 4 dígitos');return}if(editingTeamIdx!==null){const id=team[editingTeamIdx].id;const row={nombre:n,horas_contrato:h||null,tipo_contrato:tp};if(p)row.pin=p;const{error}=await sb.from('team').update(row).eq('id',id);if(error){alert('Error: '+error.message);return}team[editingTeamIdx].nombre=n;if(p)team[editingTeamIdx].pin=p;team[editingTeamIdx].horas_contrato=h;team[editingTeamIdx].tipo_contrato=tp;cancelEditTeam()}else{const{data}=await sb.from('team').insert({nombre:n,pin:p||null,horas_contrato:h||null,tipo_contrato:tp}).select();if(data&&data[0])team.push({id:data[0].id,nombre:n,pin:p||'',horas_contrato:h,tipo_contrato:tp});$('cfg-name').value='';$('cfg-pin').value='';$('cfg-horas').value='';$('cfg-tipo').value='parcial';$('new-team-modal').style.display='none';}renderTeam();renderTeamSelect()}
 async function rmTeam(i){if(!confirm('¿Eliminar a '+team[i].nombre+'?'))return;await sb.from('team').delete().eq('id',team[i].id);team.splice(i,1);renderTeam();renderTeamSelect()}
-function editTeam(i){editingTeamIdx=i;$('cfg-name').value=team[i].nombre;$('cfg-pin').value='';$('cfg-pin').placeholder='Nuevo PIN (dejar vacío = no cambiar)';$('cfg-horas').value=team[i].horas_contrato||'';$('cfg-tipo').value=team[i].tipo_contrato||'parcial';$('btn-team').textContent='Actualizar';$('btn-team-cancel').style.display='inline-block';$('cfg-name').focus()}
-function cancelEditTeam(){editingTeamIdx=null;$('cfg-name').value='';$('cfg-pin').value='';$('cfg-pin').placeholder='••••';$('cfg-horas').value='';$('cfg-tipo').value='parcial';$('btn-team').textContent='Agregar integrante';$('btn-team-cancel').style.display='none'}
+function editTeam(i){editingTeamIdx=i;$('cfg-name').value=team[i].nombre;$('cfg-pin').value='';$('cfg-pin').placeholder='Nuevo PIN (dejar vacío = no cambiar)';$('cfg-horas').value=team[i].horas_contrato||'';$('cfg-tipo').value=team[i].tipo_contrato||'parcial';$('btn-team').textContent='Actualizar';$('btn-team-cancel').style.display='block';$('team-modal-title').textContent='Editar integrante';$('new-team-modal').style.display='flex';setTimeout(()=>$('cfg-name').focus(),100);}
+function cancelEditTeam(){editingTeamIdx=null;$('cfg-name').value='';$('cfg-pin').value='';$('cfg-pin').placeholder='••••';$('cfg-horas').value='';$('cfg-tipo').value='parcial';$('btn-team').textContent='Agregar integrante';$('btn-team-cancel').style.display='none';$('new-team-modal').style.display='none';}
 function renderTeam(){$('team-list').innerHTML=team.length?team.map((n,i)=>`<div class="team-item"><span>${n.nombre}${n.pin?' <span style="font-size:10px;color:var(--hint);font-family:var(--mono)">PIN ✓</span>':' <span style="font-size:10px;color:#b00;font-family:var(--mono)">Sin PIN</span>'} ${n.horas_contrato?'<span style="font-size:10px;color:var(--muted);font-family:var(--mono)">· '+n.horas_contrato+'h/sem</span>':''}</span><div style="display:flex;gap:6px"><button type="button" class="btn-d" onclick="editTeam(${i})">Editar</button><button type="button" class="btn-d" onclick="rmTeam(${i})">Eliminar</button></div></div>`).join(''):'<div class="empty">Sin integrantes</div>'}
 
 
@@ -2014,11 +2083,11 @@ function renderSaborSelect(){const sel=$('ap');sel.innerHTML='<option value="">S
 
 function renderSabores(){const e=$('sabor-list');if(!sabores.length){e.innerHTML='<div class="empty">Sin sabores</div>';return}e.innerHTML=sabores.map((s,i)=>`<div class="sab-item"><div class="sab-info"><span class="${s.activo?'':'sab-inactive'}">${s.nombre}</span><span class="sab-code">${s.codigo.toUpperCase()}</span>${s.peso_teorico?'<span style="font-size:10px;color:var(--muted);font-family:var(--mono)"> · '+s.peso_teorico+' kg/batch</span>':''}${s.ingredientes&&s.ingredientes.length?'<span style="font-size:10px;color:var(--muted)"> · '+s.ingredientes.length+' ing.</span>':''}</div><div class="sab-actions"><label class="toggle"><input type="checkbox" ${s.activo?'checked':''} onchange="toggleSabor(${i})"><span class="slider"></span></label><button type="button" class="btn-d" onclick="editSabor(${i})">Editar</button><button type="button" class="btn-d" onclick="rmSabor(${i})">Eliminar</button></div></div>`).join('')}
 
-async function saveSabor(){const n=$('sab-name').value.trim().toUpperCase(),c=$('sab-code').value.trim().toUpperCase(),pt=parseFloat($('sab-peso').value)||null;if(!n||!c||c.length!==3){alert('Nombre y código de 3 letras requeridos');return}if(editingSaborIdx!==null){const id=sabores[editingSaborIdx].id;const{error}=await sb.from('sabores').update({nombre:n,codigo:c,peso_teorico:pt,ingredientes:currentSabIngr}).eq('id',id);if(error){alert('Error: '+error.message);return}sabores[editingSaborIdx].nombre=n;sabores[editingSaborIdx].codigo=c;sabores[editingSaborIdx].peso_teorico=pt;sabores[editingSaborIdx].ingredientes=[...currentSabIngr];cancelEditSabor()}else{const dup=sabores.find(s=>s.codigo===c);if(dup){alert('Ya existe un sabor con código '+c);return}const{data,error}=await sb.from('sabores').insert({nombre:n,codigo:c,peso_teorico:pt,ingredientes:currentSabIngr}).select();if(error){alert('Error: '+error.message);return}if(data&&data[0])sabores.push({id:data[0].id,nombre:n,codigo:c,activo:true,peso_teorico:pt,ingredientes:[...currentSabIngr]});$('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';currentSabIngr=[];renderSabIngrList()}renderSabores();renderSaborSelect()}
+async function saveSabor(){const n=$('sab-name').value.trim().toUpperCase(),c=$('sab-code').value.trim().toUpperCase(),pt=parseFloat($('sab-peso').value)||null;if(!n||!c||c.length!==3){alert('Nombre y código de 3 letras requeridos');return}if(editingSaborIdx!==null){const id=sabores[editingSaborIdx].id;const{error}=await sb.from('sabores').update({nombre:n,codigo:c,peso_teorico:pt,ingredientes:currentSabIngr}).eq('id',id);if(error){alert('Error: '+error.message);return}sabores[editingSaborIdx].nombre=n;sabores[editingSaborIdx].codigo=c;sabores[editingSaborIdx].peso_teorico=pt;sabores[editingSaborIdx].ingredientes=[...currentSabIngr];cancelEditSabor()}else{const dup=sabores.find(s=>s.codigo===c);if(dup){alert('Ya existe un sabor con código '+c);return}const{data,error}=await sb.from('sabores').insert({nombre:n,codigo:c,peso_teorico:pt,ingredientes:currentSabIngr}).select();if(error){alert('Error: '+error.message);return}if(data&&data[0])sabores.push({id:data[0].id,nombre:n,codigo:c,activo:true,peso_teorico:pt,ingredientes:[...currentSabIngr]});$('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';currentSabIngr=[];renderSabIngrList();$('new-sabor-modal').style.display='none';}renderSabores();renderSaborSelect()}
 
-function editSabor(i){editingSaborIdx=i;$('sab-name').value=sabores[i].nombre;$('sab-code').value=sabores[i].codigo;$('sab-peso').value=sabores[i].peso_teorico||'';currentSabIngr=[...(sabores[i].ingredientes||[])];renderSabIngrList();$('sab-ingr-section').style.display='block';$('btn-sab').textContent='Actualizar';$('btn-sab-cancel').style.display='inline-block';$('sabor-sec-t').textContent='Editar sabor';$('sab-name').focus()}
+function editSabor(i){editingSaborIdx=i;$('sab-name').value=sabores[i].nombre;$('sab-code').value=sabores[i].codigo;$('sab-peso').value=sabores[i].peso_teorico||'';currentSabIngr=[...(sabores[i].ingredientes||[])];renderSabIngrList();$('sab-ingr-section').style.display='block';$('btn-sab').textContent='Actualizar sabor';$('btn-sab-cancel').style.display='block';$('sabor-modal-title').textContent='Editar sabor';$('new-sabor-modal').style.display='flex';setTimeout(()=>$('sab-name').focus(),100);}
 
-function cancelEditSabor(){editingSaborIdx=null;$('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';currentSabIngr=[];renderSabIngrList();$('btn-sab').textContent='Agregar';$('btn-sab-cancel').style.display='none';$('sabor-sec-t').textContent='Sabores'}
+function cancelEditSabor(){editingSaborIdx=null;$('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';currentSabIngr=[];renderSabIngrList();$('btn-sab').textContent='Agregar sabor';$('btn-sab-cancel').style.display='none';$('new-sabor-modal').style.display='none';}
 
 async function toggleSabor(i){const nv=!sabores[i].activo;const{error}=await sb.from('sabores').update({activo:nv}).eq('id',sabores[i].id);if(error){alert('Error: '+error.message);return}sabores[i].activo=nv;renderSabores();renderSaborSelect()}
 
