@@ -450,6 +450,27 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   </div>
 </div>
 
+<!-- Registrar nómina modal -->
+<div class="ocr-modal" id="new-nomina-modal" style="display:none" onclick="closeNominaModal(event)">
+  <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:12px 12px 0 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4rem">
+      <span style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Registrar nóminas</span>
+      <button type="button" onclick="closeNominaModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0">✕</button>
+    </div>
+    <div class="f"><label>Mes</label><input type="month" id="nom-mes"></div>
+    <div class="r2">
+      <div class="f"><label>Total bruto (€)</label><input type="number" id="nom-bruto" step="0.01" placeholder="0.00" oninput="calcCostEmpresa()"></div>
+      <div class="f"><label>SS Empresa (€)</label><input type="number" id="nom-ss" step="0.01" placeholder="0.00" oninput="calcCostEmpresa()"></div>
+    </div>
+    <div class="r2">
+      <div class="f"><label>Coste empresa (€)</label><input type="number" id="nom-coste" step="0.01" placeholder="Auto: bruto + SS"></div>
+      <div class="f"><label>IRPF retenido (€)</label><input type="number" id="nom-irpf" step="0.01" placeholder="0.00"></div>
+    </div>
+    <div class="f"><label>Nº empleados</label><input type="number" id="nom-emps" placeholder="0" min="1"></div>
+    <button type="button" class="btn" onclick="saveNomina()" style="width:100%;margin-top:.5rem">Guardar nóminas</button>
+  </div>
+</div>
+
 <!-- Nuevo Proveedor modal -->
 <div class="ocr-modal" id="new-prov-modal" style="display:none" onclick="closeNewProvModal(event)">
   <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:12px 12px 0 0">
@@ -759,21 +780,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div id="nom-pdf-status" style="display:none;font-size:11px;color:var(--muted);text-align:center;padding:.5rem"></div>
 <div id="nom-pdf-preview"></div>
 </div>
-<div class="sec"><div class="sec-t">Registrar manualmente</div>
-<div class="note" style="margin-bottom:.8rem;font-size:11px">Opción alternativa si no usás la importación por PDF.</div>
-<div class="f"><label>Mes</label><input type="month" id="nom-mes"></div>
-<div class="r2">
-<div class="f"><label>Total bruto (€)</label><input type="number" id="nom-bruto" step="0.01" placeholder="0.00" oninput="calcCostEmpresa()"></div>
-<div class="f"><label>SS Empresa (€)</label><input type="number" id="nom-ss" step="0.01" placeholder="0.00" oninput="calcCostEmpresa()"></div>
-</div>
-<div class="r2">
-<div class="f"><label>Coste empresa (€)</label><input type="number" id="nom-coste" step="0.01" placeholder="Auto: bruto + SS"></div>
-<div class="f"><label>IRPF retenido (€)</label><input type="number" id="nom-irpf" step="0.01" placeholder="0.00"></div>
-</div>
-<div class="f"><label>Nº empleados</label><input type="number" id="nom-emps" placeholder="0" min="1"></div>
-<button type="button" class="btn" onclick="saveNomina()">Guardar nóminas</button>
+<button type="button" class="btn-d" style="width:100%;text-align:center;margin-bottom:.5rem;padding:10px;font-size:10px;letter-spacing:1px;text-transform:uppercase" onclick="openNominaModal()">+ Registrar manualmente</button>
 <div id="nom-ok" class="ok" style="display:none">✓ Nóminas guardadas</div>
-</div>
 <div class="sec"><div class="sec-t">Historial nóminas</div><div id="fin-nominas-list"><div class="empty">Sin datos</div></div></div>
 </div>
 
@@ -1055,6 +1063,15 @@ function renderNominasList(){
   }).join('');
 }
 
+// — NOMINAS MODAL —
+function openNominaModal(){
+  $('new-nomina-modal').style.display='flex';
+  setTimeout(()=>{const el=$('nom-mes');if(el)el.focus()},100);
+}
+function closeNominaModal(e){
+  if(!e||e.target===$('new-nomina-modal'))$('new-nomina-modal').style.display='none';
+}
+
 // — PDF NOMINAS IMPORT —
 async function _loadPDFJS(){
   if(window.pdfjsLib)return;
@@ -1174,6 +1191,7 @@ async function saveNomina(){
   const{data}=await sb.from('nominas_mes').select('*').order('mes',{ascending:false});
   _NominasMes=data||[];renderNominasList();
   ['nom-mes','nom-bruto','nom-ss','nom-coste','nom-irpf','nom-emps'].forEach(id=>$(id).value='');
+  $('new-nomina-modal').style.display='none';
   $('nom-ok').style.display='block';setTimeout(()=>$('nom-ok').style.display='none',2500);
 }
 
