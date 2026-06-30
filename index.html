@@ -1079,7 +1079,7 @@ async function _loadPDFJS(){
   window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
-// Extrae empleados y coste empresa usando posiciones X/Y — sin GPT
+// Extrae empleados y coste empresa — enfoque por FILAS
 async function _extractNominasData(file){
   await _loadPDFJS();
   const buf=await file.arrayBuffer();
@@ -1088,43 +1088,69 @@ async function _extractNominasData(file){
   for(let pi=1;pi<=pdf.numPages;pi++){
     const page=await pdf.getPage(pi);
     const content=await page.getTextContent();
-    const items=content.items
+    const raw=content.items
       .map(it=>({str:it.str.trim(),x:it.transform[4],y:it.transform[5]}))
       .filter(it=>it.str.length>0);
-    // Fila COSTE EMPRESA: buscar ítem que contenga "COSTE"
-    const costeLabel=items.find(it=>/COSTE/i.test(it.str)&&/[A-Z]{3,}/i.test(it.str));
+
+    // Fila COSTE EMPRESA
+    const costeLabel=raw.find(it=>/COSTE/i.test(it.str)&&/[A-Z]{3,}/i.test(it.str));
     if(!costeLabel)continue;
     const costeY=costeLabel.y;
-    // Valores numéricos en la fila COSTE EMPRESA (a la derecha del label)
-    const costValues=items
+
+    // Valores numéricos en fila COSTE EMPRESA
+    const costValues=raw
       .filter(it=>Math.abs(it.y-costeY)<=8&&it.x>costeLabel.x+5&&/^[\d.,]+$/.test(it.str))
       .sort((a,b)=>a.x-b.x);
     if(!costValues.length)continue;
-    // Códigos de empleado (6 dígitos, ej 000001) — definen el X de cada columna
-    // misma alineación que los nombres, a diferencia de los valores de coste
-    const empCodes=items
-      .filter(it=>it.y>costeY+10&&/^\d{5,6}$/.test(it.str))
-      .sort((a,b)=>a.x-b.x);
-    // Anclas X: usar códigos si coincide cantidad, si no usar valores de coste
-    const nCols=costValues.length;
-    const anchors=(empCodes.length===nCols)?empCodes.map(e=>e.x):costValues.map(v=>v.x);
-    // Construir columnas: ancla X + coste (por índice izq→der)
-    const cols=anchors.map((ax,i)=>({ax,cost:parseFloat(costValues[i].str.replace(/\./g,'').replace(',','.')),parts:[]}));
-    // Midpoints entre columnas → límites de asignación por rango
+    const N=costValues.length;
+
+    // Agrupar todos los items en filas (mismo y ±4px)
+    const rowMap=[];
+    raw.forEach(it=>{
+      const row=rowMap.find(r=>Math.abs(r.y-it.y)<=4);
+      if(row)row.items.push(it);
+      else rowMap.push({y:it.y,items:[it]});
+    });
+    rowMap.forEach(r=>r.items.sort((a,b)=>a.x-b.x));
+
+    // Solo filas SOBRE COSTE EMPRESA
+    const aboveRows=rowMap.filter(r=>r.y>costeY+3);
+
+    // Filtrar ítems de nombre en cada fila: sólo letras mayúsculas, sin dígitos puros
+    const nameItemOf=r=>r.items.filter(it=>/^[A-ZÁÉÍÓÚÜÑ]{2,}$/.test(it.str));
+
+    // Buscar una fila "completa" con exactamente N palabras de nombre → define X de columnas
+    const fullRow=aboveRows.find(r=>nameItemOf(r).length===N);
+    if(!fullRow)continue; // sin fila de referencia, saltar página
+
+    // X de cada columna según la fila de referencia (izq→der)
+    const colX=nameItemOf(fullRow).map(it=>it.x);
+    const cols=colX.map((ax,i)=>({
+      ax,
+      cost:parseFloat(costValues[i].str.replace(/\./g,'').replace(',','.')),
+      parts:[]
+    }));
+    // Midpoints para filas parciales
     const mids=[];
     for(let i=0;i<cols.length-1;i++)mids.push((cols[i].ax+cols[i+1].ax)/2);
-    // Asignar ítems de nombre a columna por rango (no por distancia)
-    items.filter(it=>
-      it.y>costeY+3&&
-      /[A-ZÁÉÍÓÚÜÑ]/i.test(it.str)&&
-      !/^\d+$/.test(it.str)&&
-      it.str.length>1
-    ).forEach(it=>{
-      let ci=cols.length-1;
-      for(let i=0;i<mids.length;i++){if(it.x<mids[i]){ci=i;break;}}
-      cols[ci].parts.push({str:it.str,y:it.y});
+
+    // Recorrer todas las filas sobre COSTE EMPRESA
+    aboveRows.forEach(r=>{
+      const ni=nameItemOf(r);
+      if(!ni.length)return;
+      if(ni.length===N){
+        // Fila completa: asignar por índice (100% preciso)
+        ni.sort((a,b)=>a.x-b.x).forEach((it,i)=>cols[i].parts.push({str:it.str,y:r.y}));
+      } else {
+        // Fila parcial: asignar por midpoints
+        ni.forEach(it=>{
+          let ci=cols.length-1;
+          for(let i=0;i<mids.length;i++)if(it.x<mids[i]){ci=i;break;}
+          cols[ci].parts.push({str:it.str,y:r.y});
+        });
+      }
     });
-    // Resultado: concatenar fragmentos de nombre top→bottom
+
     cols.forEach(col=>{
       col.parts.sort((a,b)=>b.y-a.y);
       const name=col.parts.map(p=>p.str).join(' ').trim();
