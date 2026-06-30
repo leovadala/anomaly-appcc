@@ -249,16 +249,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 
 <!-- V0: PROVEEDORES -->
 <div class="view" id="v0">
-<div class="sec"><div class="sec-t">Nuevo proveedor</div>
-<div class="f"><label>Nombre / Razón social</label><input id="pn" placeholder="Ej: Lácteos del Sur S.L."></div>
-<div class="r2"><div class="f"><label>CIF / NIF</label><input id="pc" placeholder="B12345678"></div><div class="f"><label>Teléfono</label><input id="pt" placeholder="+34 ..."></div></div>
-<div class="f"><label>Nº Registro Sanitario</label><input id="pr" placeholder="RGSEAA: 12.34567/AB"></div>
-<div class="note" style="margin:4px 0 8px">Los productos y precios se actualizan automáticamente al registrar albaránes con el escáner.</div><div id="ptags" style="display:none"></div><input id="ppi" style="display:none">
-<div class="f"><label>Fichas técnicas</label><div class="pdf-z" onclick="this.querySelector('input').click()"><input type="file" id="ppdf" accept=".pdf" multiple onchange="upPDF(event)">Adjuntar PDF</div><div id="ppdfl"></div></div>
-<div class="f"><label>Notas</label><textarea id="pno" placeholder="Condiciones, alérgenos..."></textarea></div>
-<button type="button" class="btn" id="btn-prov" onclick="saveProv()">Guardar proveedor</button>
-<button type="button" class="btn-d" id="btn-prov-cancel" onclick="cancelEditProv()" style="display:none;margin-top:8px;width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
-</div>
+<button type="button" class="btn" onclick="openNewProvModal()" style="width:100%;margin-bottom:1.2rem;font-size:12px">+ Nuevo proveedor</button>
 <div class="sec"><div class="sec-t">Registrados</div><div id="pl"></div></div>
 </div>
 
@@ -424,6 +415,25 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 </div><!-- /v5 -->
 
 
+
+<!-- Nuevo Proveedor modal -->
+<div class="ocr-modal" id="new-prov-modal" style="display:none" onclick="closeNewProvModal(event)">
+  <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:12px 12px 0 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4rem">
+      <span id="prov-modal-title" style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Nuevo proveedor</span>
+      <button type="button" onclick="closeNewProvModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0">✕</button>
+    </div>
+    <div class="f"><label>Nombre / Razón social</label><input id="pn" placeholder="Ej: Lácteos del Sur S.L."></div>
+    <div class="r2"><div class="f"><label>CIF / NIF</label><input id="pc" placeholder="B12345678"></div><div class="f"><label>Teléfono</label><input id="pt" placeholder="+34 ..."></div></div>
+    <div class="f"><label>Nº Registro Sanitario</label><input id="pr" placeholder="RGSEAA: 12.34567/AB"></div>
+    <div class="note" style="margin:4px 0 8px">Los productos y precios se actualizan automáticamente al registrar albaránes con el escáner.</div>
+    <div id="ptags" style="display:none"></div><input id="ppi" style="display:none">
+    <div class="f"><label>Fichas técnicas</label><div class="pdf-z" onclick="this.querySelector('input').click()"><input type="file" id="ppdf" accept=".pdf" multiple onchange="upPDF(event)">Adjuntar PDF</div><div id="ppdfl"></div></div>
+    <div class="f"><label>Notas</label><textarea id="pno" placeholder="Condiciones, alérgenos..."></textarea></div>
+    <button type="button" class="btn" id="btn-prov" onclick="saveProv()" style="width:100%;margin-top:.5rem">Guardar proveedor</button>
+    <button type="button" class="btn-d" id="btn-prov-cancel" onclick="cancelEditProv()" style="display:none;margin-top:8px;width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
+  </div>
+</div>
 
 <!-- Nuevo Egreso modal -->
 <div class="ocr-modal" id="new-egreso-modal" style="display:none" onclick="closeNewEgresoModal(event)">
@@ -1253,11 +1263,24 @@ function rPDFs(){$('ppdfl').innerHTML=cPDFs.map((p,i)=>`<div class="pdf-i"><span
 
 async function rmProv(i){if(!confirm('¿Eliminar proveedor?'))return;await sb.from('proveedores').delete().eq('id',P[i].id);P.splice(i,1);rPL()}
 
-function editProv(i){editingProvIdx=i;const p=P[i];$('pn').value=p.nombre;$('pc').value=p.cif||'';$('pt').value=p.tel||'';$('pr').value=p.rs||'';cTags=p.productos?[...p.productos]:[];rTags();$('pno').value=p.notas||'';cPDFs=p.pdfs?[...p.pdfs]:[];rPDFs();$('btn-prov').textContent='Actualizar proveedor';$('btn-prov-cancel').style.display='block';document.querySelector('#v0 .sec-t').textContent='Editar proveedor';window.scrollTo({top:0,behavior:'smooth'})}
 
-function cancelEditProv(){editingProvIdx=null;['pn','pc','pt','pr','pno'].forEach(x=>$(x).value='');cTags=[];cPDFs=[];rTags();rPDFs();$('btn-prov').textContent='Guardar proveedor';$('btn-prov-cancel').style.display='none';document.querySelector('#v0 .sec-t').textContent='Nuevo proveedor'}
+function openNewProvModal(title){
+  $('prov-modal-title').textContent=title||'Nuevo proveedor';
+  $('btn-prov').textContent='Guardar proveedor';
+  $('btn-prov-cancel').style.display='none';
+  $('new-prov-modal').style.display='flex';
+  setTimeout(()=>{const el=$('pn');if(el)el.focus();},100);
+}
+function closeNewProvModal(e){
+  if(!e||e.target===$('new-prov-modal')){
+    $('new-prov-modal').style.display='none';
+  }
+}
+function editProv(i){editingProvIdx=i;const p=P[i];$('pn').value=p.nombre;$('pc').value=p.cif||'';$('pt').value=p.tel||'';$('pr').value=p.rs||'';cTags=p.productos?[...p.productos]:[];rTags();$('pno').value=p.notas||'';cPDFs=p.pdfs?[...p.pdfs]:[];rPDFs();$('btn-prov').textContent='Actualizar proveedor';$('btn-prov-cancel').style.display='block';document.querySelector('#v0 .sec-t').textContent='Editar proveedor';$('prov-modal-title').textContent='Editar proveedor';$('new-prov-modal').style.display='flex';}
 
-async function saveProv(){const n=$('pn').value.trim();if(!n){alert('Nombre requerido');return}const row={nombre:n,cif:$('pc').value||null,telefono:$('pt').value||null,registro_sanitario:$('pr').value||null,productos:cTags.length?[...cTags]:null,notas:$('pno').value||null};if(editingProvIdx!==null){const id=P[editingProvIdx].id;const{error}=await sb.from('proveedores').update(row).eq('id',id);if(error){alert('Error: '+error.message);return}P[editingProvIdx]={id,nombre:n,cif:$('pc').value,tel:$('pt').value,rs:$('pr').value,productos:[...cTags],notas:$('pno').value,pdfs:[...cPDFs]};cancelEditProv();rPL()}else{const{data}=await sb.from('proveedores').insert(row).select();if(data&&data[0])P.push({id:data[0].id,nombre:n,cif:$('pc').value,tel:$('pt').value,rs:$('pr').value,productos:[...cTags],notas:$('pno').value,pdfs:[...cPDFs]});['pn','pc','pt','pr','pno'].forEach(x=>$(x).value='');cTags=[];cPDFs=[];rTags();rPDFs();rPL()}}
+function cancelEditProv(){editingProvIdx=null;['pn','pc','pt','pr','pno'].forEach(x=>$(x).value='');cTags=[];cPDFs=[];rTags();rPDFs();$('btn-prov').textContent='Guardar proveedor';$('btn-prov-cancel').style.display='none';$('new-prov-modal').style.display='none';}
+
+async function saveProv(){const n=$('pn').value.trim();if(!n){alert('Nombre requerido');return}const row={nombre:n,cif:$('pc').value||null,telefono:$('pt').value||null,registro_sanitario:$('pr').value||null,productos:cTags.length?[...cTags]:null,notas:$('pno').value||null};if(editingProvIdx!==null){const id=P[editingProvIdx].id;const{error}=await sb.from('proveedores').update(row).eq('id',id);if(error){alert('Error: '+error.message);return}P[editingProvIdx]={id,nombre:n,cif:$('pc').value,tel:$('pt').value,rs:$('pr').value,productos:[...cTags],notas:$('pno').value,pdfs:[...cPDFs]};cancelEditProv();rPL()}else{const{data}=await sb.from('proveedores').insert(row).select();if(data&&data[0])P.push({id:data[0].id,nombre:n,cif:$('pc').value,tel:$('pt').value,rs:$('pr').value,productos:[...cTags],notas:$('pno').value,pdfs:[...cPDFs]});['pn','pc','pt','pr','pno'].forEach(x=>$(x).value='');cTags=[];cPDFs=[];rTags();rPDFs();$('new-prov-modal').style.display='none';rPL()}}
 function rPL(){
   const e=$('pl');
   if(!P.length){e.innerHTML='<div class="empty">Sin proveedores</div>';return}
