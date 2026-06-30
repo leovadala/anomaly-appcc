@@ -705,6 +705,40 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   </div>
 </div>
 
+<div id="edit-rec-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.6);z-index:1500;align-items:center;justify-content:center;padding:16px;box-sizing:border-box">
+  <div style="background:var(--bg,#f8f8f6);max-width:480px;width:100%;max-height:90vh;overflow-y:auto;border:1px solid var(--border)">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text)">Editar recepción</span>
+      <button type="button" onclick="closeEditRecModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);line-height:1">✕</button>
+    </div>
+    <div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+      <div class="r2">
+        <div class="f"><label style="font-size:9px">Fecha</label><input type="date" id="em-fecha"></div>
+        <div class="f"><label style="font-size:9px">Hora</label><input type="time" id="em-hora"></div>
+      </div>
+      <div class="f"><label style="font-size:9px">Proveedor</label><input id="em-prov" placeholder="Nombre proveedor"></div>
+      <div class="f"><label style="font-size:9px">Producto</label><input id="em-prod" placeholder="Nombre producto"></div>
+      <div class="r2">
+        <div class="f"><label style="font-size:9px">Lote</label><input id="em-lote" placeholder="Lote"></div>
+        <div class="f"><label style="font-size:9px">Nº Albarán</label><input id="em-alb" placeholder="Albarán"></div>
+      </div>
+      <div class="r2">
+        <div class="f"><label style="font-size:9px">Temp. recibida (°C)</label><input type="number" step="0.1" id="em-temp" placeholder="°C"></div>
+        <div class="f"><label style="font-size:9px">Cantidad</label><input id="em-qty" placeholder="Ej: 20 lts"></div>
+      </div>
+      <div class="r2">
+        <div class="f"><label style="font-size:9px">Vencimiento</label><input type="date" id="em-venc"></div>
+        <div class="f"><label style="font-size:9px">Categoría</label><input id="em-cat" placeholder="Categoría"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="em-frio"> Requiere frío</label>
+      <div class="f"><label style="font-size:9px">Observaciones</label><input id="em-obs" placeholder="Estado, sellos..."></div>
+    </div>
+    <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px">
+      <button type="button" class="btn" onclick="saveEditRecModal()" style="flex:1">Guardar cambios</button>
+      <button type="button" class="btn-d" onclick="closeEditRecModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
 <div id="fin-pin-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.65);z-index:2000;align-items:center;justify-content:center">
   <div style="background:var(--surface);border:.5px solid var(--border);padding:2rem 1.5rem;width:280px;text-align:center">
     <div style="font-size:10px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--hint);margin-bottom:1.5rem">Finanzas — Acceso restringido</div>
@@ -1127,32 +1161,44 @@ function rPL(){
 function uSP(){const sp=[...P.map((p,i)=>({...p,_i:i}))].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));$('rp').innerHTML='<option value="">Seleccionar...</option>'+sp.map(p=>`<option value="${p._i}">${p.nombre}</option>`).join('')}
 function editRec(idx){
   const i=S[idx];editingRecIdx=idx;
-  // Navegar a v1 sin que initRecDate() pise los campos
-  const wasOnV1=document.querySelector('#v1')&&document.querySelector('#v1').classList.contains('on');
-  if(!wasOnV1)go(1);
-  // Populate form
-  $('rfecha').value=i.fecha||'';$('rhora').value=i.hora||'';
-  $('rl').value=i.lote;$('rt').value=i.temp;$('rq').value=i.cantidad||'';
-  $('rv').value=i.vencimiento||'';$('rf').checked=i.frio;
-  $('ro').value=i.obs||'';$('ra').value=i.albaran||'';$('rcat').value=i.categoria||'';$('rfingreso').value=i.fecha_ingreso||'';
-  $('btn-rec').textContent='Actualizar recepción';$('btn-rec-cancel').style.display='block';
-  document.querySelector('#v1 .sec-t').textContent='Editar recepción';
-  // Set proveedor, then product (needs timeout for rp.change handler to fire)
-  uSP();
-  const pi=P.findIndex(p=>p.nombre===i.proveedor);
-  $('rp').value=pi>=0?pi:'';
-  $('rp').dispatchEvent(new Event('change'));
-  setTimeout(()=>{
-    if(i.producto){
-      const opts=$('rpd').options;let found=false;
-      for(let o=0;o<opts.length;o++){
-        if(opts[o].value===i.producto||opts[o].textContent===i.producto){$('rpd').value=opts[o].value;found=true;break}
-      }
-      if(!found){$('rpd').value='otro';$('rpdc').style.display='block';$('rpdc').value=i.producto}
-      $('rpd').dispatchEvent(new Event('change'));
-    }else{$('rpd').value='otro';$('rpdc').style.display='block';$('rpdc').value=''}
-    window.scrollTo({top:0,behavior:'smooth'});
-  },80);
+  $('em-fecha').value=i.fecha||'';
+  $('em-hora').value=i.hora||'';
+  $('em-prov').value=i.proveedor||'';
+  $('em-prod').value=i.producto||'';
+  $('em-lote').value=i.lote||'';
+  $('em-alb').value=i.albaran||'';
+  $('em-temp').value=i.temp||'';
+  $('em-qty').value=i.cantidad||'';
+  $('em-venc').value=i.vencimiento||'';
+  $('em-cat').value=i.categoria||'';
+  $('em-frio').checked=!!i.frio;
+  $('em-obs').value=i.obs||'';
+  const m=$('edit-rec-modal');m.style.display='flex';
+  setTimeout(()=>$('em-prod').focus(),50);
+}
+function closeEditRecModal(){$('edit-rec-modal').style.display='none';editingRecIdx=null;}
+async function saveEditRecModal(){
+  const idx=editingRecIdx;if(idx===null||idx===undefined)return;
+  const id=S[idx].id;
+  const prod=$('em-prod').value.trim();
+  const lote=$('em-lote').value.trim();
+  const temp=$('em-temp').value;
+  if(!prod||!lote||!temp){alert('Completa: producto, lote, temperatura');return}
+  const row={
+    producto:prod,lote:lote,temperatura:parseFloat(temp),
+    proveedor:$('em-prov').value.trim()||null,
+    vencimiento:$('em-venc').value||null,
+    requiere_frio:$('em-frio').checked,
+    cantidad:$('em-qty').value.trim()||null,
+    observaciones:$('em-obs').value.trim()||null,
+    nro_albaran:$('em-alb').value.trim()||null,
+    fecha:$('em-fecha').value,hora:$('em-hora').value,
+    categoria:$('em-cat').value.trim()||null
+  };
+  const{error}=await sb.from('recepciones').update(row).eq('id',id);
+  if(error){alert('Error: '+error.message);return}
+  S[idx]={...S[idx],...row,temp:temp,frio:row.requiere_frio,proveedor:row.proveedor||'',albaran:row.nro_albaran||'',obs:row.observaciones||''};
+  closeEditRecModal();rRH();rS();
 }
 
 async function deleteRec(idx){if(!confirm('¿Eliminar este registro de recepción? Esta acción no se puede deshacer.'))return;const id=S[idx].id;const{error}=await sb.from('recepciones').delete().eq('id',id);if(error){alert('Error: '+error.message);return}S.splice(idx,1);rRH();rS()}
