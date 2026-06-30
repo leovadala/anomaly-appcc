@@ -2087,13 +2087,13 @@ async function saveSabor(){const n=$('sab-name').value.trim().toUpperCase(),c=$(
 
 
 function editSaborById(id,action){
-  const i=sabores.findIndex(s=>s.id===id);
+  const i=sabores.findIndex(s=>s.id==id);
   if(i===-1)return;
   if(action==='toggle'){toggleSabor(i);return;}
   editSabor(i);
 }
 async function rmSaborById(id){
-  const i=sabores.findIndex(s=>s.id===id);
+  const i=sabores.findIndex(s=>s.id==id);
   if(i===-1)return;
   rmSabor(i);
 }
