@@ -1308,7 +1308,8 @@ function showFinanzasPin(){
 }
 function checkFinanzasPin(){
   const v=($('fin-pin-input').value||'').trim();
-  if(v===pinFinanzas){_finUnlocked=true;$('fin-pin-modal').style.display='none';go(10);}
+  const ok=pinFinanzas?v===pinFinanzas:v===pinSupervisor;
+  if(ok){_finUnlocked=true;$('fin-pin-modal').style.display='none';go(10);}
   else{$('fin-pin-err').style.display='block';$('fin-pin-input').value='';$('fin-pin-input').focus();}
 }
 async function saveFinanzasPin(){
@@ -1330,7 +1331,7 @@ async function savePinSup(){const p=$('cfg-pin-sup').value.trim();if(!/^\d{4}$/.
 
 function autoGenREHE(){const fechaStr=$('af').value;if(!fechaStr)return;const[year,month,day]=fechaStr.split('-');const dd=String(day).padStart(2,'0');const mm=String(month).padStart(2,'0');const cnt=H.filter(r=>r.fecha===fechaStr).length+1;const rehe='REHE-'+dd+mm+'-'+String(cnt).padStart(3,'0');$('adr').value=rehe}
 
-function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();renderAppccList()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();if(n===9)renderInventario();if(n===10){if(pinFinanzas&&!_finUnlocked){showFinanzasPin();return;}initFinanzas();}window.scrollTo(0,0)}
+function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();renderAppccList()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();if(n===9)renderInventario();if(n===10){if(!_finUnlocked){showFinanzasPin();return;}initFinanzas();}window.scrollTo(0,0)}
 
 function addTag(){const v=$('ppi').value.trim();if(!v||cTags.includes(v))return;cTags.push(v);rTags();$('ppi').value='';$('ppi').focus()}
 function rmT(i){cTags.splice(i,1);rTags()}
