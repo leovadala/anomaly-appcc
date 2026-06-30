@@ -1261,7 +1261,7 @@ $('rd1').value=hoy;$('rd2').value=hoy;
 
 function goConfig(){$('onboard').style.display='none';$('main').style.display='block';go(5)}
 function enterApp(){const v=$('ob-user').value;if(!v){alert('Seleccion\u00e1 un responsable');return}currentUser=v;$('onboard').style.display='none';$('main').style.display='block';$('hdr-user').textContent=currentUser;$('ar').value=currentUser;$('af').valueAsDate=new Date();go(3)}
-function logout(){currentUser='';$('main').style.display='none';$('onboard').style.display='flex';$('ob-user').value='';window.scrollTo(0,0)}
+function logout(){currentUser='';_finUnlocked=false;$('main').style.display='none';$('onboard').style.display='flex';$('ob-user').value='';window.scrollTo(0,0)}
 function renderTeamSelect(){$('ob-user').innerHTML='<option value="">Seleccionar...</option>'+team.map(n=>`<option>${n.nombre}</option>`).join('')}
 
 async 
@@ -1331,7 +1331,7 @@ async function savePinSup(){const p=$('cfg-pin-sup').value.trim();if(!/^\d{4}$/.
 
 function autoGenREHE(){const fechaStr=$('af').value;if(!fechaStr)return;const[year,month,day]=fechaStr.split('-');const dd=String(day).padStart(2,'0');const mm=String(month).padStart(2,'0');const cnt=H.filter(r=>r.fecha===fechaStr).length+1;const rehe='REHE-'+dd+mm+'-'+String(cnt).padStart(3,'0');$('adr').value=rehe}
 
-function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();renderAppccList()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();if(n===9)renderInventario();if(n===10){if(!_finUnlocked){showFinanzasPin();return;}initFinanzas();}window.scrollTo(0,0)}
+function go(n){if(n!==10)_finUnlocked=false;document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();renderAppccList()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();if(n===9)renderInventario();if(n===10){if(!_finUnlocked){showFinanzasPin();return;}initFinanzas();}window.scrollTo(0,0)}
 
 function addTag(){const v=$('ppi').value.trim();if(!v||cTags.includes(v))return;cTags.push(v);rTags();$('ppi').value='';$('ppi').focus()}
 function rmT(i){cTags.splice(i,1);rTags()}
