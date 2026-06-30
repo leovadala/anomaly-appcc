@@ -264,21 +264,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 
 <!-- V1: RECEPCIÓN -->
 <div class="view" id="v1">
-<div class="sec"><div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">Nueva recepción <button type="button" class="btn-d" onclick="openOcrModal()" style="font-size:10px;padding:5px 10px;letter-spacing:1px">📷 Escanear albarán</button></div>
-<div class="r2"><div class="f"><label>Fecha recepción</label><input type="date" id="rfecha"></div><div class="f"><label>Hora</label><input type="time" id="rhora"></div></div>
-<div class="f"><label>Proveedor</label><select id="rp"><option value="">Seleccionar...</option></select></div>
-<div class="f"><label>Producto</label><select id="rpd"><option value="">Primero seleccioná proveedor</option></select><input id="rpdc" placeholder="Especificar" style="display:none;margin-top:4px"></div>
-<div class="r2"><div class="f"><label>Lote proveedor</label><input id="rl" placeholder="Nº lote"></div><div class="f"><label>Nº Albarán</label><input id="ra" placeholder="Nº albarán"></div></div>
-<div class="f"><label>Cantidad</label><input id="rq" placeholder="Ej: 20 lts"></div>
-<div class="r2"><div class="f"><label>Temp. recibida (°C)</label><input type="number" id="rt" step="0.1" placeholder="°C"></div><div class="f"><label>Vencimiento</label><input type="date" id="rv"></div></div>
-<div class="chk"><input type="checkbox" id="rf"><label for="rf">Requiere frío</label></div>
-<div class="f"><label>Observaciones</label><input id="ro" placeholder="Estado envase, sellos..."></div>
-<div class="note">Fecha y hora se pre-cargan con hoy y ahora. Podés modificarlas para cargas retroactivas.</div>
-<button type="button" class="btn" id="btn-rec" onclick="saveRec()">Registrar recepción</button>
-<button type="button" class="btn-d" id="btn-rec-cancel" onclick="cancelEditRec()" style="display:none;margin-top:8px;width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
+<div style="display:flex;gap:10px;margin-bottom:1.2rem">
+  <button type="button" class="btn" onclick="openNewRecModal()" style="flex:1;font-size:12px">+ Nueva recepción</button>
+  <button type="button" class="btn-d" onclick="openOcrModal()" style="flex:1;font-size:12px">📷 Escanear albarán</button>
 </div>
 <div class="sec"><div class="sec-t">Recepciones recientes</div><div id="rli"></div></div>
-
 <div class="sec"><div class="sec-t">Historial de recepciones</div><div id="rhist"></div></div>
 </div>
 
@@ -294,52 +284,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 
 <!-- V3: APPCC -->
 <div class="view" id="v3">
-<div class="sec"><div class="sec-t">Datos del producto</div>
-<div class="r3"><div class="f"><label>Fecha</label><input type="date" id="af"></div><div class="f"><label>Hora</label><input type="time" id="ah"></div><div class="f"><label>Responsable</label><input id="ar" readonly></div></div>
-<div class="f"><label>Producto (sabor)</label><select id="ap"><option value="">Seleccionar...</option></select><input id="apc" placeholder="Especificar" style="display:none;margin-top:4px"></div>
-<div class="sec"><div class="sec-t">Ingredientes</div>
-<div class="f">
-  <label>Productos del stock</label>
-  <div style="border:.5px solid var(--border);border-radius:8px;overflow:hidden;margin-top:4px">
-    <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:.5px solid var(--border);background:var(--surface,#f5f3ee);position:sticky;top:0">
-      <input id="aip-search" placeholder="Buscar…" oninput="filterAipPanel(this.value)" style="flex:1;border:none;outline:none;font-size:12px;background:transparent;font-family:var(--font)">
-      <span style="font-size:10px;color:var(--muted);white-space:nowrap"><span id="aip-sel-count">0</span> selec.</span>
-      <button type="button" onclick="toggleAllAip()" style="font-size:10px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0;font-family:var(--font)">Todos</button>
-    </div>
-    <div id="aip-panel" style="max-height:180px;overflow-y:auto"></div>
-  </div>
-  <button type="button" class="btn-s" onclick="addIngr()" style="margin-top:8px;width:100%" id="aip-add-btn">+ Agregar seleccionados</button>
-</div>
-<div class="note" id="aip-filtro-note" style="display:none;color:var(--hint,#888)"></div>
-<div class="note" id="aip-filter-tip" style="color:var(--hint);font-size:10px">Seleccioná un sabor arriba para filtrar solo sus ingredientes. Configurá la receta en Configuración → Sabores.</div>
-<div id="ingr-list"></div>
-</div>
-<div class="f"><label>Cantidad pesada (kg)</label><input type="number" id="aqp" value="8" step="0.1"></div>
-<div class="f"><label>DOC: REHE</label><input id="adr" placeholder="Auto-generado" readonly></div>
-</div>
-
-<div class="sec"><div class="sec-t">PCC1 — Tratamiento térmico (Pasteurización)</div><div class="note">Por ley: Mínimo 85°C durante 2+ minutos</div><div class="r2"><div class="f"><label>Temperatura (°C)</label><input type="number" id="a1t" step="0.1" value="85"></div><div class="f"><label>Tiempo (min)</label><input type="number" id="a1m" step="0.1" value="2"></div></div></div>
-
-<div class="sec"><div class="sec-t">ROH 1 — Recepción leche pasteurizada</div><div class="chk"><input type="checkbox" id="a2e" checked onchange="toggleROH1()"><label for="a2e">Leche recibida en esta elaboración</label></div><div id="a2-sec"><div class="r2"><div class="f"><label>Temperatura recibida (°C)</label><input type="number" id="a2t" step="0.1" value="3" placeholder="3"></div><div class="f"><label>Fecha recepción</label><input type="date" id="a2f"></div></div><div class="f"><label>Vencimiento leche</label><input type="date" id="a2v"></div></div></div>
-
-<div class="sec"><div class="sec-t">ROH 3 — Mantecado y enfriamiento (máquina compacta)</div><div class="note">Máquina compacta: pasteurización → mantecado → enfriamiento automático. Tiempo total: 45 minutos.</div><div class="f"><label>Tiempo de proceso (min)</label><input id="a3m" value="45" readonly style="background:#f5f3ee;cursor:not-allowed;font-family:monospace"></div></div>
-
-<div class="sec"><div class="sec-t">Lote final</div><div class="r3"><div class="f"><label>Baldes</label><input type="number" id="ab" step="1" min="0" placeholder="0"></div><div class="f"><label>Kilos finales</label><input type="number" id="ak" step="0.1" min="0" placeholder="0" oninput="calcMerma()"></div><div class="f"><label>Peso real (kg)</label><input type="number" id="apeso-real" step="0.01" min="0" placeholder="0" oninput="calcMerma()"></div></div>
-<div class="note" id="merma-note" style="display:none;color:var(--muted,#888)"></div><div class="f"><label>Lote Nº (auto)</label><div class="lote" id="alf">---</div></div><div class="f"><label>Temperatura final</label><select id="atf" onchange="setTempFinal()"><option value="">Seleccionar armario...</option><option value="1">Armario 1 (-18.5°C)</option><option value="2">Armario 2 (-18.5°C)</option><option value="3">Armario 3 (-18.5°C)</option></select></div></div>
-
-<div class="sec"><div class="sec-t">ROH 4 — Reciclados</div><div class="chk"><input type="checkbox" id="a4e" onchange="toggleROH4()"><label for="a4e">Se utilizaron ingredientes reciclados</label></div><div id="a4-sec" style="display:none;margin-top:10px"><div class="f"><label>Descripción de reciclados</label><input id="a4t" placeholder="Ej: leche sin usar, mezcla parcial, etc."></div></div></div>
-
-
-
-
-
-<div class="f"><label>Observaciones (aclaraciones)</label><textarea id="ao" placeholder="Notas sobre la elaboración"></textarea></div>
-
-<div class="sec"><div class="sec-t">Verificación del registro</div><div class="note">Completa la verificación del proceso realizado.</div><div class="f"><label>Etapa final</label><select id="ave"><option value="">Seleccionar</option><option>Elaboración completada</option><option>En revisión</option><option>Rechazado</option><option>Aprobado</option></select></div><div class="f"><label>Descripción</label><textarea id="avd" placeholder="Ej: Proceso sin incidencias, producto conforme norma"></textarea></div><div class="f"><label>Resultado</label><select id="avr"><option value="">Seleccionar</option><option>Conforme</option><option>No conforme</option><option>Con observaciones</option></select></div>
-<div class="r2" style="margin-top:.8rem"><div class="f"><label>PIN Responsable</label><input type="password" id="apin" maxlength="4" inputmode="numeric" placeholder="••••" style="font-family:var(--mono);letter-spacing:4px;text-align:center"></div><div class="f"><label>PIN Supervisor</label><input type="password" id="apin2" maxlength="4" inputmode="numeric" placeholder="••••" style="font-family:var(--mono);letter-spacing:4px;text-align:center"></div></div>
-<div class="note" id="pin-err" style="display:none;color:#b00;margin-top:6px"></div></div>
-<button type="button" class="btn" onclick="subA()">Registrar elaboración</button>
-<div class="ok" id="aok" style="display:none">Registro APPCC guardado</div>
+<button type="button" class="btn" onclick="openAppccModal()" style="width:100%;margin-bottom:1.2rem;font-size:12px">+ Nueva elaboración</button>
+<div class="sec"><div class="sec-t">Elaboraciones recientes</div><div id="appcc-list"></div></div>
 </div>
 
 <!-- V4: REPORTES -->
@@ -476,6 +422,92 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 </div>
 
 </div><!-- /v5 -->
+
+
+<!-- Nueva Recepción modal -->
+<div class="ocr-modal" id="new-rec-modal" style="display:none" onclick="closeNewRecModal(event)">
+  <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:12px 12px 0 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4rem">
+      <span style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Nueva recepción</span>
+      <button type="button" onclick="closeNewRecModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0">✕</button>
+    </div>
+    <div class="r2"><div class="f"><label>Fecha recepción</label><input type="date" id="rfecha"></div><div class="f"><label>Hora</label><input type="time" id="rhora"></div></div>
+    <div class="f"><label>Proveedor</label><select id="rp"><option value="">Seleccionar...</option></select></div>
+    <div class="f"><label>Producto</label><select id="rpd"><option value="">Primero seleccioná proveedor</option></select><input id="rpdc" placeholder="Especificar" style="display:none;margin-top:4px"></div>
+    <div class="r2"><div class="f"><label>Lote proveedor</label><input id="rl" placeholder="Nº lote"></div><div class="f"><label>Nº Albarán</label><input id="ra" placeholder="Nº albarán"></div></div>
+    <div class="f"><label>Cantidad</label><input id="rq" placeholder="Ej: 20 lts"></div>
+    <div class="r2"><div class="f"><label>Temp. recibida (°C)</label><input type="number" id="rt" step="0.1" placeholder="°C"></div><div class="f"><label>Vencimiento</label><input type="date" id="rv"></div></div>
+    <div class="chk"><input type="checkbox" id="rf"><label for="rf">Requiere frío</label></div>
+    <div class="f"><label>Categoría</label>
+      <select id="rcat" style="width:100%;border:none;border-bottom:1px solid var(--border);font-size:13px;padding:5px 0;background:transparent;color:var(--text)">
+        <option value="">Sin categoría</option>
+        <option>Helado</option><option>Materia prima</option><option>Topping</option><option>Insumos</option>
+        <option>Envases</option><option>Cafetería</option><option>Pastelería</option>
+        <option>Limpieza</option><option>Vajilla y utensilios</option><option>Mermas y Roturas</option>
+      </select>
+    </div>
+    <div class="f"><label>Observaciones</label><input id="ro" placeholder="Estado envase, sellos..."></div>
+    <div class="note">Fecha y hora se pre-cargan con el momento actual. Podés modificarlas para cargas retroactivas.</div>
+    <button type="button" class="btn" id="btn-rec" onclick="saveRec()" style="width:100%;margin-top:.5rem">Registrar recepción</button>
+  </div>
+</div>
+
+<!-- Nueva Elaboración APPCC modal -->
+<div class="ocr-modal" id="new-appcc-modal" style="display:none" onclick="closeAppccModal(event)">
+  <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:12px 12px 0 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4rem">
+      <span style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Nueva elaboración</span>
+      <button type="button" onclick="closeAppccModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0">✕</button>
+    </div>
+    <div class="sec"><div class="sec-t">Datos del producto</div>
+<div class="r3"><div class="f"><label>Fecha</label><input type="date" id="af"></div><div class="f"><label>Hora</label><input type="time" id="ah"></div><div class="f"><label>Responsable</label><input id="ar" readonly></div></div>
+<div class="f"><label>Producto (sabor)</label><select id="ap"><option value="">Seleccionar...</option></select><input id="apc" placeholder="Especificar" style="display:none;margin-top:4px"></div>
+<div class="sec"><div class="sec-t">Ingredientes</div>
+<div class="f">
+  <label>Productos del stock</label>
+  <div style="border:.5px solid var(--border);border-radius:8px;overflow:hidden;margin-top:4px">
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:.5px solid var(--border);background:var(--surface,#f5f3ee);position:sticky;top:0">
+      <input id="aip-search" placeholder="Buscar…" oninput="filterAipPanel(this.value)" style="flex:1;border:none;outline:none;font-size:12px;background:transparent;font-family:var(--font)">
+      <span style="font-size:10px;color:var(--muted);white-space:nowrap"><span id="aip-sel-count">0</span> selec.</span>
+      <button type="button" onclick="toggleAllAip()" style="font-size:10px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0;font-family:var(--font)">Todos</button>
+    </div>
+    <div id="aip-panel" style="max-height:180px;overflow-y:auto"></div>
+  </div>
+  <button type="button" class="btn-s" onclick="addIngr()" style="margin-top:8px;width:100%" id="aip-add-btn">+ Agregar seleccionados</button>
+</div>
+<div class="note" id="aip-filtro-note" style="display:none;color:var(--hint,#888)"></div>
+<div class="note" id="aip-filter-tip" style="color:var(--hint);font-size:10px">Seleccioná un sabor arriba para filtrar solo sus ingredientes. Configurá la receta en Configuración → Sabores.</div>
+<div id="ingr-list"></div>
+</div>
+<div class="f"><label>Cantidad pesada (kg)</label><input type="number" id="aqp" value="8" step="0.1"></div>
+<div class="f"><label>DOC: REHE</label><input id="adr" placeholder="Auto-generado" readonly></div>
+</div>
+
+<div class="sec"><div class="sec-t">PCC1 — Tratamiento térmico (Pasteurización)</div><div class="note">Por ley: Mínimo 85°C durante 2+ minutos</div><div class="r2"><div class="f"><label>Temperatura (°C)</label><input type="number" id="a1t" step="0.1" value="85"></div><div class="f"><label>Tiempo (min)</label><input type="number" id="a1m" step="0.1" value="2"></div></div></div>
+
+<div class="sec"><div class="sec-t">ROH 1 — Recepción leche pasteurizada</div><div class="chk"><input type="checkbox" id="a2e" checked onchange="toggleROH1()"><label for="a2e">Leche recibida en esta elaboración</label></div><div id="a2-sec"><div class="r2"><div class="f"><label>Temperatura recibida (°C)</label><input type="number" id="a2t" step="0.1" value="3" placeholder="3"></div><div class="f"><label>Fecha recepción</label><input type="date" id="a2f"></div></div><div class="f"><label>Vencimiento leche</label><input type="date" id="a2v"></div></div></div>
+
+<div class="sec"><div class="sec-t">ROH 3 — Mantecado y enfriamiento (máquina compacta)</div><div class="note">Máquina compacta: pasteurización → mantecado → enfriamiento automático. Tiempo total: 45 minutos.</div><div class="f"><label>Tiempo de proceso (min)</label><input id="a3m" value="45" readonly style="background:#f5f3ee;cursor:not-allowed;font-family:monospace"></div></div>
+
+<div class="sec"><div class="sec-t">Lote final</div><div class="r3"><div class="f"><label>Baldes</label><input type="number" id="ab" step="1" min="0" placeholder="0"></div><div class="f"><label>Kilos finales</label><input type="number" id="ak" step="0.1" min="0" placeholder="0" oninput="calcMerma()"></div><div class="f"><label>Peso real (kg)</label><input type="number" id="apeso-real" step="0.01" min="0" placeholder="0" oninput="calcMerma()"></div></div>
+<div class="note" id="merma-note" style="display:none;color:var(--muted,#888)"></div><div class="f"><label>Lote Nº (auto)</label><div class="lote" id="alf">---</div></div><div class="f"><label>Temperatura final</label><select id="atf" onchange="setTempFinal()"><option value="">Seleccionar armario...</option><option value="1">Armario 1 (-18.5°C)</option><option value="2">Armario 2 (-18.5°C)</option><option value="3">Armario 3 (-18.5°C)</option></select></div></div>
+
+<div class="sec"><div class="sec-t">ROH 4 — Reciclados</div><div class="chk"><input type="checkbox" id="a4e" onchange="toggleROH4()"><label for="a4e">Se utilizaron ingredientes reciclados</label></div><div id="a4-sec" style="display:none;margin-top:10px"><div class="f"><label>Descripción de reciclados</label><input id="a4t" placeholder="Ej: leche sin usar, mezcla parcial, etc."></div></div></div>
+
+
+
+
+
+<div class="f"><label>Observaciones (aclaraciones)</label><textarea id="ao" placeholder="Notas sobre la elaboración"></textarea></div>
+
+<div class="sec"><div class="sec-t">Verificación del registro</div><div class="note">Completa la verificación del proceso realizado.</div><div class="f"><label>Etapa final</label><select id="ave"><option value="">Seleccionar</option><option>Elaboración completada</option><option>En revisión</option><option>Rechazado</option><option>Aprobado</option></select></div><div class="f"><label>Descripción</label><textarea id="avd" placeholder="Ej: Proceso sin incidencias, producto conforme norma"></textarea></div><div class="f"><label>Resultado</label><select id="avr"><option value="">Seleccionar</option><option>Conforme</option><option>No conforme</option><option>Con observaciones</option></select></div>
+<div class="r2" style="margin-top:.8rem"><div class="f"><label>PIN Responsable</label><input type="password" id="apin" maxlength="4" inputmode="numeric" placeholder="••••" style="font-family:var(--mono);letter-spacing:4px;text-align:center"></div><div class="f"><label>PIN Supervisor</label><input type="password" id="apin2" maxlength="4" inputmode="numeric" placeholder="••••" style="font-family:var(--mono);letter-spacing:4px;text-align:center"></div></div>
+<div class="note" id="pin-err" style="display:none;color:#b00;margin-top:6px"></div></div>
+<button type="button" class="btn" onclick="subA()">Registrar elaboración</button>
+<div class="ok" id="aok" style="display:none">Registro APPCC guardado</div>
+</div>
+  </div>
+</div>
 
 <!-- OCR modal -->
 <div class="ocr-modal" id="ocr-modal" style="display:none" onclick="closeOcrModal(event)">
@@ -1186,7 +1218,7 @@ async function savePinSup(){const p=$('cfg-pin-sup').value.trim();if(!/^\d{4}$/.
 
 function autoGenREHE(){const fechaStr=$('af').value;if(!fechaStr)return;const[year,month,day]=fechaStr.split('-');const dd=String(day).padStart(2,'0');const mm=String(month).padStart(2,'0');const cnt=H.filter(r=>r.fecha===fechaStr).length+1;const rehe='REHE-'+dd+mm+'-'+String(cnt).padStart(3,'0');$('adr').value=rehe}
 
-function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();autoGenREHE();$('ar').value=currentUser;if(!$('af').value)$('af').valueAsDate=new Date()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();if(n===9)renderInventario();if(n===10){if(pinFinanzas&&!_finUnlocked){showFinanzasPin();return;}initFinanzas();}window.scrollTo(0,0)}
+function go(n){document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));$('v'+n).classList.add('on');document.querySelectorAll('#nav button')[n].classList.add('on');if(n===1){uSP();initRecDate();renderHistorial()};if(n===2){rS();renderSH()};if(n===3){uIngrSelect();renderSaborSelect();renderAppccList()};if(n===5){initHorarios()};if(n===7)renderDashboard();if(n===8)initEgresos();if(n===9)renderInventario();if(n===10){if(pinFinanzas&&!_finUnlocked){showFinanzasPin();return;}initFinanzas();}window.scrollTo(0,0)}
 
 function addTag(){const v=$('ppi').value.trim();if(!v||cTags.includes(v))return;cTags.push(v);rTags();$('ppi').value='';$('ppi').focus()}
 function rmT(i){cTags.splice(i,1);rTags()}
@@ -1279,7 +1311,7 @@ async function deleteRec(idx){if(!confirm('¿Eliminar este registro de recepció
 
 function cancelEditRec(){editingRecIdx=null;['rl','rt','rq','ro','ra'].forEach(x=>$(x).value='');$('rp').value='';$('rpd').value='';$('rpdc').value='';$('rpdc').style.display='none';$('rv').value='';$('rf').checked=false;$('rcat').value='';$('rfingreso').value='';initRecDate();$('btn-rec').textContent='Registrar recepción';$('btn-rec-cancel').style.display='none';document.querySelector('#v1 .sec-t').textContent='Nueva recepción'}
 
-async function saveRec(){const pi=$('rp').value;const prod=$('rpd').value==='otro'?$('rpdc').value:$('rpd').value;const l=$('rl').value,t=$('rt').value;if(!prod||!l||!t){alert('Completa: producto, lote, temperatura');return}const provN=pi!==''?P[+pi].nombre:'';const fRec=$('rfecha').value||new Date().toISOString().split('T')[0];const hRec=$('rhora').value||new Date().toTimeString().slice(0,5);if(editingRecIdx!==null){const id=S[editingRecIdx].id;const cat=$('rcat').value.trim()||null;const fIngreso=$('rfingreso').value||null;const row={producto:prod,lote:l,temperatura:parseFloat(t),proveedor:provN||null,vencimiento:$('rv').value||null,requiere_frio:$('rf').checked,cantidad:$('rq').value||null,observaciones:$('ro').value||null,nro_albaran:$('ra').value||null,fecha:fRec,hora:hRec,categoria:cat,fecha_ingreso:fIngreso};const{error}=await sb.from('recepciones').update(row).eq('id',id);if(error){alert('Error: '+error.message);return}S[editingRecIdx]={id,producto:prod,lote:l,temp:t,proveedor:provN,vencimiento:$('rv').value,frio:$('rf').checked,cantidad:$('rq').value,obs:$('ro').value,albaran:$('ra').value,fecha:fRec,hora:hRec.slice(0,5)};cancelEditRec();rRH();rS()}else{const row={producto:prod,lote:l,temperatura:parseFloat(t),proveedor:provN||null,vencimiento:$('rv').value||null,requiere_frio:$('rf').checked,cantidad:$('rq').value||null,observaciones:$('ro').value||null,nro_albaran:$('ra').value||null,fecha:fRec,hora:hRec};const{data}=await sb.from('recepciones').insert(row).select();if(data&&data[0])S.push({id:data[0].id,producto:prod,lote:l,temp:t,proveedor:provN,vencimiento:$('rv').value,frio:$('rf').checked,cantidad:$('rq').value,obs:$('ro').value,albaran:$('ra').value,fecha:fRec,hora:hRec.slice(0,5),categoria:cat||'',fecha_ingreso:fIngreso||fRec});['rl','rt','rq','ro','ra'].forEach(x=>$(x).value='');$('rpd').value='';$('rpdc').value='';$('rv').value='';$('rf').checked=false;$('rcat').value='';$('rfingreso').value='';initRecDate();rRH()}}
+async function saveRec(){const pi=$('rp').value;const prod=$('rpd').value==='otro'?$('rpdc').value:$('rpd').value;const l=$('rl').value,t=$('rt').value;if(!prod||!l||!t){alert('Completa: producto, lote, temperatura');return}const provN=pi!==''?P[+pi].nombre:'';const fRec=$('rfecha').value||new Date().toISOString().split('T')[0];const hRec=$('rhora').value||new Date().toTimeString().slice(0,5);if(editingRecIdx!==null){const id=S[editingRecIdx].id;const cat=$('rcat').value.trim()||null;const fIngreso=$('rfingreso').value||null;const row={producto:prod,lote:l,temperatura:parseFloat(t),proveedor:provN||null,vencimiento:$('rv').value||null,requiere_frio:$('rf').checked,cantidad:$('rq').value||null,observaciones:$('ro').value||null,nro_albaran:$('ra').value||null,fecha:fRec,hora:hRec,categoria:cat,fecha_ingreso:fIngreso};const{error}=await sb.from('recepciones').update(row).eq('id',id);if(error){alert('Error: '+error.message);return}S[editingRecIdx]={id,producto:prod,lote:l,temp:t,proveedor:provN,vencimiento:$('rv').value,frio:$('rf').checked,cantidad:$('rq').value,obs:$('ro').value,albaran:$('ra').value,fecha:fRec,hora:hRec.slice(0,5)};cancelEditRec();rRH();rS()}else{const row={producto:prod,lote:l,temperatura:parseFloat(t),proveedor:provN||null,vencimiento:$('rv').value||null,requiere_frio:$('rf').checked,cantidad:$('rq').value||null,observaciones:$('ro').value||null,nro_albaran:$('ra').value||null,fecha:fRec,hora:hRec};const{data}=await sb.from('recepciones').insert(row).select();if(data&&data[0])S.push({id:data[0].id,producto:prod,lote:l,temp:t,proveedor:provN,vencimiento:$('rv').value,frio:$('rf').checked,cantidad:$('rq').value,obs:$('ro').value,albaran:$('ra').value,fecha:fRec,hora:hRec.slice(0,5),categoria:cat||'',fecha_ingreso:fIngreso||fRec});['rl','rt','rq','ro','ra'].forEach(x=>$(x).value='');$('rpd').value='';$('rpdc').value='';$('rv').value='';$('rf').checked=false;$('rcat').value='';$('rfingreso').value='';initRecDate();rRH();closeNewRecModal()}}
 function initRecDate(){const now=new Date();$('rfecha').value=now.toISOString().split('T')[0];$('rhora').value=now.toTimeString().slice(0,5)}
 
 // ─── OCR SCANNER ─────────────────────────────────────────────
@@ -1876,7 +1908,7 @@ async function subA(){const pin1=$('apin').value,pin2=$('apin2').value;const err
 const{error}=await sb.from('registros_appcc').insert(row);
 if(error){alert('Error: '+error.message);return}
 H.push({fecha:row.fecha,hora:(row.hora||'').slice(0,5),responsable:row.responsable,producto:s,ingredientes:row.ingredientes||'',lote_prov:row.lote_proveedor||'',proveedor:row.proveedor||'',cant:row.cantidad_pesada||'',rehe:row.doc_rehe||'',obs:row.observaciones||'',pcc1:{t:row.pcc1_temp,m:row.pcc1_tiempo},roh1:{t:row.roh1_temp,v:row.roh1_vida_util||'',m:row.roh1_tiempo||''},roh3:{t:row.roh3_temp,m:row.roh3_tiempo||''},lote:row.lote_final||'',baldes:row.baldes,kg:row.kg,roh4:{i:row.roh4_identificacion||'',c:row.roh4_cantidad||''},roh5:{c:row.roh5_camara||'',t:row.roh5_temp,m:row.roh5_tiempo,e:'',s:''},litros:row.litros_final,pac:row.nro_pac||'',temps:{a1:row.temp_armario_1,a2:row.temp_armario_2,a3:row.temp_armario_3,p1:row.temp_pozzetti_1,p2:row.temp_pozzetti_2,p3:row.temp_pozzetti_3},ver:{e:row.verificacion_etapa||'',d:row.verificacion_descripcion||'',r:row.verificacion_resultado||''}});
-currentIngr=[];rIngrList();$('apeso-real').value='';const mn=$('merma-note');if(mn)mn.style.display='none';$('aok').style.display='block';setTimeout(()=>$('aok').style.display='none',3000)}
+currentIngr=[];rIngrList();$('apeso-real').value='';const mn=$('merma-note');if(mn)mn.style.display='none';$('aok').style.display='block';setTimeout(()=>{$('aok').style.display='none';closeAppccModal();},3000)}
 
 let currentSabIngr=[];
 function addSabIngr(){const v=$('sab-ingr-input').value.trim();if(!v)return;if(!currentSabIngr.includes(v))currentSabIngr.push(v);renderSabIngrList();$('sab-ingr-input').value='';$('sab-ingr-input').focus()}
@@ -2795,6 +2827,50 @@ function openEgrOcr(){
     $('eg-foto-name').textContent=f.name;
     handleOcrImage(ev);
   };
+}
+
+
+function openNewRecModal(){
+  uSP();initRecDate();
+  $('new-rec-modal').style.display='flex';
+  setTimeout(()=>{const s=$('rp');if(s)s.focus();},100);
+}
+function closeNewRecModal(e){
+  if(!e||e.target===$('new-rec-modal')){
+    $('new-rec-modal').style.display='none';
+  }
+}
+function openAppccModal(){
+  const now=new Date();
+  if(!$('af').value)$('af').valueAsDate=now;
+  if(!$('ah').value)$('ah').value=now.toTimeString().slice(0,5);
+  $('ar').value=currentUser;
+  autoGenREHE();
+  $('new-appcc-modal').style.display='flex';
+}
+function closeAppccModal(e){
+  if(!e||e.target===$('new-appcc-modal')){
+    $('new-appcc-modal').style.display='none';
+  }
+}
+function renderAppccList(){
+  const el=$('appcc-list');if(!el)return;
+  const recent=[...H].sort((a,b)=>b.fecha.localeCompare(a.fecha)).slice(0,20);
+  if(!recent.length){el.innerHTML='<div class="empty">Sin elaboraciones registradas</div>';return;}
+  el.innerHTML=recent.map(r=>`<div class="card">
+    <div class="card-top">
+      <span class="card-nm">${r.producto}</span>
+      <span style="font-size:11px;color:var(--muted)">${r.fecha}</span>
+    </div>
+    <div class="card-row">
+      <div><div class="card-l">REHE</div><div class="card-v" style="font-family:var(--mono,monospace);font-size:11px">${r.rehe||'—'}</div></div>
+      <div><div class="card-l">Lote</div><div class="card-v">${r.lote||'—'}</div></div>
+      <div><div class="card-l">Baldes</div><div class="card-v">${r.baldes||'—'}</div></div>
+      <div><div class="card-l">Kg</div><div class="card-v">${r.kg||'—'}</div></div>
+      <div><div class="card-l">Responsable</div><div class="card-v">${r.responsable||'—'}</div></div>
+      <div><div class="card-l">Verificación</div><div class="card-v">${r.ver&&r.ver.r||'—'}</div></div>
+    </div>
+  </div>`).join('');
 }
 
 function closeOcrModal(e){
