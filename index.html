@@ -776,7 +776,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div class="note" style="margin-bottom:.8rem">Subí el "Listado de Imputación de Costes" que manda la gestoría. La IA extrae automáticamente el coste por empleado.</div>
 <div class="f"><label>Mes</label><input type="month" id="nom-pdf-mes"></div>
 <input type="file" id="nom-pdf-input" accept=".pdf" style="display:none" onchange="importNominasPDF(this)">
-<button type="button" class="btn" style="display:block;width:100%;text-align:center;margin-bottom:.5rem" onclick="if(!$('nom-pdf-mes').value){alert('Seleccioná el mes primero');return}if(!OPENAI_KEY){alert('Configurá tu clave OpenAI en Configuración → Local → OpenAI API Key');return}$('nom-pdf-input').click()">📄 Subir PDF del asesor</button>
+<button type="button" class="btn" style="display:block;width:100%;text-align:center;margin-bottom:.5rem" onclick="if(!$('nom-pdf-mes').value){alert('Seleccioná el mes primero');return}$('nom-pdf-input').click()">📄 Subir PDF del asesor</button>
 <div id="nom-pdf-status" style="display:none;font-size:11px;color:var(--muted);text-align:center;padding:.5rem"></div>
 <div id="nom-pdf-preview"></div>
 </div>
@@ -1079,27 +1079,54 @@ async function _loadPDFJS(){
   window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
-async function _extractPDFText(file){
+// Extrae empleados y coste empresa usando posiciones X/Y — sin GPT, sin ambigüedad
+async function _extractNominasData(file){
   await _loadPDFJS();
   const buf=await file.arrayBuffer();
   const pdf=await window.pdfjsLib.getDocument({data:buf}).promise;
-  let text='';
-  for(let i=1;i<=pdf.numPages;i++){
-    const page=await pdf.getPage(i);
+  const result=[];
+  for(let pi=1;pi<=pdf.numPages;pi++){
+    const page=await pdf.getPage(pi);
     const content=await page.getTextContent();
-    text+=`\n--- PÁGINA ${i} ---\n`+content.items.map(item=>item.str).join(' ');
+    // Todos los ítems con posición
+    const items=content.items
+      .map(it=>({str:it.str.trim(),x:it.transform[4],y:it.transform[5]}))
+      .filter(it=>it.str.length>0);
+    // Buscar fila "COSTE EMPRESA"
+    const costeLabel=items.find(it=>/COSTE/i.test(it.str)&&/[A-Z]{3,}/.test(it.str));
+    if(!costeLabel)continue; // página de totales, la saltamos
+    const costeY=costeLabel.y,costeX=costeLabel.x;
+    // Valores numéricos en la misma fila, a la derecha del label
+    const costValues=items.filter(it=>
+      Math.abs(it.y-costeY)<=8&&it.x>costeX&&/^[\d.,]+$/.test(it.str)&&it.str.length>=4
+    ).sort((a,b)=>a.x-b.x);
+    if(!costValues.length)continue;
+    // Ancho medio de columna (para asignar ítems de nombre)
+    let halfW=80;
+    if(costValues.length>1){
+      const spans=[];
+      for(let i=1;i<costValues.length;i++)spans.push(costValues[i].x-costValues[i-1].x);
+      halfW=spans.reduce((s,v)=>s+v,0)/spans.length/2;
+    }
+    // Preparar columnas
+    const cols=costValues.map(cv=>({x:cv.x,costStr:cv.str,nameItems:[]}));
+    // Asignar ítems de nombre a la columna más cercana
+    items.filter(it=>it.y>costeY+4).forEach(it=>{
+      if(/^\d+$/.test(it.str))return; // códigos de empleado tipo 000001
+      if(!/[A-ZÁÉÍÓÚÜÑ]/i.test(it.str))return; // solo texto con letras
+      let near=cols[0],minD=Math.abs(it.x-cols[0].x);
+      cols.forEach(c=>{const d=Math.abs(it.x-c.x);if(d<minD){minD=d;near=c;}});
+      if(minD<=halfW+10)near.nameItems.push({str:it.str,y:it.y});
+    });
+    // Construir resultado por columna
+    cols.forEach(col=>{
+      col.nameItems.sort((a,b)=>b.y-a.y); // top-to-bottom (y desc en PDF)
+      const name=col.nameItems.map(it=>it.str).join(' ').trim();
+      const cost=parseFloat(col.costStr.replace(/\./g,'').replace(',','.'));
+      if(name&&cost>0)result.push({empleado:name,coste_empresa:cost});
+    });
   }
-  return text;
-}
-
-async function _parseNominasGPT(text){
-  if(!OPENAI_KEY){alert('Configurá la clave OpenAI en Configuración → Local → OpenAI API Key');return null}
-  const prompt=`Eres un extractor de datos de nóminas españolas. El texto a continuación viene de un "Listado de Imputación de Costes" con formato COLUMNAR — cada columna corresponde a un empleado distinto.\n\nFORMATO DEL TEXTO EXTRAÍDO:\n- Los valores dentro de cada fila están separados por tabuladores (\\t), cada posición = una columna = un empleado\n- Las primeras filas contienen fragmentos del nombre del empleado (apellidos y nombre en líneas consecutivas, siempre en la misma columna)\n- La fila que empieza con "COSTE EMPRESA" tiene el importe de cada empleado en su columna correspondiente\n- Números en formato español: 1.234,56 = 1234.56\n\nEJEMPLO de lectura columnar:\n  GARCIA\\tLOPEZ\\tMARTINEZ\n  JUAN\\tANA\\tPEDRO\n  COSTE EMPRESA\\t1.234,56\\t789,00\\t456,78\n→ GARCIA JUAN=1234.56, LOPEZ ANA=789.00, MARTINEZ PEDRO=456.78\n\nREGLAS:\n- Cada columna tiene UN solo empleado — NO mezcles fragmentos de columnas distintas\n- Ignora filas de totales como "TOTAL WORDCREAM" o "TOTAL EMPRESA"\n- Responde ÚNICAMENTE con JSON array, sin texto extra ni markdown\n\nFormato: [{"empleado":"APELLIDOS NOMBRE","coste_empresa":1234.56},...]\n\nTEXTO DEL PDF:\n${text}`;
-  const resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'user',content:prompt}],temperature:0})});
-  if(!resp.ok){const e=await resp.json();alert('Error GPT-4: '+(e.error?.message||resp.status));return null}
-  const json=await resp.json();
-  const raw=(json.choices[0].message.content||'').trim();
-  try{return JSON.parse(raw)}catch(e){const m=raw.match(/\[[\s\S]*\]/);if(m)try{return JSON.parse(m[0])}catch(e2){}alert('No se pudo parsear la respuesta: '+raw.substring(0,200));return null}
+  return result;
 }
 
 async function importNominasPDF(input){
@@ -1107,12 +1134,10 @@ async function importNominasPDF(input){
   const mes=$('nom-pdf-mes').value;
   if(!mes){alert('Seleccioná el mes primero');input.value='';return}
   const st=$('nom-pdf-status');
-  st.style.display='block';st.textContent='⏳ Extrayendo texto del PDF...';
+  st.style.display='block';st.textContent='⏳ Extrayendo datos del PDF...';
   try{
-    const text=await _extractPDFText(file);
-    st.textContent='⏳ Analizando con IA...';
-    const items=await _parseNominasGPT(text);
-    if(!items||!items.length){st.textContent='⚠ No se encontraron datos. Verificá el PDF.';input.value='';return}
+    const items=await _extractNominasData(file);
+    if(!items||!items.length){st.textContent='⚠ No se encontraron datos. Verificá el formato del PDF.';input.value='';return}
     _nomPdfItems=items;_nomPdfMes=mes;
     renderNominasPreview(items,mes);
     st.style.display='none';
