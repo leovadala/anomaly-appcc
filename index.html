@@ -1125,7 +1125,9 @@ function rPL(){
 }
 
 function uSP(){const sp=[...P.map((p,i)=>({...p,_i:i}))].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));$('rp').innerHTML='<option value="">Seleccionar...</option>'+sp.map(p=>`<option value="${p._i}">${p.nombre}</option>`).join('')}
-function editRec(idx){const i=S[idx];editingRecIdx=idx;$('rfecha').value=i.fecha||'';$('rhora').value=i.hora||'';const pi=P.findIndex(p=>p.nombre===i.proveedor);$('rp').value=pi>=0?pi:'';$('rp').dispatchEvent(new Event('change'));setTimeout(()=>{if(i.producto){const opts=$('rpd').options;let found=false;for(let o=0;o<opts.length;o++){if(opts[o].value===i.producto||opts[o].textContent===i.producto){$('rpd').value=opts[o].value;found=true;break}}if(!found){$('rpd').value='otro';$('rpdc').style.display='block';$('rpdc').value=i.producto}$('rpd').dispatchEvent(new Event('change'))}},50);$('rl').value=i.lote;$('rt').value=i.temp;$('rq').value=i.cantidad||'';$('rv').value=i.vencimiento||'';$('rf').checked=i.frio;$('ro').value=i.obs||'';$('ra').value=i.albaran||'';$('rcat').value=i.categoria||'';$('rfingreso').value=i.fecha_ingreso||'';$('btn-rec').textContent='Actualizar recepción';$('btn-rec-cancel').style.display='block';document.querySelector('#v1 .sec-t').textContent='Editar recepción';window.scrollTo({top:0,behavior:'smooth'})}
+function editRec(idx){const i=S[idx];editingRecIdx=idx;go(1);$('rfecha').value=i.fecha||'';$('rhora').value=i.hora||'';const pi=P.findIndex(p=>p.nombre===i.proveedor);$('rp').value=pi>=0?pi:'';$('rp').dispatchEvent(new Event('change'));setTimeout(()=>{if(i.producto){const opts=$('rpd').options;let found=false;for(let o=0;o<opts.length;o++){if(opts[o].value===i.producto||opts[o].textContent===i.producto){$('rpd').value=opts[o].value;found=true;break}}if(!found){$('rpd').value='otro';$('rpdc').style.display='block';$('rpdc').value=i.producto}$('rpd').dispatchEvent(new Event('change'))}},50);$('rl').value=i.lote;$('rt').value=i.temp;$('rq').value=i.cantidad||'';$('rv').value=i.vencimiento||'';$('rf').checked=i.frio;$('ro').value=i.obs||'';$('ra').value=i.albaran||'';$('rcat').value=i.categoria||'';$('rfingreso').value=i.fecha_ingreso||'';$('btn-rec').textContent='Actualizar recepción';$('btn-rec-cancel').style.display='block';document.querySelector('#v1 .sec-t').textContent='Editar recepción';window.scrollTo({top:0,behavior:'smooth'})}
+
+async function deleteRec(idx){if(!confirm('¿Eliminar este registro de recepción? Esta acción no se puede deshacer.'))return;const id=S[idx].id;const{error}=await sb.from('recepciones').delete().eq('id',id);if(error){alert('Error: '+error.message);return}S.splice(idx,1);rRH();rS()}
 
 function cancelEditRec(){editingRecIdx=null;['rl','rt','rq','ro','ra'].forEach(x=>$(x).value='');$('rp').value='';$('rpd').value='';$('rpdc').value='';$('rpdc').style.display='none';$('rv').value='';$('rf').checked=false;$('rcat').value='';$('rfingreso').value='';initRecDate();$('btn-rec').textContent='Registrar recepción';$('btn-rec-cancel').style.display='none';document.querySelector('#v1 .sec-t').textContent='Nueva recepción'}
 
@@ -1484,29 +1486,56 @@ function renderOcrResults(textOrData){
   // — TABLA DE LÍNEAS —
   if(ls.length){
     html+=`<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">${ls.length} línea${ls.length!==1?'s':''} detectada${ls.length!==1?'s':''} — editá si hay errores</div>`;
-    html+=`<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:10px">`;
-    html+=`<table style="width:100%;font-size:11px;border-collapse:collapse;min-width:580px">`;
-    html+=`<tr style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">`;
-    html+=`<th style="padding:4px 3px;text-align:left;min-width:180px">Descripción</th><th style="padding:4px 3px;min-width:80px">Lote</th><th style="padding:4px 3px;min-width:100px">Venc.</th><th style="padding:4px 3px;min-width:45px">Uds</th><th style="padding:4px 3px;min-width:65px">Precio</th><th style="padding:4px 3px;min-width:65px">Importe</th><th style="padding:4px 3px">Frío</th></tr>`;
-    ls.forEach((l,i)=>{
-      html+=`<tr style="border-top:1px solid var(--border,#eee)">`;
-      html+=`<td style="padding:3px"><input style="font-size:11px;width:100%;min-width:170px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${(l.descripcion||'').replace(/"/g,'&quot;')}" oninput="window._ocrAlbaran.lineas[${i}].descripcion=this.value"></td>`;
-      html+=`<td style="padding:3px"><input style="font-size:11px;width:80px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${(l.lote||'').replace(/"/g,'&quot;')}" oninput="window._ocrAlbaran.lineas[${i}].lote=this.value"></td>`;
-      html+=`<td style="padding:3px"><input type="date" style="font-size:11px;width:110px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.vencimiento||''}" oninput="window._ocrAlbaran.lineas[${i}].vencimiento=this.value"></td>`;
-      html+=`<td style="padding:3px"><input type="number" style="font-size:11px;width:45px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.unidades!=null?l.unidades:''}" oninput="window._ocrAlbaran.lineas[${i}].unidades=parseInt(this.value)||null"></td>`;
-      html+=`<td style="padding:3px"><input type="number" step="0.001" style="font-size:11px;width:65px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.precio_unitario!=null?l.precio_unitario:''}" oninput="window._ocrAlbaran.lineas[${i}].precio_unitario=parseFloat(this.value)||null"></td>`;
-      html+=`<td style="padding:3px"><input type="number" step="0.01" style="font-size:11px;width:65px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.importe!=null?l.importe:''}" oninput="window._ocrAlbaran.lineas[${i}].importe=parseFloat(this.value)||null"></td>`;
-      html+=`<td style="padding:3px;text-align:center"><input type="checkbox" ${l.requiere_frio?'checked':''} onchange="window._ocrAlbaran.lineas[${i}].requiere_frio=this.checked"></td>`;
-      html+=`</tr>`;
-    });
-    html+=`</table></div>`;
+    html+=`<div id="ocr-lineas-tabla" style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:6px"></div>`;
+    html+=`<button type="button" class="btn-s" onclick="ocrAddLinea()" style="margin-bottom:10px;font-size:10px">+ Agregar línea manual</button>`;
     html+=`<div class="r2" style="gap:8px"><div class="f"><label style="font-size:9px">Temp. recibida (°C)</label><input type="number" id="ocr-temp" step="0.1" placeholder="°C"></div><div class="f"><label style="font-size:9px">Observaciones</label><input id="ocr-obs" placeholder="Estado, sellos..."></div></div>`;
-    html+=`<button type="button" class="btn" onclick="saveAlbaranRecepcion()" style="width:100%;margin-top:12px">✓ Confirmar recepción completa (${ls.length} productos)</button>`;
+    html+=`<button type="button" class="btn" id="ocr-confirm-btn" onclick="saveAlbaranRecepcion()" style="width:100%;margin-top:12px">✓ Confirmar recepción</button>`;
   } else {
-    html+=`<div style="font-size:12px;color:var(--hint);padding:.8rem 0;text-align:center">No se detectaron líneas de productos.<br>Usá el formulario manual o intentá con foto más nítida.</div>`;
+    html+=`<div style="font-size:12px;color:var(--hint);padding:.8rem 0;text-align:center">No se detectaron líneas automáticas.</div>`;
+    html+=`<button type="button" class="btn-s" onclick="ocrAddLinea()" style="margin-bottom:10px;font-size:10px">+ Agregar línea manual</button>`;
+    html+=`<div class="r2" style="gap:8px"><div class="f"><label style="font-size:9px">Temp. recibida (°C)</label><input type="number" id="ocr-temp" step="0.1" placeholder="°C"></div><div class="f"><label style="font-size:9px">Observaciones</label><input id="ocr-obs" placeholder="Estado, sellos..."></div></div>`;
+    html+=`<button type="button" class="btn" id="ocr-confirm-btn" onclick="saveAlbaranRecepcion()" style="width:100%;margin-top:12px">✓ Confirmar recepción</button>`;
   }
   html+=rawHtml;
   $('ocr-results').innerHTML=html;
+  renderOcrLineas();
+}
+
+function renderOcrLineas(){
+  const el=$('ocr-lineas-tabla');if(!el)return;
+  const ls=window._ocrAlbaran?window._ocrAlbaran.lineas:[];
+  if(!ls.length){el.innerHTML='<div class="empty" style="margin:0 0 8px">Sin líneas. Agregá una manualmente.</div>';
+    const btn=$('ocr-confirm-btn');if(btn)btn.textContent='✓ Confirmar recepción';return;}
+  let t=`<table style="width:100%;font-size:11px;border-collapse:collapse;min-width:540px">`;
+  t+=`<tr style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)"><th style="padding:4px 3px;text-align:left;min-width:160px">Descripción</th><th style="padding:4px 3px;min-width:75px">Lote</th><th style="padding:4px 3px;min-width:100px">Vencimiento</th><th style="padding:4px 3px;min-width:45px">Uds</th><th style="padding:4px 3px;min-width:65px">Precio</th><th style="padding:4px 3px;min-width:65px">Importe</th><th style="padding:4px 3px">Frío</th><th></th></tr>`;
+  ls.forEach((l,i)=>{
+    t+=`<tr style="border-top:1px solid var(--border,#eee)">`;
+    t+=`<td style="padding:3px"><input style="font-size:11px;width:100%;min-width:150px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${(l.descripcion||'').replace(/"/g,'&quot;')}" oninput="window._ocrAlbaran.lineas[${i}].descripcion=this.value"></td>`;
+    t+=`<td style="padding:3px"><input style="font-size:11px;width:75px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${(l.lote||'').replace(/"/g,'&quot;')}" oninput="window._ocrAlbaran.lineas[${i}].lote=this.value"></td>`;
+    t+=`<td style="padding:3px"><input type="date" style="font-size:11px;width:110px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.vencimiento||''}" onchange="window._ocrAlbaran.lineas[${i}].vencimiento=this.value"></td>`;
+    t+=`<td style="padding:3px"><input type="number" style="font-size:11px;width:45px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.unidades!=null?l.unidades:''}" oninput="window._ocrAlbaran.lineas[${i}].unidades=parseInt(this.value)||null"></td>`;
+    t+=`<td style="padding:3px"><input type="number" step="0.001" style="font-size:11px;width:65px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.precio_unitario!=null?l.precio_unitario:''}" oninput="window._ocrAlbaran.lineas[${i}].precio_unitario=parseFloat(this.value)||null"></td>`;
+    t+=`<td style="padding:3px"><input type="number" step="0.01" style="font-size:11px;width:65px;border:none;background:transparent;border-bottom:1px solid var(--border)" value="${l.importe!=null?l.importe:''}" oninput="window._ocrAlbaran.lineas[${i}].importe=parseFloat(this.value)||null"></td>`;
+    t+=`<td style="padding:3px;text-align:center"><input type="checkbox" ${l.requiere_frio?'checked':''} onchange="window._ocrAlbaran.lineas[${i}].requiere_frio=this.checked"></td>`;
+    t+=`<td style="padding:3px"><button type="button" onclick="ocrDelLinea(${i})" style="background:none;border:none;color:#b33;cursor:pointer;font-size:15px;padding:0 4px" title="Eliminar fila">✕</button></td>`;
+    t+=`</tr>`;
+  });
+  t+=`</table>`;
+  el.innerHTML=t;
+  const btn=$('ocr-confirm-btn');if(btn)btn.textContent=`✓ Confirmar recepción (${ls.length} producto${ls.length!==1?'s':''})`;
+}
+
+function ocrDelLinea(i){
+  if(!window._ocrAlbaran)return;
+  window._ocrAlbaran.lineas.splice(i,1);
+  renderOcrLineas();
+}
+
+function ocrAddLinea(){
+  if(!window._ocrAlbaran){window._ocrAlbaran={cabecera:{},lineas:[]};}
+  window._ocrAlbaran.lineas.push({descripcion:'',lote:'',vencimiento:'',unidades:null,precio_unitario:null,importe:null,requiere_frio:false});
+  renderOcrLineas();
+  setTimeout(()=>{const el=$('ocr-lineas-tabla');if(!el)return;const inputs=el.querySelectorAll('input');if(inputs.length)inputs[inputs.length-4].focus();},50);
 }
 
 async function saveAlbaranRecepcion(){
@@ -1570,7 +1599,7 @@ function rRH(){const r=[],e=$('rli');const d7=new Date();d7.setDate(d7.getDate()
 
 function semaforo(venc){if(!venc)return'⚪';const dias=Math.round((new Date(venc).getTime()-new Date(hoy).getTime())/(864e5));if(dias<0)return'🔴';if(dias<7)return'🔴';if(dias<=30)return'🟡';return'🟢'}
 function semaforoStyle(venc){if(!venc)return'background:#aaa';const dias=Math.round((new Date(venc).getTime()-new Date(hoy).getTime())/(864e5));if(dias<0)return'background:#e74c3c';if(dias<7)return'background:#e74c3c';if(dias<=30)return'background:#f39c12';return'background:#27ae60'}
-function rS(){const q=$('ss').value.toLowerCase(),f=[];S.forEach((s,idx)=>{if(s.producto.toLowerCase().includes(q))f.push({...s,_idx:idx})});$('sc').textContent=f.length+' item'+(f.length!==1?'s':'');const e=$('sl');if(!f.length){e.innerHTML='<div class="empty">Stock vacío</div>';return}const g={};f.forEach(i=>{if(!g[i.producto])g[i.producto]=[];g[i.producto].push(i)});Object.values(g).forEach(items=>{items.sort((a,b)=>(a.vencimiento||'9999-12-31').localeCompare(b.vencimiento||'9999-12-31'))});const sortedEntries=Object.entries(g).sort(([a],[b])=>a.localeCompare(b,'es'));e.innerHTML=sortedEntries.map(([,items])=>items.map((i,idx)=>{const cad=i.vencimiento&&i.vencimiento<hoy;return`<div class="card" style="${cad?'border-left:3px solid #e74c3c;':''}"><div class="card-top"><span class="card-nm">${i.producto}</span><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;${semaforoStyle(i.vencimiento)}" title="${i.vencimiento?'Vence: '+i.vencimiento:'Sin vencimiento'}"></span>${i.categoria?`<span class="badge" style="background:var(--surface,#eee);color:var(--text)">${i.categoria}</span>`:''} ${cad?'<span class="badge" style="background:#e74c3c;color:#fff">Vencido</span>':''}<span class="badge">${i.frio?'Frío':'Amb.'}</span><button type="button" class="btn-d" onclick="editRec(${i._idx})">Editar</button><button type="button" class="btn-d" onclick="archiveStock(${i._idx},'consumo')" style="background:#27ae60;color:#fff">Consumido</button><button type="button" class="btn-d" onclick="archiveStock(${i._idx},'caducado')" style="background:#e74c3c;color:#fff">Caducado</button></div></div><div class="card-row"><div><div class="card-l">Lote</div><div class="card-v">${i.lote}</div></div><div><div class="card-l">Temp.</div><div class="card-v">${i.temp}°C</div></div><div><div class="card-l">Venc.</div><div class="card-v" ${cad?'style="color:#e74c3c;font-weight:bold"':''}>${i.vencimiento||'—'}</div></div><div><div class="card-l">Ingreso</div><div class="card-v">${i.fecha_ingreso||i.fecha} ${i.hora}</div></div>${i.albaran?`<div><div class="card-l">Albarán</div><div class="card-v">${i.albaran}</div></div>`:''}</div></div>`}).join('')).join('')}
+function rS(){const q=$('ss').value.toLowerCase(),f=[];S.forEach((s,idx)=>{if(s.producto.toLowerCase().includes(q))f.push({...s,_idx:idx})});$('sc').textContent=f.length+' item'+(f.length!==1?'s':'');const e=$('sl');if(!f.length){e.innerHTML='<div class="empty">Stock vacío</div>';return}const g={};f.forEach(i=>{if(!g[i.producto])g[i.producto]=[];g[i.producto].push(i)});Object.values(g).forEach(items=>{items.sort((a,b)=>(a.vencimiento||'9999-12-31').localeCompare(b.vencimiento||'9999-12-31'))});const sortedEntries=Object.entries(g).sort(([a],[b])=>a.localeCompare(b,'es'));e.innerHTML=sortedEntries.map(([,items])=>items.map((i,idx)=>{const cad=i.vencimiento&&i.vencimiento<hoy;return`<div class="card" style="${cad?'border-left:3px solid #e74c3c;':''}"><div class="card-top"><span class="card-nm">${i.producto}</span><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;${semaforoStyle(i.vencimiento)}" title="${i.vencimiento?'Vence: '+i.vencimiento:'Sin vencimiento'}"></span>${i.categoria?`<span class="badge" style="background:var(--surface,#eee);color:var(--text)">${i.categoria}</span>`:''} ${cad?'<span class="badge" style="background:#e74c3c;color:#fff">Vencido</span>':''}<span class="badge">${i.frio?'Frío':'Amb.'}</span><button type="button" class="btn-d" onclick="editRec(${i._idx})">Editar</button><button type="button" class="btn-d" onclick="deleteRec(${i._idx})" style="color:#b33">Eliminar</button><button type="button" class="btn-d" onclick="archiveStock(${i._idx},'consumo')" style="background:#27ae60;color:#fff">Consumido</button><button type="button" class="btn-d" onclick="archiveStock(${i._idx},'caducado')" style="background:#e74c3c;color:#fff">Caducado</button></div></div><div class="card-row"><div><div class="card-l">Lote</div><div class="card-v">${i.lote}</div></div><div><div class="card-l">Temp.</div><div class="card-v">${i.temp}°C</div></div><div><div class="card-l">Venc.</div><div class="card-v" ${cad?'style="color:#e74c3c;font-weight:bold"':''}>${i.vencimiento||'—'}</div></div><div><div class="card-l">Ingreso</div><div class="card-v">${i.fecha_ingreso||i.fecha} ${i.hora}</div></div>${i.albaran?`<div><div class="card-l">Albarán</div><div class="card-v">${i.albaran}</div></div>`:''}</div></div>`}).join('')).join('')}
 function toggleROH1(){const show=$('a2e').checked;$('a2-sec').style.display=show?'block':'none'}
 function setArmarioTemp(){const arm=$('tarm').value;let txt='';if(arm==='1'||arm==='2'||arm==='3'){txt='-18.5°C'}$('ttemp').value=txt}
 function setTempFinal(){const arm=$('atf').value;if(arm==='1'||arm==='2'||arm==='3'){const a1=arm==='1'?-18.5:null,a2=arm==='2'?-18.5:null,a3=arm==='3'?-18.5:null;}}
