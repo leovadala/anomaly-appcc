@@ -471,7 +471,15 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
       <button type="button" onclick="closeNewRecModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0">✕</button>
     </div>
     <div class="r2"><div class="f"><label>Fecha recepción</label><input type="date" id="rfecha"></div><div class="f"><label>Hora</label><input type="time" id="rhora"></div></div>
-    <div class="f"><label>Proveedor</label><select id="rp"><option value="">Seleccionar...</option></select></div>
+    <div class="f"><label>Proveedor</label><select id="rp" onchange="onRpChange()" style="width:100%;border:none;border-bottom:1px solid var(--border);font-size:13px;padding:5px 0;background:transparent;color:var(--text)"><option value="">Seleccionar...</option></select></div>
+    <div id="rp-nuevo-form" style="display:none;background:var(--surface,#f5f3ee);border-radius:6px;padding:10px 12px;margin-top:6px">
+      <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Nuevo proveedor</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="rp-nuevo-nombre" placeholder="Nombre del proveedor" style="flex:1;border:none;border-bottom:1px solid var(--border);background:transparent;font-size:13px;padding:4px 0;font-family:var(--font)">
+        <button type="button" onclick="saveProvInline()" style="padding:6px 12px;background:var(--black,#1a1a1a);color:#fff;border:none;font-size:11px;letter-spacing:.5px;cursor:pointer;white-space:nowrap">Guardar</button>
+        <button type="button" onclick="cancelProvInline()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0;line-height:1">✕</button>
+      </div>
+    </div>
     <div class="f"><label>Producto</label><select id="rpd"><option value="">Primero seleccioná proveedor</option></select><input id="rpdc" placeholder="Especificar" style="display:none;margin-top:4px"></div>
     <div class="r2"><div class="f"><label>Lote proveedor</label><input id="rl" placeholder="Nº lote"></div><div class="f"><label>Nº Albarán</label><input id="ra" placeholder="Nº albarán"></div></div>
     <div class="f"><label>Cantidad</label><input id="rq" placeholder="Ej: 20 lts"></div>
@@ -1264,6 +1272,47 @@ function rPDFs(){$('ppdfl').innerHTML=cPDFs.map((p,i)=>`<div class="pdf-i"><span
 async function rmProv(i){if(!confirm('¿Eliminar proveedor?'))return;await sb.from('proveedores').delete().eq('id',P[i].id);P.splice(i,1);rPL()}
 
 
+
+function onRpChange(){
+  const v=$('rp').value;
+  const form=$('rp-nuevo-form');
+  if(v==='__nuevo__'){
+    form.style.display='block';
+    setTimeout(()=>$('rp-nuevo-nombre').focus(),50);
+  } else {
+    form.style.display='none';
+  }
+  // Also trigger product dropdown update if exists
+  if(typeof uPD==='function')uPD();
+}
+async function saveProvInline(){
+  const nombre=($('rp-nuevo-nombre').value||'').trim();
+  if(!nombre){alert('Ingresá el nombre del proveedor');return}
+  const dup=P.find(p=>p.nombre.toLowerCase()===nombre.toLowerCase());
+  if(dup){
+    // Already exists, just select it
+    uSP();
+    const idx=P.findIndex(p=>p.id===dup.id);
+    $('rp').value=idx;
+    $('rp-nuevo-form').style.display='none';
+    return;
+  }
+  const{data,error}=await sb.from('proveedores').insert({nombre}).select();
+  if(error){alert('Error: '+error.message);return}
+  if(data&&data[0])P.push({id:data[0].id,nombre,cif:'',tel:'',rs:'',productos:[],notas:'',pdfs:[]});
+  $('rp-nuevo-nombre').value='';
+  $('rp-nuevo-form').style.display='none';
+  uSP();
+  // Auto-select the new supplier
+  const newIdx=P.length-1;
+  $('rp').value=newIdx;
+  if(typeof uPD==='function')uPD();
+}
+function cancelProvInline(){
+  $('rp-nuevo-nombre').value='';
+  $('rp-nuevo-form').style.display='none';
+  $('rp').value='';
+}
 function openNewProvModal(title){
   $('prov-modal-title').textContent=title||'Nuevo proveedor';
   $('btn-prov').textContent='Guardar proveedor';
@@ -1310,7 +1359,7 @@ function rPL(){
   }).join('');
 }
 
-function uSP(){const sp=[...P.map((p,i)=>({...p,_i:i}))].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));$('rp').innerHTML='<option value="">Seleccionar...</option>'+sp.map(p=>`<option value="${p._i}">${p.nombre}</option>`).join('')}
+function uSP(){const sp=[...P.map((p,i)=>({...p,_i:i}))].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));$('rp').innerHTML='<option value="">Seleccionar...</option>'+sp.map(p=>`<option value="${p._i}">${p.nombre}</option>`).join('')+'<option value="__nuevo__" style="color:#e67e22">＋ Nuevo proveedor...</option>'}
 function editRec(idx){
   const i=S[idx];editingRecIdx=idx;
   $('em-fecha').value=i.fecha||'';
