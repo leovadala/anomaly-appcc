@@ -942,21 +942,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
-
-window.onerror=function(msg,src,line,col,err){
-  var d=document.createElement('div');
-  d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#e74c3c;color:#fff;padding:12px 16px;font-size:12px;font-family:monospace;white-space:pre-wrap';
-  d.textContent='JS ERROR: '+msg+'\n'+src+':'+line;
-  document.body.appendChild(d);
-  return false;
-};
-window.addEventListener('unhandledrejection',function(e){
-  var d=document.createElement('div');
-  d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#e74c3c;color:#fff;padding:12px 16px;font-size:12px;font-family:monospace;white-space:pre-wrap';
-  d.textContent='PROMISE ERROR: '+e.reason;
-  document.body.appendChild(d);
-});
-
 // ===== FINANZAS =====
 let _finTabIdx=0,_VentasMes=[],_NominasMes=[],_GastosFijos=[];
 
@@ -1185,6 +1170,8 @@ let editingProvIdx=null;
 let editingRecIdx=null;
 let editingSaborIdx=null;
 let editingTeamIdx=null;
+let _aipItems=[];
+let currentSabIngr=[];
 let currentIngr=[];
 let pinSupervisor='0000',pinFinanzas=null,_finUnlocked=false;
 let horLocal={};  // {dayIdx:{a:'12:00',c:'00:00'}}
@@ -2030,7 +2017,6 @@ function setTempFinal(){const arm=$('atf').value;if(arm==='1'||arm==='2'||arm===
 function toggleROH4(){const show=$('a4e').checked;$('a4-sec').style.display=show?'block':'none'}
 function toggleROH5(){const show=$('a5e').checked;$('a5-sec').style.display=show?'block':'none'}
 
-let _aipItems=[];
 function semDot(venc){if(!venc)return'';const dias=Math.round((new Date(venc).getTime()-new Date(hoy).getTime())/(864e5));if(dias<0)return'<span style="font-size:9px;font-weight:600;color:#c0392b;margin-left:4px">VENC</span>';if(dias<7)return'<span style="font-size:9px;font-weight:600;color:#c0392b;margin-left:4px">'+dias+'d</span>';if(dias<=30)return'<span style="font-size:9px;color:#b7860b;margin-left:4px">'+dias+'d</span>';return''}
 function uIngrSelect(filtro){
   const byProd={};S.forEach(i=>{if(!byProd[i.producto])byProd[i.producto]=[];byProd[i.producto].push(i)});
@@ -2089,7 +2075,6 @@ if(error){alert('Error: '+error.message);return}
 H.push({fecha:row.fecha,hora:(row.hora||'').slice(0,5),responsable:row.responsable,producto:s,ingredientes:row.ingredientes||'',lote_prov:row.lote_proveedor||'',proveedor:row.proveedor||'',cant:row.cantidad_pesada||'',rehe:row.doc_rehe||'',obs:row.observaciones||'',pcc1:{t:row.pcc1_temp,m:row.pcc1_tiempo},roh1:{t:row.roh1_temp,v:row.roh1_vida_util||'',m:row.roh1_tiempo||''},roh3:{t:row.roh3_temp,m:row.roh3_tiempo||''},lote:row.lote_final||'',baldes:row.baldes,kg:row.kg,roh4:{i:row.roh4_identificacion||'',c:row.roh4_cantidad||''},roh5:{c:row.roh5_camara||'',t:row.roh5_temp,m:row.roh5_tiempo,e:'',s:''},litros:row.litros_final,pac:row.nro_pac||'',temps:{a1:row.temp_armario_1,a2:row.temp_armario_2,a3:row.temp_armario_3,p1:row.temp_pozzetti_1,p2:row.temp_pozzetti_2,p3:row.temp_pozzetti_3},ver:{e:row.verificacion_etapa||'',d:row.verificacion_descripcion||'',r:row.verificacion_resultado||''}});
 currentIngr=[];rIngrList();$('apeso-real').value='';const mn=$('merma-note');if(mn)mn.style.display='none';$('aok').style.display='block';setTimeout(()=>{$('aok').style.display='none';closeAppccModal();},3000)}
 
-let currentSabIngr=[];
 function addSabIngr(){const v=$('sab-ingr-input').value.trim();if(!v)return;if(!currentSabIngr.includes(v))currentSabIngr.push(v);renderSabIngrList();$('sab-ingr-input').value='';$('sab-ingr-input').focus()}
 function rmSabIngr(i){currentSabIngr.splice(i,1);renderSabIngrList()}
 function renderSabIngrList(){const e=$('sab-ingr-list');if(!e)return;e.innerHTML=currentSabIngr.length?currentSabIngr.map((n,i)=>`<span class="tg">${n}<span onclick="rmSabIngr(${i})" style="cursor:pointer;margin-left:4px">×</span></span>`).join(''):'<span style="color:var(--muted);font-size:11px">Sin ingredientes definidos</span>'}
@@ -2113,8 +2098,6 @@ async function rmSaborById(id){
   rmSabor(i);
 }
 function editSabor(i){
-  console.log('[editSabor] called i='+i);
-  try{
   editingSaborIdx=i;
   const s=sabores[i];
   $('sab-name').value=s.nombre||'';
@@ -2129,14 +2112,7 @@ function editSabor(i){
   $('btn-sab-cancel').style.display='block';
   $('sabor-modal-title').textContent='Editar sabor';
   $('new-sabor-modal').style.display='flex';
-  console.log('[editSabor] modal display='+$('new-sabor-modal').style.display);
   setTimeout(()=>{const el=$('sab-name');if(el)el.focus();},100);
-  }catch(err){
-    var d=document.createElement('div');
-    d.style.cssText='position:fixed;top:50px;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;padding:12px 16px;font-size:12px;font-family:monospace';
-    d.textContent='editSabor ERROR: '+err.message;
-    document.body.appendChild(d);
-  }
 }
 
 function cancelEditSabor(){editingSaborIdx=null;$('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';currentSabIngr=[];renderSabIngrList();$('btn-sab').textContent='Agregar sabor';$('btn-sab-cancel').style.display='none';$('new-sabor-modal').style.display='none';}
