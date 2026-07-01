@@ -3653,8 +3653,8 @@ function applyAllEgOcr(){
 const CONTEO_TARA={plastico:214,acero:1080,cubeta:250,libre:0};
 const CONTEO_CATS=['Helado','Materia prima','Topping','Insumos','Envases','Cafetería','Pastelería','Limpieza','Vajilla y utensilios','Mermas y Roturas'];
 const CONTEO_CONT_DEFAULT={Helado:'plastico',Topping:'cubeta'};
-let _conteo=null,_conteoLineas=[],_conteoTab='Helado',_pesarProd={nombre:'',categoria:''};
-let _pesarContenedor='plastico';
+var _conteo=null,_conteoLineas=[],_conteoTab='Helado',_pesarProd={nombre:'',categoria:''};
+var _pesarContenedor='plastico';
 
 function mapConteoCategoria(cat){
   if(!cat)return'Helado';
@@ -3679,29 +3679,23 @@ function abrirConteo(){
 }
 
 async function crearConteo(){
-  const fecha=$('conteo-start-fecha').value||hoy;
-  const resp=($('conteo-start-resp').value||'').trim();
-  try{
-    const{data,error}=await sb.from('conteos_inventario').insert({fecha,responsable:resp||null,estado:'borrador'}).select();
-    if(error){alert('Error al crear conteo: '+error.message);return}
-    if(!data||!data.length){
-      // insert OK pero select bloqueado por RLS — reintentamos con select separado
-      const{data:d2,error:e2}=await sb.from('conteos_inventario').select('id').eq('fecha',fecha).eq('responsable',resp||null).order('created_at',{ascending:false}).limit(1).maybeSingle();
-      if(e2||!d2){alert('Conteo creado pero no se pudo obtener el ID. Recargá la página.');return}
-      _conteo={id:d2.id,fecha,responsable:resp};
-    }else{
-      _conteo={id:data[0].id,fecha,responsable:resp};
-    }
-    _conteoLineas=[];
-    $('conteo-start-modal').style.display='none';
-    $('conteo-header-info').textContent=fecha+(resp?' · '+resp:'');
-    $('conteo-main-modal').style.display='block';
-    setConteoTab('Helado');
-    renderBorrador();
-  }catch(e){
-    alert('Error inesperado al iniciar conteo: '+e.message);
-    console.error('crearConteo error:',e);
+  var fecha=$('conteo-start-fecha').value||hoy;
+  var resp=($('conteo-start-resp').value||'').trim();
+  var res=await sb.from('conteos_inventario').insert({fecha:fecha,responsable:resp||null,estado:'borrador'}).select();
+  if(res.error){alert('Error al crear conteo: '+res.error.message);return}
+  var fila=res.data&&res.data.length?res.data[0]:null;
+  if(!fila){
+    var res2=await sb.from('conteos_inventario').select('id').eq('fecha',fecha).order('created_at',{ascending:false}).limit(1).maybeSingle();
+    if(res2.error||!res2.data){alert('No se pudo obtener el conteo. Intentá de nuevo.');return}
+    fila=res2.data;
   }
+  _conteo={id:fila.id,fecha:fecha,responsable:resp};
+  _conteoLineas=[];
+  $('conteo-start-modal').style.display='none';
+  $('conteo-header-info').textContent=fecha+(resp?' · '+resp:'');
+  $('conteo-main-modal').style.display='block';
+  setConteoTab('Helado');
+  renderBorrador();
 }
 
 function cerrarConteo(){
