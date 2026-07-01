@@ -1176,11 +1176,14 @@ async function _extractNominasData(file){
       const ni=r.items.filter(isNm);
       if(!ni.length)return;
       if(ni.length===N){
+        // Fila completa: asignar por índice (100% preciso)
         ni.sort((a,b)=>a.x-b.x).forEach((it,i)=>cols[i].parts.push({str:it.str,y:r.y}));
       } else {
+        // Fila parcial: asignar por distancia al anchor X de cada columna (desde fullRow)
+        // Más robusto que midpoints cuando hay variación leve de x entre filas
         ni.forEach(it=>{
-          let ci=cols.length-1;
-          for(let i=0;i<mids.length;i++) if(it.x<mids[i]){ci=i;break;}
+          let ci=0,minD=Math.abs(it.x-cols[0].ax);
+          cols.forEach((c,i)=>{const d=Math.abs(it.x-c.ax);if(d<minD){minD=d;ci=i;}});
           cols[ci].parts.push({str:it.str,y:r.y});
         });
       }
