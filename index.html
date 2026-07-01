@@ -1081,31 +1081,56 @@ async function _loadPDFJS(){
 
 // Extrae empleados y coste empresa (v9)
 // ─── PARSER: individual payslips (1 empleado por página) ───────────────────
-// Detecta "COSTE EMPRESA: X.XXX,XX" en cada página para extraer nombre y coste.
+// Una nómina individual por página. Busca el nombre por posición y coste por label.
 async function _extractNominasPerPage(pdf){
   const result=[];
   const parseAmt=s=>parseFloat(s.replace(/\./g,'').replace(',','.'));
-  // Nombres españoles: "APELLIDOS, NOMBRES" — con coma, solo mayúsculas/espacios/guiones
-  const nameRx=/^[A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ\s\-]+,\s*[A-ZÁÉÍÓÚÜÑ\s\-]+$/;
+  const isCurr=s=>/^\d[\d.]*,\d{2}$/.test(s);
+
   for(let pi=1;pi<=pdf.numPages;pi++){
     const page=await pdf.getPage(pi);
     const content=await page.getTextContent();
     const items=content.items
       .map(it=>({str:it.str.trim(),x:Math.round(it.transform[4]),y:Math.round(it.transform[5])}))
       .filter(it=>it.str.length>0);
-    // Hay dos ítems con este patrón por página:
-    //   1) bloque de dirección (nombre COMPLETO, y más alta = más arriba en página)
-    //   2) fila TRABAJADOR/A (nombre TRUNCADO, y menor)
-    // Tomamos el de mayor y → nombre completo.
-    const nc=items.filter(it=>nameRx.test(it.str)).sort((a,b)=>b.y-a.y);
-    const rawName=nc[0]?.str||'';
-    const name=rawName.replace(/,\s*/,' ').replace(/\s+/g,' ').trim();
-    // COSTE EMPRESA: label explícito + valor en misma página
-    const allText=items.map(it=>it.str).join(' ');
-    const m=allText.match(/COSTE EMPRESA\s*:\s*([\d.]+,\d{2})/);
-    if(name&&m){
-      result.push({empleado:name,coste_empresa:parseAmt(m[1])});
+
+    // ── Nombre ──────────────────────────────────────────────────────────────
+    // El nombre aparece en formato "APELLIDOS, NOMBRE" (con coma, sin dígitos).
+    // Aparece DOS veces: bloque dirección (completo) y fila TRABAJADOR/A (truncado).
+    // Nos quedamos con el MÁS LARGO.
+    const withComma=items.filter(it=>{
+      const s=it.str;
+      return s.includes(',')&&s.indexOf(',')<s.length-1  // tiene coma no al final
+        &&!/\d/.test(s)             // sin dígitos
+        &&/[A-Z]/.test(s)           // al menos una mayúscula
+        &&s.length>4;               // descarta comas sueltas
+    });
+    withComma.sort((a,b)=>b.str.length-a.str.length);
+    const rawName=(withComma[0]?.str||'').replace(/,\s*/,' ').replace(/\s+/g,' ').trim();
+
+    // ── COSTE EMPRESA ───────────────────────────────────────────────────────
+    // Estrategia 1: encontrar ítem con texto "COSTE EMPRESA" y leer valor al mismo y
+    const costeLabel=items.find(it=>/COSTE EMPRESA/.test(it.str));
+    let cost=0;
+    if(costeLabel){
+      // ¿El valor ya está en el mismo ítem? Ej: "COSTE EMPRESA: 2.646,37"
+      const inLabel=costeLabel.str.match(/([\d.]+,\d{2})\s*$/);
+      if(inLabel) cost=parseAmt(inLabel[1]);
+      // Si no, buscar ítem de moneda a la derecha en la misma fila
+      if(!cost){
+        const same=items.filter(it=>Math.abs(it.y-costeLabel.y)<=6&&isCurr(it.str)&&it.x>costeLabel.x);
+        same.sort((a,b)=>a.x-b.x);
+        if(same.length) cost=parseAmt(same[0].str);
+      }
     }
+    // Estrategia 2: regex sobre todo el texto unido
+    if(!cost){
+      const allText=items.map(it=>it.str).join(' ');
+      const m=allText.match(/COSTE EMPRESA[\s:]*?([\d.]+,\d{2})/);
+      if(m) cost=parseAmt(m[1]);
+    }
+
+    if(rawName&&cost>0) result.push({empleado:rawName,coste_empresa:cost});
   }
   return result;
 }
@@ -1218,16 +1243,17 @@ async function _extractNominasColumnar(pdf){
   return result;
 }
 
-// ─── DISPATCHER: detecta formato y redirige al parser correcto ───────────────
+// ─── DISPATCHER ──────────────────────────────────────────────────────────────
+// Detecta formato: nóminas individuales tienen "LIQUIDO A PERCIBIR" por página.
+// El Listado de Imputación de Costes no lo tiene.
 async function _extractNominasData(file){
   await _loadPDFJS();
   const buf=await file.arrayBuffer();
   const pdf=await window.pdfjsLib.getDocument({data:buf}).promise;
-  // Detectar formato: si página 1 tiene "COSTE EMPRESA: valor" → nóminas individuales
   const p1=await pdf.getPage(1);
   const p1c=await p1.getTextContent();
   const p1text=p1c.items.map(it=>it.str).join(' ');
-  if(/COSTE EMPRESA\s*:\s*[\d.]+,\d{2}/.test(p1text)){
+  if(/LIQUIDO A PERCIBIR|TRABAJADOR/.test(p1text)){
     return _extractNominasPerPage(pdf);
   }
   return _extractNominasColumnar(pdf);
