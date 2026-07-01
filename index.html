@@ -1473,6 +1473,10 @@ function _fmt(v,dec=0){
 function _kpi(label,val,sub,colorClass=''){
   return`<div class="er-kpi"><span class="er-kpi-lbl">${label}</span><span class="er-kpi-val ${colorClass}">${_fmt(val,0)}</span><span class="er-kpi-sub">${sub}</span></div>`;
 }
+function _kpiPct(label,pct,sub,colorClass=''){
+  const sign=pct>=0?'+':'';
+  return`<div class="er-kpi"><span class="er-kpi-lbl">${label}</span><span class="er-kpi-val ${colorClass}" style="font-size:22px">${sign}${pct.toFixed(1)}%</span><span class="er-kpi-sub">${sub}</span></div>`;
+}
 function _row(label,val,{bold=false,indent=false,color='',sep=false}={}){
   if(sep)return`<div class="er-sec">${label}</div>`;
   const cls=`er-row${bold?' bold':''}`;
@@ -1519,9 +1523,9 @@ async function _renderERMes(year,month){
   const html=warn+
   `<div class="er-kpis">
     ${_kpi('Ingresos',vn,'ventas netas')}
-    ${_kpi('Resultado',resultado,resultPct.toFixed(1)+'% sobre ingresos',resultado>=0?'er-pos':'er-neg')}
-    ${_kpi('Margen bruto',margen,margenPct.toFixed(1)+'% sobre ingresos')}
-    ${_kpi('Total gastos',-(opex+comp),'nóminas + fijos + compras')}
+    ${_kpi('Ganancia',resultado,resultado>=0?'resultado positivo':'resultado negativo',resultado>=0?'er-pos':'er-neg')}
+    ${_kpiPct('Rentabilidad',resultPct,'% sobre ingresos',resultPct>=0?'er-pos':'er-neg')}
+    ${_kpi('Costo de estructura',opex,'nóminas + gastos fijos')}
   </div>`+
   _row('Ingresos','',{sep:true})+
   _row('Ventas brutas',vb,{indent:true})+
@@ -1602,9 +1606,9 @@ async function _renderERAnio(year){
   const html=
   `<div class="er-kpis">
     ${_kpi('Ingresos',totalVN,'ventas netas '+year)}
-    ${_kpi('Resultado',resultado,resultPct.toFixed(1)+'% margen neto',resultado>=0?'er-pos':'er-neg')}
-    ${_kpi('Margen bruto',totalMargen,margenPct.toFixed(1)+'% sobre ingresos')}
-    ${_kpi('Total gastos',-(totalOpex+totalComp),'nóminas + fijos + compras')}
+    ${_kpi('Ganancia',resultado,resultado>=0?'resultado positivo':'resultado negativo',resultado>=0?'er-pos':'er-neg')}
+    ${_kpiPct('Rentabilidad',resultPct,'% sobre ingresos',resultPct>=0?'er-pos':'er-neg')}
+    ${_kpi('Costo de estructura',totalOpex,'nóminas + gastos fijos')}
   </div>`+
   _row('Ingresos','',{sep:true})+
   _row('Ventas netas',totalVN,{bold:true})+
