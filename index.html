@@ -757,7 +757,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <button class="hor-maintab on" onclick="finTab(0)">Ventas</button>
 <button class="hor-maintab" onclick="finTab(1)">Nóminas</button>
 <button class="hor-maintab" onclick="finTab(2)">Gastos</button>
-<button class="hor-maintab" onclick="finTab(3)">P&amp;L</button>
+<button class="hor-maintab" onclick="finTab(3)">Resultados</button>
 </div>
 
 <div id="fin-t0">
@@ -812,20 +812,23 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 </div>
 
 <div id="fin-t3" style="display:none">
-<div class="sec"><div class="sec-t">Cuenta de resultados</div>
-<div style="display:flex;gap:.5rem;margin-bottom:.75rem">
-  <select id="pl-year" onchange="renderPL()" style="flex:1;padding:8px;font-size:12px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);color:var(--text)"></select>
-  <select id="pl-month" onchange="renderPL()" style="flex:2;padding:8px;font-size:12px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);color:var(--text)">
-    <option value="">Año completo</option>
-    <option value="01">Enero</option><option value="02">Febrero</option>
-    <option value="03">Marzo</option><option value="04">Abril</option>
-    <option value="05">Mayo</option><option value="06">Junio</option>
-    <option value="07">Julio</option><option value="08">Agosto</option>
-    <option value="09">Septiembre</option><option value="10">Octubre</option>
-    <option value="11">Noviembre</option><option value="12">Diciembre</option>
-  </select>
-</div>
-<div id="pl-content"><div class="empty">Cargando...</div></div>
+<div class="sec">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+    <div style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Estado de resultados</div>
+    <div style="display:flex;gap:.4rem">
+      <select id="pl-year" onchange="renderPL()" style="padding:6px 8px;font-size:11px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);color:var(--text)"></select>
+      <select id="pl-month" onchange="renderPL()" style="padding:6px 8px;font-size:11px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);color:var(--text)">
+        <option value="">Año completo</option>
+        <option value="01">Enero</option><option value="02">Febrero</option>
+        <option value="03">Marzo</option><option value="04">Abril</option>
+        <option value="05">Mayo</option><option value="06">Junio</option>
+        <option value="07">Julio</option><option value="08">Agosto</option>
+        <option value="09">Septiembre</option><option value="10">Octubre</option>
+        <option value="11">Noviembre</option><option value="12">Diciembre</option>
+      </select>
+    </div>
+  </div>
+  <div id="pl-content"><div class="empty">Cargando...</div></div>
 </div>
 </div><!-- /v10 -->
 
@@ -1416,34 +1419,83 @@ async function delGasto(id){
   _GastosFijos=_GastosFijos.filter(g=>g.id!==id);renderGastosList();
 }
 
-// — P&L —
+// — Estado de Resultados —
+function _erInjectCSS(){
+  if(document.getElementById('er-css'))return;
+  const s=document.createElement('style');s.id='er-css';
+  s.textContent=`
+    .er-kpis{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1.25rem}
+    .er-kpi{padding:.8rem;border:.5px solid var(--border);background:var(--surface)}
+    .er-kpi-lbl{display:block;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem}
+    .er-kpi-val{display:block;font-family:var(--mono);font-size:20px;font-weight:500;line-height:1.1;margin-bottom:.2rem}
+    .er-kpi-sub{display:block;font-size:10px;color:var(--muted)}
+    .er-pos{color:#2a7a2a}.er-neg{color:#c0392b}
+    .er-sec{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--hint);font-weight:500;padding:.6rem 0 .25rem;margin-top:.5rem;border-top:.5px solid var(--border)}
+    .er-row{display:flex;justify-content:space-between;align-items:center;padding:.45rem 0;border-bottom:.5px solid var(--border)}
+    .er-row-lbl{font-size:12px;color:var(--text)}
+    .er-row-lbl.ind{padding-left:14px;font-size:11px;color:var(--muted)}
+    .er-row-val{font-family:var(--mono);font-size:12px;color:var(--text)}
+    .er-row.bold .er-row-lbl{font-weight:500;font-size:12px}
+    .er-row.bold .er-row-val{font-weight:500;font-size:13px}
+    .er-bar-wrap{margin:.15rem 0 .6rem 14px}
+    .er-bar-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem}
+    .er-bar-lbl{font-size:10px;color:var(--muted);min-width:90px}
+    .er-bar-track{flex:1;height:3px;background:var(--border);border-radius:2px}
+    .er-bar-fill{height:3px;border-radius:2px;background:var(--text);transition:width .3s}
+    .er-bar-pct{font-size:10px;font-family:var(--mono);color:var(--muted);min-width:36px;text-align:right}
+    .er-warn{padding:.5rem .75rem;background:#fffbe6;border:.5px solid #e6d800;font-size:11px;color:#7d5a00;margin-bottom:.75rem}
+    .er-mt{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:.6rem}
+    .er-mt table{border-collapse:collapse;min-width:540px;width:100%}
+    .er-mt th,.er-mt td{padding:4px 5px;font-size:10px;text-align:right;border-bottom:.5px solid var(--border);font-family:var(--mono)}
+    .er-mt td:first-child,.er-mt th:first-child{text-align:left;font-family:var(--font);color:var(--muted);white-space:nowrap;font-size:10px}
+    .er-mt tr.hd{background:var(--bg)}
+    .er-mt tr.hd th{font-family:var(--font);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--hint);font-weight:500}
+    .er-mt tr.bold td{font-weight:500;font-size:11px}
+    .er-mt tr.sep td{background:var(--bg);font-family:var(--font);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--hint);font-weight:500;padding:5px 5px 2px;text-align:left}
+  `;
+  document.head.appendChild(s);
+}
+
 function _initPLSelectors(){
   const yr=$('pl-year');if(!yr||yr.options.length)return;
   const now=new Date();const cy=now.getFullYear();
   for(let y=cy-1;y<=cy+1;y++){const o=document.createElement('option');o.value=y;o.textContent=y;if(y===cy)o.selected=true;yr.appendChild(o);}
-  // Pre-select current month
   const mm=String(now.getMonth()+1).padStart(2,'0');
   const mo=$('pl-month');if(mo)mo.value=mm;
 }
 
-function _plRow(label,val,{bold=false,indent=false,color='',sep=false,cols=2}={}){
-  if(sep)return`<tr style="background:var(--bg)"><td colspan="${cols}" style="padding:4px 8px;font-size:9px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--hint)">${label}</td></tr>`;
-  const fs=bold?'13px':'12px';const fw=bold?'font-weight:500;':'';
-  const col=color?`color:${color};`:'';const pl=indent?'padding-left:16px;':'';
-  if(cols===2)return`<tr><td style="padding:5px 8px;font-size:${fs};${fw}${pl}${col}">${label}</td><td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-size:${fs};${fw}${col}">${val<0?'-':''}${Math.abs(val).toFixed(2)} €</td></tr>`;
-  return`<tr><td style="padding:5px 8px;font-size:${fs};${fw}${pl}${col}">${label}</td><td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-size:${fs};${fw}${col}">${val===null||val===undefined?'—':(val<0?'-':'')+Math.abs(val).toFixed(0)+' €'}</td></tr>`;
+function _fmt(v,dec=0){
+  if(v===null||v===undefined)return'—';
+  const abs=Math.abs(v);
+  const s=abs>=1000?(Math.round(abs)).toLocaleString('es-ES'):abs.toFixed(dec);
+  return(v<0?'-':'')+s+' €';
+}
+function _kpi(label,val,sub,colorClass=''){
+  return`<div class="er-kpi"><span class="er-kpi-lbl">${label}</span><span class="er-kpi-val ${colorClass}">${_fmt(val,0)}</span><span class="er-kpi-sub">${sub}</span></div>`;
+}
+function _row(label,val,{bold=false,indent=false,color='',sep=false}={}){
+  if(sep)return`<div class="er-sec">${label}</div>`;
+  const cls=`er-row${bold?' bold':''}`;
+  const lbl=`<span class="er-row-lbl${indent?' ind':''}">${label}</span>`;
+  const c=color?`style="color:${color}"`:'';
+  const v=`<span class="er-row-val" ${c}>${_fmt(val)}</span>`;
+  return`<div class="${cls}">${lbl}${v}</div>`;
+}
+function _bar(label,val,total){
+  const pct=total>0?Math.min(100,val/total*100):0;
+  return`<div class="er-bar-row"><span class="er-bar-lbl">${label}</span><div class="er-bar-track"><div class="er-bar-fill" style="width:${pct.toFixed(1)}%"></div></div><span class="er-bar-pct">${pct.toFixed(1)}%</span></div>`;
 }
 
 async function renderPL(){
-  _initPLSelectors();
+  _erInjectCSS();_initPLSelectors();
   const year=$('pl-year')?.value||new Date().getFullYear();
   const month=$('pl-month')?.value||'';
-  $('pl-content').innerHTML='<div class="empty" style="padding:1rem">Calculando...</div>';
-  if(month){await _renderPLMes(year,month);}
-  else{await _renderPLAnio(year);}
+  $('pl-content').innerHTML='<div class="empty" style="padding:1.5rem 0">Calculando...</div>';
+  if(month) await _renderERMes(year,month);
+  else await _renderERAnio(year);
 }
 
-async function _renderPLMes(year,month){
+async function _renderERMes(year,month){
   const mesStart=`${year}-${month}-01`;
   const nx=new Date(mesStart+'T12:00:00');nx.setMonth(nx.getMonth()+1);
   const mesEnd=nx.toISOString().split('T')[0];
@@ -1453,37 +1505,48 @@ async function _renderPLMes(year,month){
     sb.from('gastos_fijos').select('importe,categoria').eq('mes',mesStart),
     sb.from('egresos').select('importe').gte('fecha',mesStart).lt('fecha',mesEnd)
   ]);
-  const ventas=vR.data,nominas=nR.data,gastos=gR.data||[],egresos=eR.data||[];
-  const vb=ventas?.ventas_brutas||0,vd=ventas?.descuentos||0,vn=ventas?.ventas_netas||0;
-  const compras=egresos.reduce((s,e)=>s+(parseFloat(e.importe)||0),0);
-  const margen=vn-compras,margenPct=vn>0?margen/vn*100:0;
-  const nomT=nominas?.coste_empresa||0;
-  const gastT=gastos.reduce((s,g)=>s+(g.importe||0),0);
-  const opex=nomT+gastT,ebitda=margen-opex,ebitdaPct=vn>0?ebitda/vn*100:0;
-  const byCat={};gastos.forEach(g=>{byCat[g.categoria]=(byCat[g.categoria]||0)+(g.importe||0)});
-  const missing=[];if(!ventas)missing.push('ventas');if(!nominas)missing.push('nóminas');
-  const warn=missing.length?`<div style="padding:.5rem .8rem;background:#fffbe6;border:.5px solid #e6d800;font-size:11px;color:#7d5a00;margin-bottom:.75rem">⚠ Sin datos: ${missing.join(', ')}</div>`:'';
-  const pr=(l,v,o={})=>_plRow(l,v,{...o,cols:2});
-  $('pl-content').innerHTML=warn+`<table style="width:100%;border-collapse:collapse;border:.5px solid var(--border)">
-    ${pr('VENTAS','',{sep:true})}
-    ${pr('Ventas brutas',vb,{indent:true})}
-    ${vd>0?pr('Descuentos',-vd,{indent:true,color:'#b33'}):''}
-    ${pr('Ventas netas',vn,{bold:true})}
-    ${pr('COSTE DE VENTAS','',{sep:true})}
-    ${pr('Compras / materia prima',-compras,{indent:true})}
-    ${pr('Margen bruto',margen,{bold:true,color:margen>=0?'#2d6a2d':'#b33'})}
-    <tr><td colspan="2" style="padding:1px 8px 5px;font-size:10px;color:var(--muted);text-align:right">Margen: ${margenPct.toFixed(1)}%</td></tr>
-    ${pr('GASTOS OPERATIVOS','',{sep:true})}
-    ${pr('Nóminas',-nomT,{indent:true})}
-    ${Object.entries(byCat).sort().map(([c,a])=>pr(c.charAt(0).toUpperCase()+c.slice(1),-a,{indent:true})).join('')}
-    ${pr('Total gastos',-opex,{bold:true})}
-    ${pr('RESULTADO','',{sep:true})}
-    ${pr('Resultado neto',ebitda,{bold:true,color:ebitda>=0?'#2d6a2d':'#b33'})}
-    <tr><td colspan="2" style="padding:1px 8px 6px;font-size:10px;color:var(--muted);text-align:right">Margen: ${ebitdaPct.toFixed(1)}%</td></tr>
-  </table>`;
+  const v=vR.data,nom=nR.data,gf=gR.data||[],eg=eR.data||[];
+  const vb=v?.ventas_brutas||0,vd=v?.descuentos||0,vn=v?.ventas_netas||0;
+  const comp=eg.reduce((s,e)=>s+(parseFloat(e.importe)||0),0);
+  const margen=vn-comp,margenPct=vn>0?margen/vn*100:0;
+  const nomT=nom?.coste_empresa||0;
+  const gastT=gf.reduce((s,g)=>s+(g.importe||0),0);
+  const opex=nomT+gastT,resultado=margen-opex,resultPct=vn>0?resultado/vn*100:0;
+  const byCat={};gf.forEach(g=>{byCat[g.categoria]=(byCat[g.categoria]||0)+(g.importe||0)});
+  const missing=[];if(!v)missing.push('ventas');if(!nom)missing.push('nóminas');
+  const warn=missing.length?`<div class="er-warn">⚠ Sin datos: ${missing.join(', ')}</div>`:'';
+  const resColor=resultado>=0?'#2a7a2a':'#c0392b';
+  const html=warn+
+  `<div class="er-kpis">
+    ${_kpi('Ingresos',vn,'ventas netas')}
+    ${_kpi('Resultado',resultado,resultPct.toFixed(1)+'% sobre ingresos',resultado>=0?'er-pos':'er-neg')}
+    ${_kpi('Margen bruto',margen,margenPct.toFixed(1)+'% sobre ingresos')}
+    ${_kpi('Total gastos',-(opex+comp),'nóminas + fijos + compras')}
+  </div>`+
+  _row('Ingresos','',{sep:true})+
+  _row('Ventas brutas',vb,{indent:true})+
+  (vd>0?_row('Descuentos',-vd,{indent:true,color:'#c0392b'}):'')+
+  _row('Ventas netas',vn,{bold:true})+
+  _row('Coste de ventas','',{sep:true})+
+  _row('Compras / materia prima',-comp,{indent:true})+
+  _row('Margen bruto',margen,{bold:true,color:margen>=0?'#2a7a2a':'#c0392b'})+
+  _row('Gastos operativos','',{sep:true})+
+  _row('Nóminas',-nomT,{indent:true})+
+  Object.entries(byCat).sort().map(([c,a])=>_row(c.charAt(0).toUpperCase()+c.slice(1),-a,{indent:true})).join('')+
+  _row('Total gastos',-opex,{bold:true})+
+  _row('Resultado','',{sep:true})+
+  _row('Resultado neto',resultado,{bold:true,color:resColor})+
+  `<div style="text-align:right;font-size:10px;color:var(--muted);padding:.3rem 0 .5rem">Margen neto: ${resultPct.toFixed(1)}%</div>`+
+  `<div class="er-sec">Composición del gasto</div>`+
+  `<div class="er-bar-wrap">`+
+  (comp>0?_bar('Compras',comp,vn):'')+
+  (nomT>0?_bar('Nóminas',nomT,vn):'')+
+  Object.entries(byCat).sort().map(([c,a])=>_bar(c.charAt(0).toUpperCase()+c.slice(1),a,vn)).join('')+
+  `</div>`;
+  $('pl-content').innerHTML=html;
 }
 
-async function _renderPLAnio(year){
+async function _renderERAnio(year){
   const yrStart=`${year}-01-01`;
   const yrEnd=`${parseInt(year)+1}-01-01`;
   const[vR,nR,gR,eR]=await Promise.all([
@@ -1492,80 +1555,79 @@ async function _renderPLAnio(year){
     sb.from('gastos_fijos').select('importe,categoria,mes').gte('mes',yrStart).lt('mes',yrEnd),
     sb.from('egresos').select('importe,fecha').gte('fecha',yrStart).lt('fecha',yrEnd)
   ]);
-  const ventasArr=vR.data||[],nominasArr=nR.data||[],gastosArr=gR.data||[],egresosArr=eR.data||[];
+  const va=vR.data||[],na=nR.data||[],ga=gR.data||[],ea=eR.data||[];
   const meses=['01','02','03','04','05','06','07','08','09','10','11','12'];
-  const mLabels=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const mLbl=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
-  // Totales anuales
-  const totalVN=ventasArr.reduce((s,v)=>s+(v.ventas_netas||0),0);
-  const totalVB=ventasArr.reduce((s,v)=>s+(v.ventas_brutas||0),0);
-  const totalComp=egresosArr.reduce((s,e)=>s+(parseFloat(e.importe)||0),0);
-  const totalMargen=totalVN-totalComp;
-  const totalNom=nominasArr.reduce((s,n)=>s+(n.coste_empresa||0),0);
-  const totalGast=gastosArr.reduce((s,g)=>s+(g.importe||0),0);
-  const totalOpex=totalNom+totalGast;
-  const totalEbitda=totalMargen-totalOpex;
-  const totalMargenPct=totalVN>0?totalMargen/totalVN*100:0;
-  const totalEbitdaPct=totalVN>0?totalEbitda/totalVN*100:0;
+  const totalVN=va.reduce((s,v)=>s+(v.ventas_netas||0),0);
+  const totalVB=va.reduce((s,v)=>s+(v.ventas_brutas||0),0);
+  const totalComp=ea.reduce((s,e)=>s+(parseFloat(e.importe)||0),0);
+  const totalMargen=totalVN-totalComp,margenPct=totalVN>0?totalMargen/totalVN*100:0;
+  const totalNom=na.reduce((s,n)=>s+(n.coste_empresa||0),0);
+  const totalGast=ga.reduce((s,g)=>s+(g.importe||0),0);
+  const totalOpex=totalNom+totalGast,resultado=totalMargen-totalOpex;
+  const resultPct=totalVN>0?resultado/totalVN*100:0;
+  const cats=[...new Set(ga.map(g=>g.categoria))].sort();
+  const resColor=resultado>=0?'#2a7a2a':'#c0392b';
 
-  // Categorías únicas de gastos_fijos
-  const cats=[...new Set(gastosArr.map(g=>g.categoria))].sort();
+  // Helpers para tabla mensual
+  const mVN=mm=>(va.find(x=>x.mes===`${year}-${mm}-01`)?.ventas_netas)||0;
+  const mComp=mm=>ea.filter(x=>x.fecha?.startsWith(`${year}-${mm}`)).reduce((s,e)=>s+(parseFloat(e.importe)||0),0);
+  const mNom=mm=>(na.find(x=>x.mes===`${year}-${mm}-01`)?.coste_empresa)||0;
+  const mGF=mm=>ga.filter(x=>x.mes===`${year}-${mm}-01`).reduce((s,g)=>s+(g.importe||0),0);
+  const mRes=mm=>{const vn=mVN(mm);const c=mComp(mm);const n=mNom(mm);const g=mGF(mm);return vn-c-n-g;};
+  const mMargen=mm=>mVN(mm)-mComp(mm);
 
-  const pr=(l,v,o={})=>_plRow(l,v,{...o,cols:2});
+  function mtd(val,bold=false,colorFn=null){
+    if(!val&&val!==0)return`<td>—</td>`;
+    const c=colorFn?colorFn(val):'';
+    const v=Math.abs(val)>=1000?Math.round(Math.abs(val)).toLocaleString('es-ES'):Math.abs(val).toFixed(0);
+    return`<td style="${c?'color:'+c+';':''}${bold?'font-weight:500':''}"><span style="font-size:9px;opacity:.5">${val<0?'-':''}</span>${v}</td>`;
+  }
 
-  // Tabla resumen anual
-  const resumen=`<table style="width:100%;border-collapse:collapse;border:.5px solid var(--border);margin-bottom:1.2rem">
-    ${pr('VENTAS','',{sep:true})}
-    ${pr('Ventas brutas',totalVB,{indent:true})}
-    ${pr('Ventas netas',totalVN,{bold:true})}
-    ${pr('COSTE DE VENTAS','',{sep:true})}
-    ${pr('Compras / materia prima',-totalComp,{indent:true})}
-    ${pr('Margen bruto',totalMargen,{bold:true,color:totalMargen>=0?'#2d6a2d':'#b33'})}
-    <tr><td colspan="2" style="padding:1px 8px 5px;font-size:10px;color:var(--muted);text-align:right">Margen: ${totalMargenPct.toFixed(1)}%</td></tr>
-    ${pr('GASTOS OPERATIVOS','',{sep:true})}
-    ${pr('Nóminas',-totalNom,{indent:true})}
-    ${cats.map(c=>{const a=gastosArr.filter(g=>g.categoria===c).reduce((s,g)=>s+(g.importe||0),0);return pr(c.charAt(0).toUpperCase()+c.slice(1),-a,{indent:true});}).join('')}
-    ${pr('Total gastos',-totalOpex,{bold:true})}
-    ${pr('RESULTADO','',{sep:true})}
-    ${pr('Resultado neto',totalEbitda,{bold:true,color:totalEbitda>=0?'#2d6a2d':'#b33'})}
-    <tr><td colspan="2" style="padding:1px 8px 6px;font-size:10px;color:var(--muted);text-align:right">Margen: ${totalEbitdaPct.toFixed(1)}%</td></tr>
-  </table>`;
-
-  // Tabla mes a mes
-  function mesVal(arr,mm,fn){const k=`${year}-${mm}-01`;return fn(arr.filter(x=>x.mes===k||x.fecha?.startsWith(`${year}-${mm}`)));}
-  const mesRows=[
-    {label:'Ingresos',fn:mm=>{const v=ventasArr.find(x=>x.mes===`${year}-${mm}-01`);return v?.ventas_netas||0;},bold:true},
-    {label:'Compras',fn:mm=>{return -(egresosArr.filter(x=>x.fecha?.startsWith(`${year}-${mm}`)).reduce((s,e)=>s+(parseFloat(e.importe)||0),0));},indent:true},
-    {label:'Margen bruto',fn:mm=>{const vn=(ventasArr.find(x=>x.mes===`${year}-${mm}-01`)?.ventas_netas)||0;const c=egresosArr.filter(x=>x.fecha?.startsWith(`${year}-${mm}`)).reduce((s,e)=>s+(parseFloat(e.importe)||0),0);return vn-c;},bold:true,color:true},
-    {label:'Nóminas',fn:mm=>{return -((nominasArr.find(x=>x.mes===`${year}-${mm}-01`)?.coste_empresa)||0);},indent:true},
-    {label:'Gastos fijos',fn:mm=>{return -(gastosArr.filter(x=>x.mes===`${year}-${mm}-01`).reduce((s,g)=>s+(g.importe||0),0));},indent:true},
-    {label:'Resultado',fn:mm=>{const vn=(ventasArr.find(x=>x.mes===`${year}-${mm}-01`)?.ventas_netas)||0;const c=egresosArr.filter(x=>x.fecha?.startsWith(`${year}-${mm}`)).reduce((s,e)=>s+(parseFloat(e.importe)||0),0);const n=(nominasArr.find(x=>x.mes===`${year}-${mm}-01`)?.coste_empresa)||0;const g=gastosArr.filter(x=>x.mes===`${year}-${mm}-01`).reduce((s,g)=>s+(g.importe||0),0);return vn-c-n-g;},bold:true,color:true},
-  ];
-
-  const thStyle='padding:5px 4px;font-size:9px;font-weight:500;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:right;border-bottom:.5px solid var(--border)';
-  const tdStyle=(bold,col)=>`padding:4px 4px;font-size:${bold?'11px':'10px'};${bold?'font-weight:500;':''}font-family:var(--mono);text-align:right;color:${col||'var(--text)'};white-space:nowrap`;
-
-  const mesGrid=`<div style="font-size:9px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--hint);margin-bottom:.5rem">Por mes</div>
-  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-  <table style="width:100%;border-collapse:collapse;border:.5px solid var(--border);font-size:10px;min-width:520px">
-    <tr style="background:var(--bg)">
-      <td style="padding:5px 8px;font-size:9px;font-weight:500;letter-spacing:1px;text-transform:uppercase;color:var(--muted);border-bottom:.5px solid var(--border)"></td>
-      ${mLabels.map(m=>`<th style="${thStyle}">${m}</th>`).join('')}
-    </tr>
-    ${mesRows.map(row=>{
-      const vals=meses.map(mm=>row.fn(mm));
-      return`<tr>
-        <td style="padding:4px 8px;font-size:${row.bold?'11px':'10px'};${row.bold?'font-weight:500;':''}${row.indent?'padding-left:16px;':''}white-space:nowrap">${row.label}</td>
-        ${vals.map(v=>{
-          const c=row.color?(v>=0?'#2d6a2d':'#b33'):'';
-          const show=v===0?'—':(v<0?'-':'')+Math.abs(v).toFixed(0)+'€';
-          return`<td style="${tdStyle(row.bold,c)}">${show}</td>`;
-        }).join('')}
-      </tr>`;
-    }).join('')}
+  const mesTable=`<div class="er-mt">
+  <table>
+    <tr class="hd"><th></th>${mLbl.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr>
+    <tr class="sep"><td colspan="14">Ingresos</td></tr>
+    <tr><td>Ventas netas</td>${meses.map(mm=>mtd(mVN(mm),false)).join('')}${mtd(totalVN,true)}</tr>
+    <tr class="sep"><td colspan="14">Costes</td></tr>
+    <tr><td>Compras</td>${meses.map(mm=>mtd(-mComp(mm))).join('')}${mtd(-totalComp)}</tr>
+    <tr><td>Nóminas</td>${meses.map(mm=>mtd(-mNom(mm))).join('')}${mtd(-totalNom)}</tr>
+    <tr><td>Gastos fijos</td>${meses.map(mm=>mtd(-mGF(mm))).join('')}${mtd(-totalGast)}</tr>
+    <tr class="sep"><td colspan="14">Resultado</td></tr>
+    <tr class="bold"><td>Margen bruto</td>${meses.map(mm=>{const v=mMargen(mm);return mtd(v,true,v2=>v2>=0?'#2a7a2a':'#c0392b');}).join('')}${mtd(totalMargen,true,v=>v>=0?'#2a7a2a':'#c0392b')}</tr>
+    <tr class="bold"><td>Resultado neto</td>${meses.map(mm=>{const v=mRes(mm);return mtd(v,true,v2=>v2>=0?'#2a7a2a':'#c0392b');}).join('')}${mtd(resultado,true,v=>v>=0?'#2a7a2a':'#c0392b')}</tr>
   </table></div>`;
 
-  $('pl-content').innerHTML=resumen+mesGrid;
+  const html=
+  `<div class="er-kpis">
+    ${_kpi('Ingresos',totalVN,'ventas netas '+year)}
+    ${_kpi('Resultado',resultado,resultPct.toFixed(1)+'% margen neto',resultado>=0?'er-pos':'er-neg')}
+    ${_kpi('Margen bruto',totalMargen,margenPct.toFixed(1)+'% sobre ingresos')}
+    ${_kpi('Total gastos',-(totalOpex+totalComp),'nóminas + fijos + compras')}
+  </div>`+
+  _row('Ingresos','',{sep:true})+
+  _row('Ventas netas',totalVN,{bold:true})+
+  _row('Coste de ventas','',{sep:true})+
+  _row('Compras / materia prima',-totalComp,{indent:true})+
+  _row('Margen bruto',totalMargen,{bold:true,color:totalMargen>=0?'#2a7a2a':'#c0392b'})+
+  _row('Gastos operativos','',{sep:true})+
+  _row('Nóminas',-totalNom,{indent:true})+
+  cats.map(c=>{const a=ga.filter(g=>g.categoria===c).reduce((s,g)=>s+(g.importe||0),0);return _row(c.charAt(0).toUpperCase()+c.slice(1),-a,{indent:true});}).join('')+
+  _row('Total gastos',-totalOpex,{bold:true})+
+  _row('Resultado','',{sep:true})+
+  _row('Resultado neto',resultado,{bold:true,color:resColor})+
+  `<div style="text-align:right;font-size:10px;color:var(--muted);padding:.3rem 0 .5rem">Margen neto: ${resultPct.toFixed(1)}%</div>`+
+  `<div class="er-sec">Composición del gasto (% sobre ingresos)</div>`+
+  `<div class="er-bar-wrap">`+
+  (totalComp>0?_bar('Compras',totalComp,totalVN):'')+
+  (totalNom>0?_bar('Nóminas',totalNom,totalVN):'')+
+  cats.map(c=>{const a=ga.filter(g=>g.categoria===c).reduce((s,g)=>s+(g.importe||0),0);return _bar(c.charAt(0).toUpperCase()+c.slice(1),a,totalVN);}).join('')+
+  `</div>`+
+  `<div class="er-sec">Evolución mensual</div>`+
+  mesTable;
+
+  $('pl-content').innerHTML=html;
 }
 
 
