@@ -1503,13 +1503,13 @@ async function _renderERMes(year,month){
   const mesStart=`${year}-${month}-01`;
   const nx=new Date(mesStart+'T12:00:00');nx.setMonth(nx.getMonth()+1);
   const mesEnd=nx.toISOString().split('T')[0];
-  const[vR,nR,gR,eR]=await Promise.all([
+  const[vR,nR,gR,rR]=await Promise.all([
     sb.from('ventas_mes').select('*').eq('mes',mesStart).maybeSingle(),
     sb.from('nominas_mes').select('*').eq('mes',mesStart).maybeSingle(),
     sb.from('gastos_fijos').select('importe,categoria').eq('mes',mesStart),
-    sb.from('egresos').select('importe').gte('fecha',mesStart).lt('fecha',mesEnd)
+    sb.from('recepciones').select('importe').gte('fecha',mesStart).lt('fecha',mesEnd).not('importe','is',null)
   ]);
-  const v=vR.data,nom=nR.data,gf=gR.data||[],eg=eR.data||[];
+  const v=vR.data,nom=nR.data,gf=gR.data||[],eg=rR.data||[];
   const vb=v?.ventas_brutas||0,vd=v?.descuentos||0,vn=v?.ventas_netas||0;
   const comp=eg.reduce((s,e)=>s+(parseFloat(e.importe)||0),0);
   const margen=vn-comp,margenPct=vn>0?margen/vn*100:0;
@@ -1553,13 +1553,13 @@ async function _renderERMes(year,month){
 async function _renderERAnio(year){
   const yrStart=`${year}-01-01`;
   const yrEnd=`${parseInt(year)+1}-01-01`;
-  const[vR,nR,gR,eR]=await Promise.all([
+  const[vR,nR,gR,rR]=await Promise.all([
     sb.from('ventas_mes').select('*').gte('mes',yrStart).lt('mes',yrEnd),
     sb.from('nominas_mes').select('*').gte('mes',yrStart).lt('mes',yrEnd),
     sb.from('gastos_fijos').select('importe,categoria,mes').gte('mes',yrStart).lt('mes',yrEnd),
-    sb.from('egresos').select('importe,fecha').gte('fecha',yrStart).lt('fecha',yrEnd)
+    sb.from('recepciones').select('importe,fecha').gte('fecha',yrStart).lt('fecha',yrEnd).not('importe','is',null)
   ]);
-  const va=vR.data||[],na=nR.data||[],ga=gR.data||[],ea=eR.data||[];
+  const va=vR.data||[],na=nR.data||[],ga=gR.data||[],ea=rR.data||[];
   const meses=['01','02','03','04','05','06','07','08','09','10','11','12'];
   const mLbl=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
