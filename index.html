@@ -1085,19 +1085,22 @@ async function _loadPDFJS(){
 async function _extractNominasPerPage(pdf){
   const result=[];
   const parseAmt=s=>parseFloat(s.replace(/\./g,'').replace(',','.'));
+  // Nombres españoles: "APELLIDOS, NOMBRES" — con coma, solo mayúsculas/espacios/guiones
+  const nameRx=/^[A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ\s\-]+,\s*[A-ZÁÉÍÓÚÜÑ\s\-]+$/;
   for(let pi=1;pi<=pdf.numPages;pi++){
     const page=await pdf.getPage(pi);
     const content=await page.getTextContent();
     const items=content.items
       .map(it=>({str:it.str.trim(),x:Math.round(it.transform[4]),y:Math.round(it.transform[5])}))
       .filter(it=>it.str.length>0);
-    // Nombre: ítems en la fila de mayor y (arriba del todo = bloque de dirección)
-    const maxY=Math.max(...items.map(it=>it.y));
-    const topItems=items.filter(it=>Math.abs(it.y-maxY)<=8).sort((a,b)=>a.x-b.x);
-    const rawName=topItems.map(it=>it.str).join(' ').trim();
-    // Limpiar: "APELLIDO, NOMBRE" → "APELLIDO NOMBRE"
+    // Hay dos ítems con este patrón por página:
+    //   1) bloque de dirección (nombre COMPLETO, y más alta = más arriba en página)
+    //   2) fila TRABAJADOR/A (nombre TRUNCADO, y menor)
+    // Tomamos el de mayor y → nombre completo.
+    const nc=items.filter(it=>nameRx.test(it.str)).sort((a,b)=>b.y-a.y);
+    const rawName=nc[0]?.str||'';
     const name=rawName.replace(/,\s*/,' ').replace(/\s+/g,' ').trim();
-    // COSTE EMPRESA: buscar en todo el texto de la página
+    // COSTE EMPRESA: label explícito + valor en misma página
     const allText=items.map(it=>it.str).join(' ');
     const m=allText.match(/COSTE EMPRESA\s*:\s*([\d.]+,\d{2})/);
     if(name&&m){
