@@ -3733,26 +3733,34 @@ function cerrarConteo(){
 
 function setConteoTab(tab){
   _conteoTab=tab;
-  // Update sincat badge count
-  const sincat=S.filter(s=>!s.categoria||!CONTEO_CATS.includes(s.categoria)).length;
-  document.querySelectorAll('.conteo-tab-btn').forEach(b=>{
+  var sincat=S.filter(function(s){return!s.categoria||!CONTEO_CATS.includes(s.categoria);}).length;
+  document.querySelectorAll('.conteo-tab-btn').forEach(function(b){
     if(b.dataset.tab==='__sincat__')b.textContent=sincat?'⚠ Sin categoría ('+sincat+')':'✓ Categorizados';
   });
-  document.querySelectorAll('.conteo-tab-btn').forEach(b=>{
-    const active=b.dataset.tab===tab;
+  document.querySelectorAll('.conteo-tab-btn').forEach(function(b){
+    var active=b.dataset.tab===tab;
     b.style.borderBottom=active?'2px solid var(--black)':'2px solid transparent';
     b.style.color=active?'var(--text)':'var(--muted)';
     b.style.fontWeight=active?'600':'400';
   });
-  renderConteoProductos(tab);
+  renderConteoProductos(tab); // async, fire and forget
 }
 
-function renderConteoProductos(tab){
+async function renderConteoProductos(tab){
   const el=$('conteo-productos-list');if(!el)return;
+  el.innerHTML='<div style="padding:16px 0;color:var(--muted);font-size:11px">Cargando...</div>';
   let prods=[];
   if(tab==='Helado'){
-    if(typeof sabores!=='undefined'&&sabores.length){
-      prods=sabores.filter(s=>s.activo!==false).map(s=>s.nombre).sort((a,b)=>a.localeCompare(b,'es'));
+    // Si sabores no está cargado todavía, buscarlo directo en DB
+    if(typeof sabores==='undefined'||!sabores.length){
+      var sr=await sb.from('sabores').select('nombre,activo').eq('activo',true).order('nombre');
+      prods=(sr.data||[]).map(function(s){return s.nombre;});
+      // Guardar en cache local para próximas llamadas
+      if(sr.data&&sr.data.length&&typeof sabores!=='undefined'){
+        sabores=sr.data.map(function(r){return{id:r.id||'',nombre:r.nombre,codigo:r.codigo||'',activo:r.activo,ingredientes:r.ingredientes||[],peso_teorico:r.peso_teorico||null};});
+      }
+    }else{
+      prods=sabores.filter(function(s){return s.activo!==false;}).map(function(s){return s.nombre;}).sort(function(a,b){return a.localeCompare(b,'es');});
     }
   }else if(tab==='__sincat__'){
     // Productos sin categoría asignada o con categoría no reconocida
