@@ -3943,10 +3943,18 @@ async function renderHistorialConteos(){
 }
 
 async function reanudarConteo(id,fecha,responsable){
-  _conteo={id,fecha,responsable};_conteoLineas=[];
+  _conteo={id,fecha,responsable};
   $('conteo-header-info').textContent=fecha+(responsable?' · '+responsable:'');
+  // Cargar líneas existentes del borrador
+  var res=await sb.from('conteo_lineas').select('*').eq('conteo_id',id).order('categoria').order('producto');
+  _conteoLineas=(res.data||[]).map(function(l){return{
+    id:l.id,categoria:l.categoria,producto:l.producto,proveedor:l.proveedor||null,
+    tipo_contenedor:l.tipo_contenedor,peso_bruto_g:l.peso_bruto_g,
+    tara_g:l.tara_g,peso_neto_g:l.peso_neto_g,notas:l.notas
+  };});
   $('conteo-main-modal').style.display='block';
-  setConteoTab('Helados');renderBorrador();
+  setConteoTab('Helado');
+  renderBorrador();
 }
 
 async function verDetalleConteo(id){
