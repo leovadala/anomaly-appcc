@@ -3681,15 +3681,27 @@ function abrirConteo(){
 async function crearConteo(){
   const fecha=$('conteo-start-fecha').value||hoy;
   const resp=($('conteo-start-resp').value||'').trim();
-  const{data,error}=await sb.from('conteos_inventario').insert({fecha,responsable:resp||null,estado:'borrador'}).select();
-  if(error){alert('Error: '+error.message);return}
-  _conteo={id:data[0].id,fecha,responsable:resp};
-  _conteoLineas=[];
-  $('conteo-start-modal').style.display='none';
-  $('conteo-header-info').textContent=fecha+(resp?' · '+resp:'');
-  $('conteo-main-modal').style.display='block';
-  setConteoTab('Helado');
-  renderBorrador();
+  try{
+    const{data,error}=await sb.from('conteos_inventario').insert({fecha,responsable:resp||null,estado:'borrador'}).select();
+    if(error){alert('Error al crear conteo: '+error.message);return}
+    if(!data||!data.length){
+      // insert OK pero select bloqueado por RLS — reintentamos con select separado
+      const{data:d2,error:e2}=await sb.from('conteos_inventario').select('id').eq('fecha',fecha).eq('responsable',resp||null).order('created_at',{ascending:false}).limit(1).maybeSingle();
+      if(e2||!d2){alert('Conteo creado pero no se pudo obtener el ID. Recargá la página.');return}
+      _conteo={id:d2.id,fecha,responsable:resp};
+    }else{
+      _conteo={id:data[0].id,fecha,responsable:resp};
+    }
+    _conteoLineas=[];
+    $('conteo-start-modal').style.display='none';
+    $('conteo-header-info').textContent=fecha+(resp?' · '+resp:'');
+    $('conteo-main-modal').style.display='block';
+    setConteoTab('Helado');
+    renderBorrador();
+  }catch(e){
+    alert('Error inesperado al iniciar conteo: '+e.message);
+    console.error('crearConteo error:',e);
+  }
 }
 
 function cerrarConteo(){
