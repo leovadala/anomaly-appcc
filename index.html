@@ -1079,7 +1079,7 @@ async function _loadPDFJS(){
   window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
-// Extrae empleados y coste empresa (v8)
+// Extrae empleados y coste empresa (v9)
 async function _extractNominasData(file){
   await _loadPDFJS();
   const buf=await file.arrayBuffer();
@@ -1088,11 +1088,8 @@ async function _extractNominasData(file){
   const dbg=[];
 
   const parseAmt=s=>parseFloat(s.replace(/\./g,'').replace(',','.'));
-  // Valor monetario tipo "3.077,43" o "921,75"
   const isCurr=s=>/^\d[\d.]*,\d{2}$/.test(s);
-  // Palabras que no son nombres (currency, totals)
-  const notNm=new Set(['EUROS','TOTAL','TOTALES','NETO','BRUTO','HORAS','DIAS','PAGINA','FECHA']);
-  // Ítem de nombre: solo mayúsculas, sin dígitos, no en blacklist
+  const notNm=new Set(['EUROS','TOTAL','TOTALES','NETO','BRUTO','HORAS','DIAS','PAGINA','FECHA','PERIODO','CODIGO','EMPRESA']);
   const isNm=it=>it.str.length>1&&/^[A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ\s\-]*$/.test(it.str)&&!/\d/.test(it.str)&&!notNm.has(it.str.trim());
 
   for(let pi=1;pi<=pdf.numPages;pi++){
@@ -1103,7 +1100,7 @@ async function _extractNominasData(file){
       .filter(it=>it.str.length>0);
     if(pi===1) dbg.push(`P1: ${raw.length} items`);
 
-    // Fila COSTE EMPRESA: fila con valores >100€ y mayor suma total
+    // Fila COSTE EMPRESA: valores todos >100€ con mayor suma
     const byY={};
     raw.filter(it=>isCurr(it.str)).forEach(it=>{
       const ky=Math.round(it.y/5)*5;
@@ -1114,14 +1111,15 @@ async function _extractNominasData(file){
       .filter(([,items])=>items.length>=2&&items.every(it=>parseAmt(it.str)>100))
       .map(([y,items])=>({y:parseInt(y),items,sum:items.reduce((s,it)=>s+parseAmt(it.str),0)}))
       .sort((a,b)=>b.sum-a.sum);
-    if(!validRows.length){dbg.push(`P${pi}: sin fila de costes`);continue;}
+    if(!validRows.length){dbg.push(`P${pi}: sin fila costes`);continue;}
     const costeRow=validRows[0];
     const costeY=costeRow.y;
     const costValues=costeRow.items.sort((a,b)=>a.x-b.x);
     const N=costValues.length;
-    if(pi===1) dbg.push(`costeY≈${costeY} N=${N} suma=${Math.round(costeRow.sum)}`);
+    const costXmin=costValues[0].x, costXmax=costValues[N-1].x;
+    if(pi===1) dbg.push(`P1 costeY≈${costeY} N=${N} costX=[${costXmin}..${costXmax}]`);
 
-    // Agrupar items en filas (y ±5px), solo SOBRE la fila de coste
+    // Filas sobre coste sin valores monetarios (solo sección de nombres)
     const rowMap=[];
     raw.filter(it=>it.y>costeY+3).forEach(it=>{
       const row=rowMap.find(r=>Math.abs(r.y-it.y)<=5);
@@ -1129,35 +1127,37 @@ async function _extractNominasData(file){
       else rowMap.push({y:it.y,items:[it]});
     });
     rowMap.forEach(r=>r.items.sort((a,b)=>a.x-b.x));
-
-    // CLAVE: filtrar solo filas SIN valores monetarios (filas de nombres, no de componentes de costo)
-    // Esto elimina "COTIZACION DESEMPLEO" que convive con valores numéricos en su fila,
-    // y permite que fullRow detecte exactamente N ítems de nombre por fila.
     const nameRows=rowMap.filter(r=>!r.items.some(it=>isCurr(it.str)));
-    if(pi===1) dbg.push(`Filas sin moneda: ${nameRows.length} / ${rowMap.length}`);
 
-    // Debug primeras 5 filas con ítems de nombre
-    if(pi===1){
-      nameRows.filter(r=>r.items.filter(isNm).length>0).slice(0,5).forEach(r=>{
-        dbg.push(`  y=${r.y}(${r.items.filter(isNm).length}nm): ${r.items.filter(isNm).map(i=>'"'+i.str+'"@'+i.x).join(' ')}`);
-      });
+    // Candidatos a fullRow: filas con exactamente N ítems de nombre
+    const candidates=nameRows.filter(r=>r.items.filter(isNm).length===N);
+    dbg.push(`P${pi}: ${candidates.length} fullRow candidates`);
+
+    // Elegir el candidato cuyo rango X esté más cerca del rango X de costValues
+    // (descarta encabezados de página con N palabras en x incorrectas)
+    let fullRow=null;
+    if(candidates.length===1){
+      fullRow=candidates[0];
+    } else if(candidates.length>1){
+      fullRow=candidates.sort((a,b)=>{
+        const ax=a.items.filter(isNm).map(i=>i.x);
+        const bx=b.items.filter(isNm).map(i=>i.x);
+        const aScore=Math.abs(Math.min(...ax)-costXmin)+Math.abs(Math.max(...ax)-costXmax);
+        const bScore=Math.abs(Math.min(...bx)-costXmin)+Math.abs(Math.max(...bx)-costXmax);
+        return aScore-bScore;
+      })[0];
     }
 
-    // Fila de referencia: exactamente N ítems de nombre
-    const fullRow=nameRows.find(r=>r.items.filter(isNm).length===N);
     if(!fullRow){
-      dbg.push(`P${pi}: sin fullRow N=${N}`);
-      // Fallback: midpoints de costValues (menos preciso)
+      dbg.push(`P${pi}: sin fullRow N=${N}, fallback midpoints`);
       const midsF=[];
       for(let i=0;i<N-1;i++) midsF.push((costValues[i].x+costValues[i+1].x)/2);
       const colsF=costValues.map(cv=>({cost:parseAmt(cv.str),parts:[]}));
-      nameRows.forEach(r=>{
-        r.items.filter(isNm).forEach(it=>{
-          let ci=colsF.length-1;
-          for(let i=0;i<midsF.length;i++) if(it.x<midsF[i]){ci=i;break;}
-          colsF[ci].parts.push({str:it.str,y:r.y});
-        });
-      });
+      nameRows.forEach(r=>r.items.filter(isNm).forEach(it=>{
+        let ci=colsF.length-1;
+        for(let i=0;i<midsF.length;i++) if(it.x<midsF[i]){ci=i;break;}
+        colsF[ci].parts.push({str:it.str,y:r.y});
+      }));
       colsF.forEach(col=>{
         col.parts.sort((a,b)=>b.y-a.y);
         const name=col.parts.map(p=>p.str).join(' ').trim();
@@ -1165,23 +1165,19 @@ async function _extractNominasData(file){
       });
       continue;
     }
-    if(pi===1) dbg.push(`fullRow y=${fullRow.y}: ${fullRow.items.filter(isNm).map(i=>'"'+i.str+'"@'+i.x).join(' ')}`);
 
-    // X de columnas desde la fila de referencia
     const colX=fullRow.items.filter(isNm).sort((a,b)=>a.x-b.x).map(it=>it.x);
+    dbg.push(`P${pi} fullRow y=${fullRow.y} colX=[${colX.join(',')}]`);
     const cols=colX.map((ax,i)=>({ax,cost:parseAmt(costValues[i].str),parts:[]}));
     const mids=[];
     for(let i=0;i<cols.length-1;i++) mids.push((cols[i].ax+cols[i+1].ax)/2);
-    if(pi===1) dbg.push(`colX=[${colX.join(',')}] mids=[${mids.map(m=>Math.round(m)).join(',')}]`);
 
     nameRows.forEach(r=>{
       const ni=r.items.filter(isNm);
       if(!ni.length)return;
       if(ni.length===N){
-        // Fila completa: asignar por índice (100% preciso)
         ni.sort((a,b)=>a.x-b.x).forEach((it,i)=>cols[i].parts.push({str:it.str,y:r.y}));
       } else {
-        // Fila parcial: asignar por midpoints de colX (mismas X que los nombres)
         ni.forEach(it=>{
           let ci=cols.length-1;
           for(let i=0;i<mids.length;i++) if(it.x<mids[i]){ci=i;break;}
@@ -1197,7 +1193,7 @@ async function _extractNominasData(file){
     });
   }
 
-  window._nomPDFDebug=`DEBUG PDF:\n${dbg.join('\n')}`;
+  window._nomPDFDebug=`DEBUG:\n${dbg.join('\n')}`;
   console.log(window._nomPDFDebug);
   return result;
 }
