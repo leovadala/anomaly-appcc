@@ -563,7 +563,17 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     </div>
     <div class="sec"><div class="sec-t">Datos del producto</div>
 <div class="r3"><div class="f"><label>Fecha</label><input type="date" id="af"></div><div class="f"><label>Hora</label><input type="time" id="ah"></div><div class="f"><label>Responsable</label><input id="ar" readonly></div></div>
-<div class="f"><label>Producto (sabor)</label><select id="ap"><option value="">Seleccionar...</option></select><input id="apc" placeholder="Especificar" style="display:none;margin-top:4px"></div>
+<div style="background:var(--black,#1a1a1a);border-radius:8px;padding:14px 16px 16px;margin-bottom:12px">
+  <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);margin-bottom:8px;font-weight:600">① Paso 1 — Sabor</div>
+  <select id="ap" style="width:100%;background:rgba(255,255,255,0.08);border:.5px solid rgba(255,255,255,0.18);color:#fff;font-size:13px;padding:9px 10px;border-radius:6px;font-family:var(--font);outline:none;appearance:none;-webkit-appearance:none;cursor:pointer">
+    <option value="" style="background:#1a1a1a;color:#fff">Seleccionar sabor...</option>
+  </select>
+  <input id="apc" placeholder="Especificar nombre" style="display:none;margin-top:8px;width:100%;background:rgba(255,255,255,0.08);border:.5px solid rgba(255,255,255,0.18);color:#fff;font-size:13px;padding:9px 10px;border-radius:6px;font-family:var(--font);outline:none;box-sizing:border-box" />
+  <div id="ap-selected-display" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(255,255,255,0.1);border-radius:6px;border-left:3px solid rgba(255,255,255,0.6)">
+    <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);margin-bottom:3px">Sabor seleccionado</div>
+    <div id="ap-selected-name" style="font-size:16px;font-weight:600;color:#fff;letter-spacing:.2px"></div>
+  </div>
+</div>
 <div class="sec"><div class="sec-t">Ingredientes</div>
 <div class="f">
   <label>Productos del stock</label>
@@ -1777,7 +1787,24 @@ $('ap').addEventListener('change',function(){const sab=sabores.find(s=>s.nombre=
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.activeElement.id==='aiq'){e.preventDefault();addIngr()}});
 $('rp').addEventListener('change',e=>{const s=$('rpd');s.innerHTML='<option value="">Seleccionar...</option>';if(e.target.value!==''){const p=P[+e.target.value];if(p&&p.productos.length)s.innerHTML+=p.productos.map(x=>`<option>${x}</option>`).join('');s.innerHTML+='<option value="otro">Otro...</option>'}});
 $('rpd').addEventListener('change',e=>{$('rpdc').style.display=e.target.value==='otro'?'block':'none'});
-$('ap').addEventListener('change',e=>{$('apc').style.display=e.target.value==='otro'?'block':'none';uLF()});
+$('ap').addEventListener('change',e=>{
+  $('apc').style.display=e.target.value==='otro'?'block':'none';
+  // update selected sabor display
+  var disp=$('ap-selected-display');
+  var nameEl=$('ap-selected-name');
+  var val=e.target.value;
+  if(val&&val!=='otro'){
+    if(nameEl)nameEl.textContent=val;
+    if(disp)disp.style.display='block';
+  }else if(val==='otro'){
+    if(nameEl)nameEl.textContent='';
+    if(disp)disp.style.display='none';
+  }else{
+    if(nameEl)nameEl.textContent='';
+    if(disp)disp.style.display='none';
+  }
+  uLF();
+});
 $('ab').addEventListener('input',uLF);
 $('rd1').value=hoy;$('rd2').value=hoy;
 
@@ -2624,7 +2651,16 @@ function addSabIngr(){const v=$('sab-ingr-input').value.trim();if(!v)return;if(!
 function rmSabIngr(i){currentSabIngr.splice(i,1);renderSabIngrList()}
 function renderSabIngrList(){const e=$('sab-ingr-list');if(!e)return;e.innerHTML=currentSabIngr.length?currentSabIngr.map((n,i)=>`<span class="tg">${n}<span onclick="rmSabIngr(${i})" style="cursor:pointer;margin-left:4px">×</span></span>`).join(''):'<span style="color:var(--muted);font-size:11px">Sin ingredientes definidos</span>'}
 function calcMerma(){const sab=sabores.find(s=>s.nombre===$('ap').value);const pesoR=parseFloat($('apeso-real').value)||0;const note=$('merma-note');if(!note)return;if(sab&&sab.peso_teorico&&pesoR){const merma=sab.peso_teorico-pesoR;const pct=(merma/sab.peso_teorico*100).toFixed(1);note.textContent='Peso teórico: '+sab.peso_teorico+' kg · Real: '+pesoR+' kg · Merma: '+merma.toFixed(2)+' kg ('+pct+'%)';note.style.display='block'}else if(sab&&sab.peso_teorico){note.textContent='Peso teórico del sabor: '+sab.peso_teorico+' kg';note.style.display='block'}else{note.style.display='none'}}
-function renderSaborSelect(){const sel=$('ap');sel.innerHTML='<option value="">Seleccionar...</option>'+[...sabores].filter(s=>s.activo).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')).map(s=>`<option>${s.nombre}</option>`).join('')+'<option value="otro">Otro...</option>'}
+function renderSaborSelect(){
+  const sel=$('ap');
+  sel.innerHTML='<option value="" style="background:#1a1a1a;color:#fff">Seleccionar sabor...</option>'
+    +[...sabores].filter(s=>s.activo).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')).map(s=>`<option style="background:#1a1a1a;color:#fff">${s.nombre}</option>`).join('')
+    +'<option value="otro" style="background:#1a1a1a;color:#fff">Otro...</option>';
+  // reset display when list refreshes
+  const disp=$('ap-selected-display');
+  if(disp)disp.style.display='none';
+  sel.value='';
+}
 
 function renderSabores(){const e=$('sabor-list');const sorted=[...sabores].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));if(!sorted.length){e.innerHTML='<div class="empty">Sin sabores</div>';return}e.innerHTML=sorted.map(s=>`<div class="sab-item"><div class="sab-info"><span class="${s.activo?'':'sab-inactive'}">${s.nombre}</span><span class="sab-code">${s.codigo.toUpperCase()}</span>${s.peso_teorico?'<span style="font-size:10px;color:var(--muted);font-family:var(--mono)"> · '+s.peso_teorico+' kg/batch</span>':''}${Array.isArray(s.ingredientes)&&s.ingredientes.length?'<span style="font-size:10px;color:var(--muted)"> · '+s.ingredientes.length+' ing.</span>':''}</div><div class="sab-actions"><label class="toggle"><input type="checkbox" ${s.activo?'checked':''} onchange="editSaborById('${s.id}','toggle')"><span class="slider"></span></label><button type="button" class="btn-d" onclick="editSaborById('${s.id}')">Editar</button><button type="button" class="btn-d" onclick="rmSaborById('${s.id}')">Eliminar</button></div></div>`).join('')}
 
