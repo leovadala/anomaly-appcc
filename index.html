@@ -3227,6 +3227,44 @@ async function deleteVacacion(id,i){
 }
 
 // ─── LIQUIDACIÓN ─────────────────────────────────────────────────────────────
+function populateMesSel(){
+  const sel=$('hor-mes-sel');if(!sel)return;
+  const now=new Date();
+  const mo=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  let opts='';
+  for(let i=0;i<6;i++){const d=new Date(now.getFullYear(),now.getMonth()-i,1);const val=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');opts+=`<option value="${val}">${mo[d.getMonth()]} ${d.getFullYear()}</option>`;}
+  sel.innerHTML=opts;
+}
+function renderHorReporteMes(){
+  const sel=$('hor-mes-sel');const el=$('hor-reporte');if(!sel||!el)return;
+  const val=sel.value;if(!val){el.innerHTML='';return;}
+  const [yr,mo]=val.split('-').map(Number);
+  const moNom=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const daysInMo=new Date(yr,mo,0).getDate();
+  if(!horEmpleados.length){el.innerHTML='<div class="empty">Sin empleados configurados</div>';return;}
+  let html=`<div style="font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:1rem">${moNom[mo-1]} ${yr}</div>`;
+  html+='<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)"><th style="text-align:left;padding:4px 6px">Empleado</th><th style="text-align:right;padding:4px 6px">Horas</th><th style="text-align:right;padding:4px 6px">Nocturnas</th><th style="text-align:right;padding:4px 6px">Festivos</th></tr></thead><tbody>';
+  horEmpleados.forEach(emp=>{
+    const nombre=emp.nombre||'';
+    let totalH=0,totalNoct=0,totalFest=0;
+    for(let d=1;d<=daysInMo;d++){
+      const date=new Date(yr,mo-1,d);
+      const dayOfWeek=date.getDay();
+      if(dayOfWeek===0||dayOfWeek===6)continue;
+      const wk=weekKey(Math.round((date-new Date())/604800000));
+      const sch=horSchedules[wk]||{};
+      const empSch=sch[nombre]||{};
+      const dow=dayOfWeek===0?6:dayOfWeek-1;
+      const s=empSch[dow]||'';
+      totalH+=parseShiftHours(s);
+      totalNoct+=nocturnasHoras(s);
+      if(esFestivo(date)&&s&&s!=='OFF')totalFest++;
+    }
+    html+=`<tr style="border-top:.5px solid var(--border)"><td style="padding:6px">${nombre}<span style="display:block;font-size:9px;color:var(--muted)">${emp.cargo||''}</span></td><td style="text-align:right;padding:6px;font-variant-numeric:tabular-nums">${totalH}h</td><td style="text-align:right;padding:6px">${totalNoct}h</td><td style="text-align:right;padding:6px">${totalFest}</td></tr>`;
+  });
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
 function populateLiqMesSel(){
   const sel=$('hor-liq-mes');if(!sel)return;
   const mo=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];const now=new Date();let opts='';
@@ -3344,7 +3382,7 @@ function horWeek(dir){
   const wk=getScheduleKey();
   if(horSchedules[wk]===undefined){
     $('hor-table').innerHTML='<tr><td colspan="9" style="text-align:center;padding:1.5rem;color:var(--hint);font-size:12px;letter-spacing:.5px">Cargando...</td></tr>';
-    loadHorariosSemana(wk).then(()=>{renderHorSummary();renderHorGrilla()});
+    loadHorariosSemana(wk).then(()=>{renderHorSummary();renderHorGrilla()}).catch(e=>console.error('[horWeek]',e));
   } else {renderHorSummary();renderHorGrilla()}
 }
 
