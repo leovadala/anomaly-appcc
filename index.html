@@ -1692,6 +1692,10 @@ let currentIngr=[];
 let pinSupervisor='0000',pinFinanzas=null,_finUnlocked=false;
 let horLocal={};  // {dayIdx:{a:'12:00',c:'00:00'}}
 // ─── Horarios module globals ───
+const FESTIVOS_ES={'01-01':true,'01-06':true,'04-18':true,'05-01':true,'08-15':true,'10-12':true,'11-01':true,'12-06':true,'12-08':true,'12-25':true};
+const FESTIVOS_VAL={'03-19':true,'04-17':true,'06-24':true,'10-09':true};
+const HOR_PRESETS=['OFF','10A18','11A17','12A20','15A23','16A24','17A1','18A24','18A23','P'];
+const HOR_PANELS=['grilla','empleados','vacaciones','resumen','liquidar'];
 let horCurrentWeekOffset=0;
 let horSchedules={};  // {week_key: {empleado: {dayIdx: turno}}}
 let horExtras={};     // {mes_key-empleado: horas}
@@ -2846,13 +2850,12 @@ function removeQuickBtn(i){
 
 // ─── HORARIOS MODULE (Supabase) ───────────────────────────────────────────────
 
-const FESTIVOS_ES = {'01-01':true,'01-06':true,'04-18':true,'05-01':true,'08-15':true,'10-12':true,'11-01':true,'12-06':true,'12-08':true,'12-25':true};
-const FESTIVOS_VAL = {'03-19':true,'04-17':true,'06-24':true,'10-09':true};
+// (FESTIVOS_ES/VAL declared at top)
 function esFestivo(date){const mmdd=String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');return !!(FESTIVOS_ES[mmdd]||FESTIVOS_VAL[mmdd])}
 
 // (Horarios globals declared at top)
 
-const HOR_PRESETS=['OFF','10A18','11A17','12A20','15A23','16A24','17A1','18A24','18A23','P'];
+// (HOR_PRESETS declared at top)
 
 function getWeekDates(offset){
   const now=new Date();const day=now.getDay();
@@ -2983,7 +2986,7 @@ async function initHorarios(){
   }
 }
 
-const HOR_PANELS=['grilla','empleados','vacaciones','resumen','liquidar'];
+// (HOR_PANELS declared at top)
 function horMainTab(tab){
   HOR_PANELS.forEach(p=>{
     const el=$('hpanel-'+p);if(el)el.style.display=p===tab?'block':'none';
