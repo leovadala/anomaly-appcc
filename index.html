@@ -2959,14 +2959,20 @@ async function setExtra(key,val){
 }
 
 async function initHorarios(){
-  updateWeekLabel();
-  const wk=getScheduleKey();
-  await loadHorariosSemana(wk, true); // always fresh on open
-  await loadHorEmpleados();
-  await loadVacaciones();
-  renderHorSummary();renderHorGrilla();
-  populateMesSel();populateLiqMesSel();
-  renderHempList();
+  try{
+    if($('hor-week-label'))updateWeekLabel();
+    const wk=getScheduleKey();
+    await loadHorariosSemana(wk, true);
+    await loadHorEmpleados();
+    await loadVacaciones();
+    if($('hor-summary'))renderHorSummary();
+    if($('hor-table'))renderHorGrilla();
+    populateMesSel();populateLiqMesSel();
+    renderHempList();
+  }catch(e){
+    console.error('[Horarios] initHorarios error:',e);
+    alert('[Horarios error] '+e.message);
+  }
 }
 
 const HOR_PANELS=['grilla','empleados','vacaciones','resumen','liquidar'];
