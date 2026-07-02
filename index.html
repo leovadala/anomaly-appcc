@@ -2562,19 +2562,21 @@ function renderAipPanel(q){
   if(!items.length){panel.innerHTML='<div style="padding:12px;font-size:11px;color:var(--hint);text-align:center">Sin productos en stock</div>';return}
   // Preserve checked state across re-renders
   const prevChecked={};document.querySelectorAll('#aip-panel input[type=checkbox]:checked').forEach(cb=>{prevChecked[cb.id]=true;});
-  panel.innerHTML=items.map((f)=>{
+  panel.innerHTML=items.map(function(f){
     const idx=_aipItems.indexOf(f);
     const cbId='aip-cb-'+idx;
-    const checked=prevChecked[cbId]||false;
-    const selStyle=checked?'background:var(--black,#1a1a1a);color:#fff;':'';
-    return`<div id="aip-row-${idx}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:12px;user-select:none;${selStyle}" onclick="toggleAipItem(${idx})">
-      <input type="checkbox" id="${cbId}" ${checked?'checked':''} style="width:16px;height:16px;flex-shrink:0;accent-color:var(--black);pointer-events:none" tabindex="-1">
+    const sel=prevChecked[cbId]||false;
+    const rowBg=sel?'background:#1a1a1a;border-left:3px solid #1a1a1a;':'border-left:3px solid transparent;';
+    const nameCol=sel?'color:#fff;':'color:var(--text);';
+    const metaCol=sel?'color:rgba(255,255,255,0.6);':'color:var(--muted);';
+    return`<div id="aip-row-${idx}" style="display:flex;align-items:center;gap:10px;padding:10px 10px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:12px;user-select:none;${rowBg}" onclick="toggleAipItem(${idx})">
+      <input type="checkbox" id="${cbId}" ${sel?'checked':''} style="width:15px;height:15px;flex-shrink:0;pointer-events:none;accent-color:#fff" tabindex="-1">
       <span style="flex:1;min-width:0">
-        <span style="display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.prod}</span>
-        <span style="font-size:10px;opacity:.7">Lote: ${f.lote}${f.venc?' · vence: '+f.venc:''}</span>
+        <span style="display:block;font-weight:${sel?'600':'500'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${nameCol}">${f.prod}</span>
+        <span style="font-size:10px;${metaCol}">Lote: ${f.lote}${f.venc?' · vence: '+f.venc:''}</span>
       </span>
-      ${checked?'<span style="font-size:14px;flex-shrink:0">✓</span>':semDot(f.venc)}
-    </div>`
+      <span style="font-size:13px;flex-shrink:0;${nameCol}">${sel?'✓':''}</span>
+    </div>`;
   }).join('');
   updateAipCount();
 }
@@ -2582,16 +2584,17 @@ function toggleAipItem(idx){
   const cb=document.getElementById('aip-cb-'+idx);
   if(!cb)return;
   cb.checked=!cb.checked;
+  const sel=cb.checked;
   const row=document.getElementById('aip-row-'+idx);
   if(row){
-    row.style.background=cb.checked?'var(--black,#1a1a1a)':'';
-    row.style.color=cb.checked?'#fff':'';
-    // swap semDot for checkmark
-    const last=row.lastElementChild;
-    if(last&&last.tagName!=='INPUT'&&last.id!==('aip-cb-'+idx)){
-      last.textContent=cb.checked?'✓':'';
-      last.style.fontSize='14px';
-    }
+    row.style.background=sel?'#1a1a1a':'';
+    row.style.borderLeft=sel?'3px solid #1a1a1a':'3px solid transparent';
+    const spans=row.querySelectorAll('span');
+    // spans[0] = outer text span, spans[1] = name, spans[2] = lote, spans[3] = checkmark
+    if(spans[1])spans[1].style.color=sel?'#fff':'var(--text)';
+    if(spans[1])spans[1].style.fontWeight=sel?'600':'500';
+    if(spans[2])spans[2].style.color=sel?'rgba(255,255,255,0.6)':'var(--muted)';
+    if(spans[3]){spans[3].textContent=sel?'\u2713':'';spans[3].style.color=sel?'#fff':'';}
   }
   updateAipCount();
 }
@@ -2600,13 +2603,10 @@ function filterAipPanel(q){renderAipPanel(q)}
 function toggleAllAip(){
   const cbs=Array.from(document.querySelectorAll('#aip-panel input[type=checkbox]'));
   const anyUnchecked=cbs.some(function(c){return!c.checked;});
-  cbs.forEach(function(c){
-    c.checked=anyUnchecked;
-    var idx=c.id.replace('aip-cb-','');
-    var row=document.getElementById('aip-row-'+idx);
-    if(row){row.style.background=anyUnchecked?'var(--black,#1a1a1a)':'';row.style.color=anyUnchecked?'#fff':'';}
-  });
-  updateAipCount();
+  cbs.forEach(function(c){c.checked=anyUnchecked;});
+  // Re-render to apply all styles consistently
+  const q=$('aip-search')?$('aip-search').value:'';
+  renderAipPanel(q);
 }
 function addAllIngr(){toggleAllAip();addIngr()}
 function addIngr(){const cbs=Array.from(document.querySelectorAll('#aip-panel input[type=checkbox]:checked'));if(!cbs.length){alert('Seleccioná al menos un producto');return}let added=0;cbs.forEach(cb=>{const idx=parseInt(cb.id.replace('aip-cb-',''));const f=_aipItems[idx];if(f&&!currentIngr.find(x=>x.producto===f.prod&&x.lote===f.lote)){currentIngr.push({producto:f.prod,lote:f.lote,proveedor:f.prov,temp:f.temp});added++}});cbs.forEach(cb=>{cb.checked=false;const row=document.getElementById('aip-row-'+cb.id.replace('aip-cb-',''));if(row)row.style.background=''});updateAipCount();rIngrList();if(!added)alert('Ya estaban todos agregados')}
