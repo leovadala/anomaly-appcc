@@ -573,7 +573,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
       <span style="font-size:10px;color:var(--muted);white-space:nowrap"><span id="aip-sel-count">0</span> selec.</span>
       <button type="button" onclick="toggleAllAip()" style="font-size:10px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0;font-family:var(--font)">Todos</button>
     </div>
-    <div id="aip-panel" style="max-height:180px;overflow-y:auto"></div>
+    <div id="aip-panel" style="max-height:260px;overflow-y:auto"></div>
   </div>
   <button type="button" class="btn-s" onclick="addIngr()" style="margin-top:8px;width:100%" id="aip-add-btn">+ Agregar seleccionados</button>
 </div>
@@ -2560,30 +2560,52 @@ function renderAipPanel(q){
   const panel=$('aip-panel');if(!panel)return;
   const items=q?_aipItems.filter(i=>i.prod.toLowerCase().includes(q.toLowerCase())):_aipItems;
   if(!items.length){panel.innerHTML='<div style="padding:12px;font-size:11px;color:var(--hint);text-align:center">Sin productos en stock</div>';return}
+  // Preserve checked state across re-renders
+  const prevChecked={};document.querySelectorAll('#aip-panel input[type=checkbox]:checked').forEach(cb=>{prevChecked[cb.id]=true;});
   panel.innerHTML=items.map((f)=>{
     const idx=_aipItems.indexOf(f);
-    return`<label id="aip-row-${idx}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:12px;transition:background .1s" onclick="toggleAipItem(${idx},event)">
-      <input type="checkbox" id="aip-cb-${idx}" style="width:16px;height:16px;flex-shrink:0;accent-color:var(--black)" onclick="event.stopPropagation()">
-      <span style="flex:1;min-width:0"><span style="display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.prod}</span><span style="font-size:10px;color:var(--muted)">Lote: ${f.lote}${f.venc?' · vence: '+f.venc:''}</span></span>
-      ${semDot(f.venc)}
-    </label>`
+    const cbId='aip-cb-'+idx;
+    const checked=prevChecked[cbId]||false;
+    const selStyle=checked?'background:var(--black,#1a1a1a);color:#fff;':'';
+    return`<div id="aip-row-${idx}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:.5px solid var(--border);font-size:12px;user-select:none;${selStyle}" onclick="toggleAipItem(${idx})">
+      <input type="checkbox" id="${cbId}" ${checked?'checked':''} style="width:16px;height:16px;flex-shrink:0;accent-color:var(--black);pointer-events:none" tabindex="-1">
+      <span style="flex:1;min-width:0">
+        <span style="display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.prod}</span>
+        <span style="font-size:10px;opacity:.7">Lote: ${f.lote}${f.venc?' · vence: '+f.venc:''}</span>
+      </span>
+      ${checked?'<span style="font-size:14px;flex-shrink:0">✓</span>':semDot(f.venc)}
+    </div>`
   }).join('');
   updateAipCount();
 }
-function toggleAipItem(idx,e){
+function toggleAipItem(idx){
   const cb=document.getElementById('aip-cb-'+idx);
   if(!cb)return;
-  if(e&&e.target===cb)cb.checked=cb.checked; else cb.checked=!cb.checked;
+  cb.checked=!cb.checked;
   const row=document.getElementById('aip-row-'+idx);
-  if(row)row.style.background=cb.checked?'var(--surface,#f0ede8)':'';
+  if(row){
+    row.style.background=cb.checked?'var(--black,#1a1a1a)':'';
+    row.style.color=cb.checked?'#fff':'';
+    // swap semDot for checkmark
+    const last=row.lastElementChild;
+    if(last&&last.tagName!=='INPUT'&&last.id!==('aip-cb-'+idx)){
+      last.textContent=cb.checked?'✓':'';
+      last.style.fontSize='14px';
+    }
+  }
   updateAipCount();
 }
 function updateAipCount(){const n=document.querySelectorAll('#aip-panel input[type=checkbox]:checked').length;const el=$('aip-sel-count');if(el)el.textContent=n;const btn=$('aip-add-btn');if(btn)btn.textContent=n?'+ Agregar seleccionados ('+n+')':'+ Agregar seleccionados'}
 function filterAipPanel(q){renderAipPanel(q)}
 function toggleAllAip(){
   const cbs=Array.from(document.querySelectorAll('#aip-panel input[type=checkbox]'));
-  const anyUnchecked=cbs.some(c=>!c.checked);
-  cbs.forEach(c=>{c.checked=anyUnchecked;const idx=c.id.replace('aip-cb-','');const row=document.getElementById('aip-row-'+idx);if(row)row.style.background=anyUnchecked?'var(--surface,#f0ede8)':'';});
+  const anyUnchecked=cbs.some(function(c){return!c.checked;});
+  cbs.forEach(function(c){
+    c.checked=anyUnchecked;
+    var idx=c.id.replace('aip-cb-','');
+    var row=document.getElementById('aip-row-'+idx);
+    if(row){row.style.background=anyUnchecked?'var(--black,#1a1a1a)':'';row.style.color=anyUnchecked?'#fff':'';}
+  });
   updateAipCount();
 }
 function addAllIngr(){toggleAllAip();addIngr()}
