@@ -563,16 +563,13 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     </div>
     <div class="sec"><div class="sec-t">Datos del producto</div>
 <div class="r3"><div class="f"><label>Fecha</label><input type="date" id="af"></div><div class="f"><label>Hora</label><input type="time" id="ah"></div><div class="f"><label>Responsable</label><input id="ar" readonly></div></div>
-<div style="background:var(--black,#1a1a1a);border-radius:8px;padding:14px 16px 16px;margin-bottom:12px">
-  <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);margin-bottom:8px;font-weight:600">① Paso 1 — Sabor</div>
-  <select id="ap" style="width:100%;background:rgba(255,255,255,0.08);border:.5px solid rgba(255,255,255,0.18);color:#fff;font-size:13px;padding:9px 10px;border-radius:6px;font-family:var(--font);outline:none;appearance:none;-webkit-appearance:none;cursor:pointer">
-    <option value="" style="background:#1a1a1a;color:#fff">Seleccionar sabor...</option>
+<div style="border:.5px solid var(--black,#1a1a1a);border-radius:6px;padding:10px 12px 12px;margin-bottom:12px;background:var(--surface,#f5f3ee)">
+  <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;font-weight:600">① Sabor — elegir primero</div>
+  <select id="ap" style="width:100%;background:#fff;border:.5px solid var(--black,#1a1a1a);color:var(--text);font-size:14px;font-weight:500;padding:8px 10px;border-radius:4px;font-family:var(--font);outline:none;cursor:pointer">
+    <option value="">Seleccionar sabor...</option>
   </select>
-  <input id="apc" placeholder="Especificar nombre" style="display:none;margin-top:8px;width:100%;background:rgba(255,255,255,0.08);border:.5px solid rgba(255,255,255,0.18);color:#fff;font-size:13px;padding:9px 10px;border-radius:6px;font-family:var(--font);outline:none;box-sizing:border-box" />
-  <div id="ap-selected-display" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(255,255,255,0.1);border-radius:6px;border-left:3px solid rgba(255,255,255,0.6)">
-    <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);margin-bottom:3px">Sabor seleccionado</div>
-    <div id="ap-selected-name" style="font-size:16px;font-weight:600;color:#fff;letter-spacing:.2px"></div>
-  </div>
+  <input id="apc" placeholder="Especificar nombre" style="display:none;margin-top:6px;width:100%;background:#fff;border:.5px solid var(--black,#1a1a1a);color:var(--text);font-size:13px;padding:8px 10px;border-radius:4px;font-family:var(--font);outline:none;box-sizing:border-box" />
+  <div id="ap-selected-display" style="display:none;margin-top:6px;font-size:11px;color:var(--muted)">✓ <span id="ap-selected-name" style="font-weight:600;color:var(--text)"></span></div>
 </div>
 <div class="sec"><div class="sec-t">Ingredientes</div>
 <div class="f">
@@ -2653,10 +2650,9 @@ function renderSabIngrList(){const e=$('sab-ingr-list');if(!e)return;e.innerHTML
 function calcMerma(){const sab=sabores.find(s=>s.nombre===$('ap').value);const pesoR=parseFloat($('apeso-real').value)||0;const note=$('merma-note');if(!note)return;if(sab&&sab.peso_teorico&&pesoR){const merma=sab.peso_teorico-pesoR;const pct=(merma/sab.peso_teorico*100).toFixed(1);note.textContent='Peso teórico: '+sab.peso_teorico+' kg · Real: '+pesoR+' kg · Merma: '+merma.toFixed(2)+' kg ('+pct+'%)';note.style.display='block'}else if(sab&&sab.peso_teorico){note.textContent='Peso teórico del sabor: '+sab.peso_teorico+' kg';note.style.display='block'}else{note.style.display='none'}}
 function renderSaborSelect(){
   const sel=$('ap');
-  sel.innerHTML='<option value="" style="background:#1a1a1a;color:#fff">Seleccionar sabor...</option>'
-    +[...sabores].filter(s=>s.activo).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')).map(s=>`<option style="background:#1a1a1a;color:#fff">${s.nombre}</option>`).join('')
-    +'<option value="otro" style="background:#1a1a1a;color:#fff">Otro...</option>';
-  // reset display when list refreshes
+  sel.innerHTML='<option value="">Seleccionar sabor...</option>'
+    +[...sabores].filter(s=>s.activo).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es')).map(s=>`<option>${s.nombre}</option>`).join('')
+    +'<option value="otro">Otro...</option>';
   const disp=$('ap-selected-display');
   if(disp)disp.style.display='none';
   sel.value='';
