@@ -2965,18 +2965,21 @@ async function setExtra(key,val){
 }
 
 async function initHorarios(){
+  const tbl=$('hor-table');
   try{
     if($('hor-week-label'))updateWeekLabel();
     const wk=getScheduleKey();
+    if(tbl)tbl.innerHTML='<tr><td colspan="9" style="text-align:center;padding:1rem;font-size:11px;color:var(--muted)">Cargando datos...</td></tr>';
     await loadHorariosSemana(wk, true);
     await loadHorEmpleados();
     await loadVacaciones();
     if($('hor-summary'))renderHorSummary();
-    if($('hor-table'))renderHorGrilla();
+    if(tbl)renderHorGrilla();
     populateMesSel();populateLiqMesSel();
     renderHempList();
   }catch(e){
     console.error('[Horarios] initHorarios error:',e);
+    if(tbl)tbl.innerHTML=`<tr><td colspan="9" style="padding:1rem;text-align:center;color:#c00;font-size:11px;font-family:monospace">Error: ${e.message}<br><small style="color:var(--muted)">${e.stack||''}</small></td></tr>`;
   }
 }
 
@@ -3382,7 +3385,7 @@ function horWeek(dir){
   const wk=getScheduleKey();
   if(horSchedules[wk]===undefined){
     $('hor-table').innerHTML='<tr><td colspan="9" style="text-align:center;padding:1.5rem;color:var(--hint);font-size:12px;letter-spacing:.5px">Cargando...</td></tr>';
-    loadHorariosSemana(wk).then(()=>{renderHorSummary();renderHorGrilla()}).catch(e=>console.error('[horWeek]',e));
+    loadHorariosSemana(wk).then(()=>{try{renderHorSummary();renderHorGrilla();}catch(e){const t=$('hor-table');if(t)t.innerHTML=`<tr><td colspan='9' style='padding:1rem;text-align:center;color:#c00;font-size:11px;font-family:monospace'>horWeek error: ${e.message}</td></tr>`;console.error('[horWeek render]',e);}}).catch(e=>{const t=$('hor-table');if(t)t.innerHTML=`<tr><td colspan='9' style='padding:1rem;text-align:center;color:#c00;font-size:11px;font-family:monospace'>Carga error: ${e.message}</td></tr>`;console.error('[horWeek load]',e);});
   } else {renderHorSummary();renderHorGrilla()}
 }
 
