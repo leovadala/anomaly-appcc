@@ -526,7 +526,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
       <button type="button" onclick="closeNewRecModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0">✕</button>
     </div>
     <div class="r2"><div class="f"><label>Fecha recepción</label><input type="date" id="rfecha"></div><div class="f"><label>Hora</label><input type="time" id="rhora"></div></div>
-    <div class="f"><label>Proveedor</label><select id="rp" onchange="onRpChange()" style="width:100%;border:none;border-bottom:1px solid var(--border);font-size:13px;padding:5px 0;background:transparent;color:var(--text)"><option value="">Seleccionar...</option></select></div>
+    <div style="border:.5px solid var(--black,#1a1a1a);border-radius:6px;padding:10px 12px 12px;margin-bottom:12px;background:var(--surface,#f5f3ee)">
+      <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;font-weight:600">① Proveedor — elegir primero</div>
+      <select id="rp" onchange="onRpChange()" style="width:100%;background:#fff;border:.5px solid var(--black,#1a1a1a);color:var(--text);font-size:14px;font-weight:500;padding:8px 10px;border-radius:4px;font-family:var(--font);outline:none;cursor:pointer"><option value="">Seleccionar proveedor...</option></select>
+      <div id="rp-selected-display" style="display:none;margin-top:6px;font-size:11px;color:var(--muted)">✓ <span id="rp-selected-name" style="font-weight:600;color:var(--text)"></span></div>
+    </div>
     <div id="rp-nuevo-form" style="display:none;background:var(--surface,#f5f3ee);border-radius:6px;padding:10px 12px;margin-top:6px">
       <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Nuevo proveedor</div>
       <div style="display:flex;gap:8px;align-items:center">
@@ -1900,7 +1904,15 @@ function onRpChange(){
   } else {
     form.style.display='none';
   }
-  // Also trigger product dropdown update if exists
+  // show selected proveedor
+  const disp=$('rp-selected-display');
+  const nameEl=$('rp-selected-name');
+  const sel=$('rp');
+  const selText=v&&v!=='__nuevo__'?sel.options[sel.selectedIndex].text:'';
+  if(disp&&nameEl){
+    if(selText){nameEl.textContent=selText;disp.style.display='block';}
+    else{disp.style.display='none';}
+  }
   if(typeof uPD==='function')uPD();
 }
 async function saveProvInline(){
@@ -1977,7 +1989,11 @@ function rPL(){
   }).join('');
 }
 
-function uSP(){const sp=[...P.map((p,i)=>({...p,_i:i}))].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));$('rp').innerHTML='<option value="">Seleccionar...</option>'+sp.map(p=>`<option value="${p._i}">${p.nombre}</option>`).join('')+'<option value="__nuevo__" style="color:#e67e22">＋ Nuevo proveedor...</option>'}
+function uSP(){
+  const sp=[...P.map((p,i)=>({...p,_i:i}))].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+  $('rp').innerHTML='<option value="">Seleccionar proveedor...</option>'+sp.map(p=>`<option value="${p._i}">${p.nombre}</option>`).join('')+'<option value="__nuevo__" style="color:#e67e22">＋ Nuevo proveedor...</option>';
+  const disp=$('rp-selected-display');if(disp)disp.style.display='none';
+}
 function editRec(idx){
   const i=S[idx];editingRecIdx=idx;
   $('em-fecha').value=i.fecha||'';
