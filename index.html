@@ -1691,6 +1691,16 @@ let currentSabIngr=[];
 let currentIngr=[];
 let pinSupervisor='0000',pinFinanzas=null,_finUnlocked=false;
 let horLocal={};  // {dayIdx:{a:'12:00',c:'00:00'}}
+// ─── Horarios module globals ───
+let horCurrentWeekOffset=0;
+let horSchedules={};  // {week_key: {empleado: {dayIdx: turno}}}
+let horExtras={};     // {mes_key-empleado: horas}
+let horShiftTarget=null;
+let horLoading=false;
+let horEmpleados=[];
+let horEmpEditIdx=null;
+let horVacaciones=[];
+// ─────────────────────────────────
 const hoy=new Date().toISOString().split('T')[0];
 const $=id=>document.getElementById(id);
 
@@ -2840,11 +2850,7 @@ const FESTIVOS_ES = {'01-01':true,'01-06':true,'04-18':true,'05-01':true,'08-15'
 const FESTIVOS_VAL = {'03-19':true,'04-17':true,'06-24':true,'10-09':true};
 function esFestivo(date){const mmdd=String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');return !!(FESTIVOS_ES[mmdd]||FESTIVOS_VAL[mmdd])}
 
-let horCurrentWeekOffset=0;
-let horSchedules={};  // {week_key: {empleado: {dayIdx: turno}}}
-let horExtras={};     // {mes_key-empleado: horas}
-let horShiftTarget=null;
-let horLoading=false;
+// (Horarios globals declared at top)
 
 const HOR_PRESETS=['OFF','10A18','11A17','12A20','15A23','16A24','17A1','18A24','18A23','P'];
 
@@ -2971,7 +2977,6 @@ async function initHorarios(){
     renderHempList();
   }catch(e){
     console.error('[Horarios] initHorarios error:',e);
-    alert('[Horarios error] '+e.message);
   }
 }
 
@@ -3006,8 +3011,7 @@ function renderHorSummary(){
 }
 
 // ─── EMPLEADOS DE HORARIOS (tabla separada) ───────────────────────────────────
-let horEmpleados=[];
-let horEmpEditIdx=null;
+// (horEmpleados declared at top)
 
 async function loadHorEmpleados(){
   const{data}=await sb.from('hor_empleados').select('*').order('nombre');
@@ -3119,7 +3123,7 @@ function openHorLocalModal(dayIdx,dayLabel){
 }
 
 // ─── VACACIONES ──────────────────────────────────────────────────────────────
-let horVacaciones=[];
+// (horVacaciones declared at top)
 
 async function loadVacaciones(){
   const{data}=await sb.from('hor_vacaciones').select('*').order('fecha_inicio');
