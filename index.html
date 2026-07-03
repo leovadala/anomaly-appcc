@@ -2139,28 +2139,34 @@ async function ocrAlbaranConGPT(imageDataUrl,originalFile=null){
   const JSON_SCHEMA=`Devuelve ÚNICAMENTE este JSON (sin markdown, sin texto extra):
 {
   "cabecera": {
-    "proveedor": "nombre comercial principal del emisor (NO el destinatario/cliente)",
-    "num_albaran": "número exacto del albarán",
-    "fecha": "YYYY-MM-DD",
+    "proveedor": "NOMBRE COMERCIAL del emisor (marca/logo), no la razón social S.L./S.A.",
+    "num_albaran": "número del albarán (campo etiquetado ALBARÁN N.° o similar)",
+    "fecha": "YYYY-MM-DD (año corto 26=2026, 25=2025)",
     "forma_pago": "texto o null",
     "n_bultos": número_entero_o_null,
-    "total": número_decimal_con_punto_o_null
+    "total": número_decimal_o_null
   },
   "lineas": [
     {
-      "ref": "código de producto o null",
-      "descripcion": "nombre completo del producto sin recortar",
-      "lote": "código de lote exacto o null",
-      "vencimiento": "YYYY-MM-DD o null",
+      "ref": "código numérico de la columna CÓDIGO/REF o null",
+      "descripcion": "nombre completo del producto",
+      "lote": "código de la columna LOTE — DIFERENTE para cada línea, leído de esa fila específica",
+      "vencimiento": "YYYY-MM-DD — año corto 26=2026, 25=2025, 24=2024",
       "unidades": número_entero_o_null,
       "kg": número_decimal_o_null,
       "precio_unitario": número_decimal_o_null,
-      "iva": número_entero_4_10_o_21_o_null,
+      "iva": 4_o_10_o_21_o_null,
       "importe": número_decimal_o_null
     }
   ]
 }
-REGLAS: separador decimal = punto · campos no visibles = null · extrae TODAS las filas de producto`;
+REGLAS CRÍTICAS:
+- Separador decimal: punto (no coma)
+- Campos no visibles: null
+- Extrae TODAS las filas de la tabla de productos
+- El total es la suma de importes (típicamente 50€-5000€) — NUNCA un número de registro, teléfono, CIF, NIF, Tomo, Libro, Folio
+- Cada línea tiene un lote DISTINTO — no repitas el mismo lote en todas las líneas
+- Los lotes se leen de la columna LOTE fila por fila, no del encabezado del documento`;
 
   // ── Prompt sin texto OCR (imagen sola) ────────────────────────────────────
   const PROMPT_IMAGEN=`Eres un experto en leer albaranes de distribución alimentaria española.
@@ -2179,21 +2185,27 @@ PASO 2 — CABECERA:
 · Total: IMPORTE BRUTO / TOTAL ALBARÁN / VALOR A PAGAR (importe final, preferiblemente con IVA)
 · Forma de pago: GIRO, CONTADO, TRANSFERENCIA, etc.
 
-PASO 3 — LÍNEAS DE PRODUCTOS:
-Localiza la tabla con productos. Las columnas más comunes son:
-  CÓDIGO | DESCRIPCIÓN | LOTE | F.CAD o F.CON.PREF | CANTIDAD | PRECIO UND. | DTO.% | IMPORTE
-Puede haber variaciones — identifica las columnas reales del documento.
+PASO 3 — TOTAL DEL ALBARÁN:
+· Busca el campo IMPORTE BRUTO / TOTAL ALBARÁN / VALOR A PAGAR al pie del documento
+· Es la suma de todos los importes de líneas (rango típico: 50€ – 5.000€)
+· NO usar: números de teléfono, NIF/CIF, Tomo, Libro, Folio, códigos de registro mercantil, R.F. XXXXX
 
-Mapeo:
-· ref        → columna CÓDIGO / REF (código numérico)
-· descripcion → columna DESCRIPCIÓN — copia el texto COMPLETO de la celda
-· lote        → columna LOTE — lee carácter por carácter desde la IMAGEN (distingue: 0/O, 1/I/l, B/8, S/5, 2/Z)
-              Si el lote es alfanumérico como "SICI2-OS822", cópialo exactamente
-· vencimiento → F.CAD / F.CON.PREF / F.VTO → YYYY-MM-DD. Años cortos "26"=2026, "25"=2025
-· unidades    → columna CANTIDAD / UDS — solo el número entero (ignora POS: 10000, 20000...)
-· precio_unitario → columna PRECIO UND. / PRECIO UNITARIO
-· iva         → columna %IVA en las filas (4, 10 o 21), null si no existe
-· importe     → columna IMPORTE / TOTAL LÍNEA (NO la columna DTO.% que es descuento)
+PASO 4 — LÍNEAS DE PRODUCTOS:
+La tabla tiene columnas como: CÓDIGO | DESCRIPCIÓN | LOTE | F.CON.PREF | CANTIDAD | PRECIO UND. | DTO.% | IMPORTE
+Identifica las columnas reales del documento.
+
+Para cada fila de producto:
+· ref         → valor de la columna CÓDIGO/REF de esa fila (código numérico de 4-6 dígitos)
+· descripcion → texto COMPLETO de la columna DESCRIPCIÓN
+· lote        → valor de la columna LOTE de ESA FILA ESPECÍFICA
+                ⚠ CADA PRODUCTO TIENE UN LOTE DIFERENTE — lee fila por fila
+                ⚠ Leer desde la imagen carácter a carácter (0≠O, 1≠I≠l, B≠8, S≠5)
+                ⚠ Formato típico: "SICI2-OS822", "001725110", "LR323" — alfanumérico
+· vencimiento → columna F.CON.PREF/F.CAD de esa fila → YYYY-MM-DD
+                ⚠ Año "26"=2026, "25"=2025, "24"=2024 (fechas de caducidad son futuras)
+· unidades    → columna CANTIDAD (número entero, ignora columnas POS con 10000/20000)
+· precio_unitario → columna PRECIO UND.
+· importe     → columna IMPORTE de esa fila (NO la columna DTO.% que es porcentaje de descuento)
 
 ${JSON_SCHEMA}`;
 
@@ -2217,15 +2229,16 @@ FECHAS: años cortos "26"=2026, "25"=2025, "24"=2024 (nunca 1926 ni 2023 por err
 
 LOTES: lee cada carácter desde la IMAGEN (más fiable que el OCR para códigos). Distingue: 0/O, 1/I/l, B/8, S/5, 2/Z
 
-MAPEO DE COLUMNAS:
-· ref → CÓDIGO / REF · descripcion → DESCRIPCIÓN (texto completo de la celda)
-· lote → LOTE (desde imagen) · vencimiento → F.CAD/F.CON.PREF → YYYY-MM-DD
-· unidades → CANTIDAD/UDS (entero, ignora columna POS 10000/20000)
-· precio_unitario → PRECIO UND. · iva → %IVA en fila (4/10/21 o null)
-· importe → IMPORTE/TOTAL LÍNEA (NO la columna DTO.% de descuento)
-· total cabecera → IMPORTE BRUTO / TOTAL ALBARÁN (con IVA si disponible)
+TOTAL: IMPORTE BRUTO / TOTAL ALBARÁN al pie (50€-5000€ típico). NO usar NIF, teléfonos, Tomo, Libro, Folio, R.F., códigos de registro.
 
-Extrae TODAS las filas de productos.
+MAPEO COLUMNAS (fila por fila):
+· ref → CÓDIGO/REF de esa fila · descripcion → DESCRIPCIÓN completa
+· lote → columna LOTE de ESA FILA (⚠ diferente en cada línea, leer desde imagen)
+· vencimiento → F.CON.PREF/F.CAD → YYYY-MM-DD (26=2026, 25=2025, fechas futuras)
+· unidades → CANTIDAD (entero, no POS 10000/30000) · precio_unitario → PRECIO UND.
+· importe → IMPORTE de esa fila (NO columna DTO.%)
+
+Extrae TODAS las filas.
 
 ${JSON_SCHEMA}`;
 
