@@ -3015,7 +3015,7 @@ async function setHorReal(nombre,dayIdx,val){
   try{await sb.from('horarios_extras').upsert({mes_key:realKey,empleado:empKey,horas_extra:h,updated_at:new Date().toISOString()},{onConflict:'mes_key,empleado'});}catch(e){console.warn('setHorReal:',e)}
 }
 
-function buildHorExportHTML(){
+function buildHorExportHTML(printMode=false){
   const days=getWeekDates(horCurrentWeekOffset);
   const sch=getSchedule();
   const wk=getScheduleKey();
@@ -3034,9 +3034,10 @@ function buildHorExportHTML(){
   h+=`</div>`;
   // Table
   h+=`<table style="width:100%;border-collapse:collapse;table-layout:fixed">`;
-  h+=`<colgroup><col style="width:13%">`;
+  h+=`<colgroup><col style="width:${printMode?'13%':'15%'}">`;
   for(let i=0;i<7;i++)h+=`<col style="width:${colW}%">`;
-  h+=`<col style="width:8%"></colgroup>`;
+  if(printMode)h+=`<col style="width:8%">`;
+  h+=`</colgroup>`;
   // Header row
   h+=`<thead><tr>`;
   h+=`<th style="padding:7px 6px;background:#f5f3ee;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#888;text-align:left;border:.5px solid #ddd">Empleado</th>`;
@@ -3051,7 +3052,7 @@ function buildHorExportHTML(){
     if(fest)h+=`<div style="font-size:7px;color:#b8860b;letter-spacing:.5px;font-weight:600;margin-top:1px">FESTIVO</div>`;
     h+=`</th>`;
   });
-  h+=`<th style="padding:7px 4px;background:#f5f3ee;text-align:center;border:.5px solid #ddd;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#888">Firma</th>`;
+  if(printMode)h+=`<th style="padding:7px 4px;background:#f5f3ee;text-align:center;border:.5px solid #ddd;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#888">Firma</th>`;
   h+=`</tr></thead><tbody>`;
   // Employee rows
   horEmpleados.forEach(emp=>{
@@ -3077,11 +3078,11 @@ function buildHorExportHTML(){
         const bg=noct?'#f0eeff':shiftClass(s)==='sc-morning'?'#eef7ee':shiftClass(s)==='sc-midday'?'#fef9e7':shiftClass(s)==='sc-evening'?'#e8f4fd':'#fce8f0';
         h+=`<div style="background:${bg};font-size:10px;font-weight:700;font-family:monospace;padding:3px 6px;border-radius:2px;display:inline-block">${s}</div>`;
       }
-      h+=`<div style="margin-top:4px;border-bottom:1px solid #bbb;height:12px;width:70%;margin-left:auto;margin-right:auto" title="Real"></div>`;
+      if(printMode)h+=`<div style="margin-top:4px;border-bottom:1px solid #bbb;height:12px;width:70%;margin-left:auto;margin-right:auto" title="Real"></div>`;
       h+=`</td>`;
     });
     // Firma cell
-    h+=`<td style="padding:5px 6px;border:.5px solid #ddd;vertical-align:bottom"><div style="border-bottom:1px solid #aaa;margin-top:24px;width:100%"></div></td>`;
+    if(printMode)h+=`<td style="padding:5px 6px;border:.5px solid #ddd;vertical-align:bottom"><div style="border-bottom:1px solid #aaa;margin-top:24px;width:100%"></div></td>`;
     h+=`</tr>`;
   });
   // Horario Local footer row
@@ -3093,7 +3094,7 @@ function buildHorExportHTML(){
     if(hl.a||hl.c){h+=`<div style="font-size:9px;font-weight:600;color:#444">${hl.a||'?'}</div><div style="font-size:8px;color:#888">${hl.c||'?'}</div>`;}
     h+=`</td>`;
   });
-  h+=`<td style="border:.5px solid #ddd;background:#f9f8f5"></td>`;
+  if(printMode)h+=`<td style="border:.5px solid #ddd;background:#f9f8f5"></td>`;
   h+=`</tr>`;
   // Responsable row
   h+=`<tr style="background:#f9f8f5">`;
@@ -3105,7 +3106,7 @@ function buildHorExportHTML(){
     }).map(e=>e.nombre||e.name).join(', ');
     h+=`<td style="padding:5px 3px;text-align:center;border:.5px solid #ddd;background:#f9f8f5"><div style="font-size:8px;color:#555;line-height:1.3">${resp||'—'}</div></td>`;
   });
-  h+=`<td style="border:.5px solid #ddd;background:#f9f8f5"></td>`;
+  if(printMode)h+=`<td style="border:.5px solid #ddd;background:#f9f8f5"></td>`;
   h+=`</tr>`;
   h+=`</tbody></table>`;
   h+=`<div style="margin-top:12px;font-size:9px;color:#999;font-style:italic">* El horario indica cuándo deben estar listos para operar, no el ingreso al local. ¡Gracias por tu puntualidad! 😊</div>`;
@@ -3148,7 +3149,7 @@ function printHor(){
   const win=window.open('','_blank','width=1100,height=800');
   if(!win){alert('Permitir pop-ups para imprimir');return;}
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Horario ANOMALY</title><style>body{margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}@media print{@page{margin:8mm;size:A4 landscape}}</style></head><body>`);
-  win.document.write(buildHorExportHTML());
+  win.document.write(buildHorExportHTML(true));
   win.document.write('</body></html>');
   win.document.close();
   win.focus();
