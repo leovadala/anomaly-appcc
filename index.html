@@ -3065,8 +3065,6 @@ function buildHorExportHTML(){
       const s=esch[i]||'';
       const festD=esFestivo(d);
       const isVac=isVacDay(nombre,d);
-      const rk='real-'+wk+'-'+nombre+'-d'+i;
-      const rv=horExtras[rk];
       const cellBg=festD?'#fffbe6':'#fff';
       h+=`<td style="padding:5px 3px;text-align:center;border:.5px solid #ddd;background:${cellBg};vertical-align:middle">`;
       if(isVac&&!s){
@@ -3078,7 +3076,7 @@ function buildHorExportHTML(){
         const bg=noct?'#f0eeff':shiftClass(s)==='sc-morning'?'#eef7ee':shiftClass(s)==='sc-midday'?'#fef9e7':shiftClass(s)==='sc-evening'?'#e8f4fd':'#fce8f0';
         h+=`<div style="background:${bg};font-size:10px;font-weight:700;font-family:monospace;padding:3px 6px;border-radius:2px;display:inline-block">${s}</div>`;
       }
-      if(rv)h+=`<div style="font-size:8px;color:#888;margin-top:3px">✓ ${rv}h</div>`;
+      h+=`<div style="margin-top:4px;border-bottom:1px solid #bbb;height:12px;width:70%;margin-left:auto;margin-right:auto" title="Real"></div>`;
       h+=`</td>`;
     });
     h+=`</tr>`;
@@ -3632,13 +3630,10 @@ function renderHorGrilla(){
       const noct=nocturnasHoras(s)>0;const festDay=esFestivo(d);const fest=festDay&&s&&s!=='OFF';
       const escapedName=nombre.replace(/'/g,"\\'");
       const isVac=isVacDay(nombre,d);
-      const _rk='real-'+getScheduleKey()+'-'+nombre+'-d'+i;
-      const _rv=horExtras[_rk]||'';
-      const _ri=`<input class="hor-real-input" type="number" min="0" max="24" step=".5" value="${_rv}" placeholder="real h" title="Horas reales" onchange="setHorReal('${escapedName}',${i},this.value)">`;
       if(isVac&&!s){
-        rowHTML+=`<td class="${festDay?'ht-festivo-col':''}" style="background:rgba(39,174,96,.12)"><span class="shift-cell" style="background:#27ae60;color:#fff;opacity:.7;font-size:9px" title="Vacaciones">VAC</span>${_ri}</td>`;
+        rowHTML+=`<td class="${festDay?'ht-festivo-col':''}" style="background:rgba(39,174,96,.12)"><span class="shift-cell" style="background:#27ae60;color:#fff;opacity:.7;font-size:9px" title="Vacaciones">VAC</span></td>`;
       } else {
-        rowHTML+=`<td class="${festDay?'ht-festivo-col':''}"${isVac?' style="background:rgba(39,174,96,.08)"':''}><span class="shift-cell ${shiftClass(s)}${noct?' sc-nocturno':''}" onclick="openShiftModal('${escapedName}',${i},'${s}')" title="${s||'—'}">${s||'—'}</span>${_ri}</td>`;
+        rowHTML+=`<td class="${festDay?'ht-festivo-col':''}"${isVac?' style="background:rgba(39,174,96,.08)"':''}><span class="shift-cell ${shiftClass(s)}${noct?' sc-nocturno':''}" onclick="openShiftModal('${escapedName}',${i},'${s}')" title="${s||'—'}">${s||'—'}</span></td>`;
       }
     });
     rowHTML+=`<td style="text-align:center;font-size:10px;font-weight:500">${totalH||''}</td></tr>`;
