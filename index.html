@@ -2198,11 +2198,16 @@ Para cada fila de producto:
 · ref         → valor de la columna CÓDIGO/REF de esa fila (código numérico de 4-6 dígitos)
 · descripcion → texto COMPLETO de la columna DESCRIPCIÓN
 · lote        → valor de la columna LOTE de ESA FILA ESPECÍFICA
-                ⚠ CADA PRODUCTO TIENE UN LOTE DIFERENTE — lee fila por fila
-                ⚠ Leer desde la imagen carácter a carácter (0≠O, 1≠I≠l, B≠8, S≠5)
-                ⚠ Formato típico: "SICI2-OS822", "001725110", "LR323" — alfanumérico
+                ⚠ CADA PRODUCTO TIENE UN LOTE DIFERENTE — lee fila por fila desde la imagen
+                ⚠ IGNORA el texto OCR para lotes (tiene errores) — lee los caracteres visualmente
+                ⚠ Distingue: 0≠O, 1≠I≠l, B≠8, S≠5, 2≠Z, 6≠G
+                ⚠ Formato: 5-15 chars alfanuméricos, pueden tener guiones. Ej: SICI2-OS822, LR323, 001725110
+                ⚠ Si no puedes leerlo con certeza → escribe null (mejor null que incorrecto)
 · vencimiento → columna F.CON.PREF/F.CAD de esa fila → YYYY-MM-DD
-                ⚠ Año "26"=2026, "25"=2025, "24"=2024 (fechas de caducidad son futuras)
+                ⚠ LEE DESDE LA IMAGEN, no del OCR (el OCR confunde fechas)
+                ⚠ Año 2 dígitos: 26=2026, 27=2027, 28=2028, 29=2029
+                ⚠ Fechas de caducidad son FUTURAS respecto al albarán (mínimo 3 meses adelante)
+                ⚠ Si no puedes leerlo → null
 · unidades    → columna CANTIDAD (número entero, ignora columnas POS con 10000/20000)
 · precio_unitario → columna PRECIO UND.
 · importe     → columna IMPORTE de esa fila (NO la columna DTO.% que es porcentaje de descuento)
@@ -2233,8 +2238,12 @@ TOTAL: IMPORTE BRUTO / TOTAL ALBARÁN al pie (50€-5000€ típico). NO usar NI
 
 MAPEO COLUMNAS (fila por fila):
 · ref → CÓDIGO/REF de esa fila · descripcion → DESCRIPCIÓN completa
-· lote → columna LOTE de ESA FILA (⚠ diferente en cada línea, leer desde imagen)
-· vencimiento → F.CON.PREF/F.CAD → YYYY-MM-DD (26=2026, 25=2025, fechas futuras)
+· lote → columna LOTE de ESA FILA — ⚠ LEE DESDE LA IMAGEN (el OCR falla con códigos alfanuméricos)
+         ⚠ Cada fila tiene un lote DISTINTO. Distingue 0/O, 1/I/l, B/8, S/5, 2/Z
+         ⚠ null si no puedes leer con certeza
+· vencimiento → F.CON.PREF/F.CAD → YYYY-MM-DD — ⚠ LEE DESDE LA IMAGEN
+         ⚠ Año 2 dígitos: 26=2026, 27=2027, 28=2028. Fechas futuras (mín 3 meses del albarán)
+         ⚠ null si no puedes leer con certeza
 · unidades → CANTIDAD (entero, no POS 10000/30000) · precio_unitario → PRECIO UND.
 · importe → IMPORTE de esa fila (NO columna DTO.%)
 
