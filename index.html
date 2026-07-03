@@ -2166,53 +2166,66 @@ REGLAS: separador decimal = punto · campos no visibles = null · extrae TODAS l
   const PROMPT_IMAGEN=`Eres un experto en leer albaranes de distribución alimentaria española.
 Lee ESTE ALBARÁN con cuidado. El documento puede estar girado o inclinado — analiza en cualquier orientación.
 
-PASO 1 — CABECERA:
-· Proveedor: nombre/logo más prominente del EMISOR (arriba o esquina). IGNORA el destinatario (ANOMALY, Wordcream, etc.)
-· Nº Albarán: busca etiquetas como "Albarán N.°", "A XXXX", "N.° XXXX"
-· Fecha: fecha del documento (no del pedido)
-· Total: IMPORTE BRUTO / TOTAL ALBARÁN / VALOR A PAGAR (importe final con IVA)
+PASO 1 — PROVEEDOR (muy importante):
+· El proveedor es el EMISOR del documento (quien vende), NO el destinatario (ANOMALY, Wordcream, etc.)
+· Muchos albaranes tienen DOS nombres del emisor: el NOMBRE COMERCIAL (marca/logo) y la RAZÓN SOCIAL (S.L., S.A., etc.)
+  Ejemplos: "COMERCIAL GARCÍA" es el nombre comercial, "COGALAR, S.L." es la razón social
+  → Usa SIEMPRE el NOMBRE COMERCIAL (el del logo o encabezado principal), NO la razón social
+· Si solo hay razón social (sin nombre comercial), usa esa
 
-PASO 2 — LÍNEAS DE PRODUCTOS:
+PASO 2 — CABECERA:
+· Nº Albarán: busca "Albarán N.°", "ALBARÁN N.°", "A XXXX", número en zona destacada
+· Fecha: fecha del documento. ATENCIÓN: años cortos como "26" = 2026, "25" = 2025, "24" = 2024 (nunca 1926)
+· Total: IMPORTE BRUTO / TOTAL ALBARÁN / VALOR A PAGAR (importe final, preferiblemente con IVA)
+· Forma de pago: GIRO, CONTADO, TRANSFERENCIA, etc.
+
+PASO 3 — LÍNEAS DE PRODUCTOS:
 Localiza la tabla con productos. Las columnas más comunes son:
   CÓDIGO | DESCRIPCIÓN | LOTE | F.CAD o F.CON.PREF | CANTIDAD | PRECIO UND. | DTO.% | IMPORTE
 Puede haber variaciones — identifica las columnas reales del documento.
 
 Mapeo:
-· ref        → columna CÓDIGO / REF (código numérico corto)
+· ref        → columna CÓDIGO / REF (código numérico)
 · descripcion → columna DESCRIPCIÓN — copia el texto COMPLETO de la celda
-· lote        → columna LOTE (null si no existe)
-· vencimiento → columna F.CAD / F.CON.PREF / F.VTO → formato YYYY-MM-DD
-· unidades    → columna CANTIDAD / UDS — solo el número entero (ignora columnas POS que tienen 10000, 20000...)
+· lote        → columna LOTE — lee carácter por carácter desde la IMAGEN (distingue: 0/O, 1/I/l, B/8, S/5, 2/Z)
+              Si el lote es alfanumérico como "SICI2-OS822", cópialo exactamente
+· vencimiento → F.CAD / F.CON.PREF / F.VTO → YYYY-MM-DD. Años cortos "26"=2026, "25"=2025
+· unidades    → columna CANTIDAD / UDS — solo el número entero (ignora POS: 10000, 20000...)
 · precio_unitario → columna PRECIO UND. / PRECIO UNITARIO
-· iva         → columna %IVA si existe en las filas (4, 10 o 21)
-· importe     → columna IMPORTE / TOTAL LÍNEA (NO DTO.% que es descuento)
+· iva         → columna %IVA en las filas (4, 10 o 21), null si no existe
+· importe     → columna IMPORTE / TOTAL LÍNEA (NO la columna DTO.% que es descuento)
 
 ${JSON_SCHEMA}`;
 
   // ── Prompt con texto OCR ──────────────────────────────────────────────────
   const buildPromptConTexto=(rawText,quality)=>`Eres un experto en leer albaranes de distribución alimentaria española.
 Tienes DOS fuentes del mismo albarán:
-1. La IMAGEN — úsala para entender la estructura, columnas y posición del documento
-2. El TEXTO OCR — úsalo para leer caracteres exactos (lotes, números, importes)
-   Calidad estimada del OCR: ${quality}% — si parece incoherente, prioriza la IMAGEN
+1. La IMAGEN — úsala para estructura, columnas, y para leer lotes/códigos con precisión
+2. El TEXTO OCR (calidad: ${quality}%) — útil para texto corrido, pero puede tener errores en códigos
 
 TEXTO OCR:
 \`\`\`
 ${rawText}
 \`\`\`
 
-INSTRUCCIONES:
-· Usa la IMAGEN para identificar columnas; usa el OCR para leer los valores exactos
-· Si el texto OCR está girado o es ilegible, confía en la IMAGEN
-· Extrae TODAS las filas de productos de la tabla
-· Proveedor: nombre/logo del EMISOR (NO el destinatario ANOMALY/Wordcream)
-· Total: IMPORTE BRUTO / TOTAL ALBARÁN con IVA (no la base imponible)
+PROVEEDOR (importante):
+· El proveedor es el EMISOR (quien vende), NO el destinatario (ANOMALY, Wordcream, etc.)
+· Si hay nombre comercial + razón social (S.L./S.A.): usa el NOMBRE COMERCIAL (el del logo)
+  Ejemplo: "COMERCIAL GARCÍA" es el nombre comercial, "COGALAR, S.L." es la razón social → usa COMERCIAL GARCÍA
+
+FECHAS: años cortos "26"=2026, "25"=2025, "24"=2024 (nunca 1926 ni 2023 por error)
+
+LOTES: lee cada carácter desde la IMAGEN (más fiable que el OCR para códigos). Distingue: 0/O, 1/I/l, B/8, S/5, 2/Z
 
 MAPEO DE COLUMNAS:
-· ref → CÓDIGO / REF · descripcion → DESCRIPCIÓN (texto completo)
-· lote → LOTE · vencimiento → F.CAD/F.CON.PREF → YYYY-MM-DD
-· unidades → CANTIDAD/UDS (entero, ignora columna POS) · precio_unitario → PRECIO UND.
-· iva → %IVA en fila · importe → IMPORTE/TOTAL LÍNEA (NO la columna DTO.%)
+· ref → CÓDIGO / REF · descripcion → DESCRIPCIÓN (texto completo de la celda)
+· lote → LOTE (desde imagen) · vencimiento → F.CAD/F.CON.PREF → YYYY-MM-DD
+· unidades → CANTIDAD/UDS (entero, ignora columna POS 10000/20000)
+· precio_unitario → PRECIO UND. · iva → %IVA en fila (4/10/21 o null)
+· importe → IMPORTE/TOTAL LÍNEA (NO la columna DTO.% de descuento)
+· total cabecera → IMPORTE BRUTO / TOTAL ALBARÁN (con IVA si disponible)
+
+Extrae TODAS las filas de productos.
 
 ${JSON_SCHEMA}`;
 
