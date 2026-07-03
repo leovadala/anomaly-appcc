@@ -1693,6 +1693,9 @@ let pinSupervisor='0000',pinFinanzas=null,_finUnlocked=false;
 let horLocal={};  // {dayIdx:{a:'12:00',c:'00:00'}}
 // ─── Horarios module globals ───
 const FESTIVOS_ES={'01-01':true,'01-06':true,'04-18':true,'05-01':true,'08-15':true,'10-12':true,'11-01':true,'12-06':true,'12-08':true,'12-25':true};
+const CONTEO_TARA={plastico:214,acero:1080,cubeta:250,libre:0};
+const CONTEO_CATS=['Helado','Materia prima','Topping','Insumos','Envases','Cafetería','Pastelería','Limpieza','Vajilla y utensilios','Mermas y Roturas'];
+const CONTEO_CONT_DEFAULT={Helado:'plastico',Topping:'cubeta'};
 const FESTIVOS_VAL={'03-19':true,'04-17':true,'06-24':true,'10-09':true};
 const HOR_PRESETS=['OFF','10A18','11A17','12A20','15A23','16A24','17A1','18A24','18A23','P'];
 const HOR_PANELS=['grilla','empleados','vacaciones','resumen','liquidar'];
@@ -2421,7 +2424,8 @@ function renderOcrResults(textOrData){
   }
   html+=rawHtml;
   $('ocr-results').innerHTML=html;
-  renderOcrLineas();
+  // setTimeout 0 garantiza que el DOM se haya actualizado antes de poblar #ocr-lineas-tabla
+  setTimeout(()=>renderOcrLineas(),0);
 }
 
 function ocrSetTemp(i,mode){
@@ -2456,6 +2460,7 @@ function ocrSetCat(i,val){
   renderOcrLineas();
 }
 function renderOcrLineas(){
+  try{
   const el=$('ocr-lineas-tabla');if(!el)return;
   const ls=window._ocrAlbaran?window._ocrAlbaran.lineas:[];
   if(!ls.length){el.innerHTML='<div class="empty" style="margin:0 0 8px">Sin líneas. Agregá una manualmente.</div>';
@@ -2511,6 +2516,10 @@ function renderOcrLineas(){
   const sinCat=ls.filter(l=>!l.categoria).length;
   const btn=$('ocr-confirm-btn');
   if(btn)btn.textContent=`✓ Confirmar recepción (${ls.length} producto${ls.length!==1?'s':''}${sinCat?' · '+sinCat+' sin categoría':''})`;
+  }catch(err){
+    console.error('[renderOcrLineas]',err);
+    const el2=$('ocr-lineas-tabla');if(el2)el2.innerHTML=`<div style='padding:10px;color:#c00;font-size:11px;border:1px solid #fdd;border-radius:4px'>Error al renderizar líneas: ${err.message}<br><small style='color:#888'>${err.stack||''}</small></div>`;
+  }
 }
 
 function ocrDelLinea(i){
@@ -3802,9 +3811,7 @@ function applyAllEgOcr(){
 }
 
 // ===== CONTEO FÍSICO DE INVENTARIO =====
-const CONTEO_TARA={plastico:214,acero:1080,cubeta:250,libre:0};
-const CONTEO_CATS=['Helado','Materia prima','Topping','Insumos','Envases','Cafetería','Pastelería','Limpieza','Vajilla y utensilios','Mermas y Roturas'];
-const CONTEO_CONT_DEFAULT={Helado:'plastico',Topping:'cubeta'};
+// (CONTEO_TARA/CATS/CONT_DEFAULT declarados al inicio)
 var _conteo=null,_conteoLineas=[],_conteoTab='Helado',_pesarProd={nombre:'',categoria:''};
 var _pesarContenedor='plastico';
 
