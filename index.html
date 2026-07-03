@@ -3114,11 +3114,18 @@ async function exportHorPNG(){
   const fmt=d=>d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'});
   const nombre=`horario_${fmt(d0).replace('/','')}_${fmt(d6).replace('/','')}.png`;
   const exportDiv=document.createElement('div');
-  exportDiv.style.cssText='position:fixed;top:-9999px;left:-9999px;background:#fff;z-index:-1';
+  // Position at 0,0 invisible — avoids html2canvas coordinate offset bug
+  exportDiv.style.cssText='position:fixed;top:0;left:0;background:#fff;width:1040px;opacity:0;pointer-events:none;z-index:9999';
   exportDiv.innerHTML=buildHorExportHTML();
   document.body.appendChild(exportDiv);
+  await new Promise(r=>requestAnimationFrame(r)); // one frame so layout is computed
   try{
-    const canvas=await html2canvas(exportDiv,{backgroundColor:'#fff',scale:2,useCORS:true,logging:false});
+    const w=exportDiv.offsetWidth;
+    const h=exportDiv.offsetHeight;
+    const canvas=await html2canvas(exportDiv,{
+      backgroundColor:'#fff',scale:2,useCORS:true,logging:false,
+      x:0,y:0,scrollX:0,scrollY:0,width:w,height:h,windowWidth:w
+    });
     const a=document.createElement('a');
     a.href=canvas.toDataURL('image/png');
     a.download=nombre;
