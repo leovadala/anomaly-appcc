@@ -2142,112 +2142,139 @@ async function preprocessImageForGPT(imageDataUrl){
 }
 
 async function ocrAlbaranConGPT(imageDataUrl){
-  // Paso 1: OCR de texto con Tesseract (preciso carácter a carácter)
-  $('ocr-status').textContent='Extrayendo texto (1/2)...';
-  const [processed, tessResult] = await Promise.all([
-    preprocessImageForGPT(imageDataUrl),
-    Tesseract.recognize(imageDataUrl,'spa+eng',{logger:m=>{
-      if(m.status==='recognizing text')
-        $('ocr-status').textContent='OCR '+(Math.round(m.progress*100))+'% — luego IA...';
-    }})
-  ]);
-  const rawText=tessResult.data.text||'';
-  const base64=processed.split(',')[1];
+  // ── Esquema JSON esperado ──────────────────────────────────────────────────
+  const JSON_SCHEMA=`Devuelve ÚNICAMENTE este JSON (sin markdown, sin texto extra):
+{
+  "cabecera": {
+    "proveedor": "nombre comercial principal del emisor (NO el destinatario/cliente)",
+    "num_albaran": "número exacto del albarán",
+    "fecha": "YYYY-MM-DD",
+    "forma_pago": "texto o null",
+    "n_bultos": número_entero_o_null,
+    "total": número_decimal_con_punto_o_null
+  },
+  "lineas": [
+    {
+      "ref": "código de producto o null",
+      "descripcion": "nombre completo del producto sin recortar",
+      "lote": "código de lote exacto o null",
+      "vencimiento": "YYYY-MM-DD o null",
+      "unidades": número_entero_o_null,
+      "kg": número_decimal_o_null,
+      "precio_unitario": número_decimal_o_null,
+      "iva": número_entero_4_10_o_21_o_null,
+      "importe": número_decimal_o_null
+    }
+  ]
+}
+REGLAS: separador decimal = punto · campos no visibles = null · extrae TODAS las filas de producto`;
 
-  // Paso 2: GPT estructura el texto + usa imagen para contexto
-  $('ocr-status').textContent='Interpretando con IA (2/2)...';
-  const prompt=`Eres un experto en leer albaranes de distribución alimentaria española.
+  // ── Prompt sin texto OCR (imagen sola) ────────────────────────────────────
+  const PROMPT_IMAGEN=`Eres un experto en leer albaranes de distribución alimentaria española.
+Lee ESTE ALBARÁN con cuidado. El documento puede estar girado o inclinado — analiza en cualquier orientación.
+
+PASO 1 — CABECERA:
+· Proveedor: nombre/logo más prominente del EMISOR (arriba o esquina). IGNORA el destinatario (ANOMALY, Wordcream, etc.)
+· Nº Albarán: busca etiquetas como "Albarán N.°", "A XXXX", "N.° XXXX"
+· Fecha: fecha del documento (no del pedido)
+· Total: IMPORTE BRUTO / TOTAL ALBARÁN / VALOR A PAGAR (importe final con IVA)
+
+PASO 2 — LÍNEAS DE PRODUCTOS:
+Localiza la tabla con productos. Las columnas más comunes son:
+  CÓDIGO | DESCRIPCIÓN | LOTE | F.CAD o F.CON.PREF | CANTIDAD | PRECIO UND. | DTO.% | IMPORTE
+Puede haber variaciones — identifica las columnas reales del documento.
+
+Mapeo:
+· ref        → columna CÓDIGO / REF (código numérico corto)
+· descripcion → columna DESCRIPCIÓN — copia el texto COMPLETO de la celda
+· lote        → columna LOTE (null si no existe)
+· vencimiento → columna F.CAD / F.CON.PREF / F.VTO → formato YYYY-MM-DD
+· unidades    → columna CANTIDAD / UDS — solo el número entero (ignora columnas POS que tienen 10000, 20000...)
+· precio_unitario → columna PRECIO UND. / PRECIO UNITARIO
+· iva         → columna %IVA si existe en las filas (4, 10 o 21)
+· importe     → columna IMPORTE / TOTAL LÍNEA (NO DTO.% que es descuento)
+
+${JSON_SCHEMA}`;
+
+  // ── Prompt con texto OCR ──────────────────────────────────────────────────
+  const buildPromptConTexto=(rawText,quality)=>`Eres un experto en leer albaranes de distribución alimentaria española.
 Tienes DOS fuentes del mismo albarán:
-1. La IMAGEN (para entender estructura, columnas y posición)
-2. El TEXTO OCR a continuación (más fiable para leer caracteres exactos)
+1. La IMAGEN — úsala para entender la estructura, columnas y posición del documento
+2. El TEXTO OCR — úsalo para leer caracteres exactos (lotes, números, importes)
+   Calidad estimada del OCR: ${quality}% — si parece incoherente, prioriza la IMAGEN
 
 TEXTO OCR:
 \`\`\`
 ${rawText}
 \`\`\`
 
-PASO 1 — IDENTIFICAR COLUMNAS:
-Lee los encabezados de la tabla del albarán. Las columnas varían por proveedor. Ejemplos:
-- Formato A: CÓDIGO | DESCRIPCIÓN | LOTE | FECHA CAD | UDS | KG | PRECIO | %IVA | IMPORTE
-- Formato B: CÓDIGO | DESCRIPCIÓN | LOTE | F.CON.PREF | CANTIDAD | PRECIO UND. | DTO.% | IMPORTE
-- Pueden existir otros formatos — identifica los encabezados reales de ESTA imagen
+INSTRUCCIONES:
+· Usa la IMAGEN para identificar columnas; usa el OCR para leer los valores exactos
+· Si el texto OCR está girado o es ilegible, confía en la IMAGEN
+· Extrae TODAS las filas de productos de la tabla
+· Proveedor: nombre/logo del EMISOR (NO el destinatario ANOMALY/Wordcream)
+· Total: IMPORTE BRUTO / TOTAL ALBARÁN con IVA (no la base imponible)
 
-PASO 2 — MAPEAR CAMPOS:
-- "ref" ← columna CÓDIGO / REF / Ref. (primer código numérico de la fila)
-- "descripcion" ← columna DESCRIPCIÓN — copia el texto COMPLETO de la celda, incluyendo dimensiones, gramajes, cantidades y especificaciones técnicas (ej: "BOLSA PAPEL KRAFT MARRON 32G 140+60X310MM 1000UDS"). No cortes ni resumas
-- "lote" ← columna LOTE si existe; si no hay columna de lote → null
-- "vencimiento" ← columna FECHA CAD / F.CON.PREF / F.VTO / VENCIMIENTO → YYYY-MM-DD; si no existe → null
-- "unidades" ← columna CANTIDAD / UDS / UNIDADES — extrae SOLO el número entero de esa columna, ignorando texto como "CJ", "UN", "KG", "UDS". ATENCIÓN: la columna POS o posición (números grandes como 10000, 30000) NO es la cantidad — es un número de línea interno, ignóralo para unidades
-- "kg" ← columna KG / PESO si existe, si no → null
-- "precio_unitario" ← columna PRECIO / PRECIO UND. / Precio Unitario
-- "iva" ← columna %IVA / % IVA si existe en las líneas (valor entero: 4, 10 o 21), si no → null
-- "importe" ← columna IMPORTE / Valor Líquido / TOTAL LÍNEA — total monetario de la fila. Si la última columna es %IVA, el importe es la penúltima columna monetaria
-- IMPORTANTE: la columna DTO.% / DESCUENTO / DESC. NO es el importe ni el IVA — es un porcentaje de descuento, ignórala para el importe
+MAPEO DE COLUMNAS:
+· ref → CÓDIGO / REF · descripcion → DESCRIPCIÓN (texto completo)
+· lote → LOTE · vencimiento → F.CAD/F.CON.PREF → YYYY-MM-DD
+· unidades → CANTIDAD/UDS (entero, ignora columna POS) · precio_unitario → PRECIO UND.
+· iva → %IVA en fila · importe → IMPORTE/TOTAL LÍNEA (NO la columna DTO.%)
 
-PASO 3 — TOTALES DE CABECERA:
-- "total" ← VALOR A PAGAR / TOTAL ALBARÁN / TOTAL (importe final con IVA incluido)
-- Si hay TOTAL PEDIDO (sin IVA) y VALOR A PAGAR (con IVA), usa VALOR A PAGAR
+${JSON_SCHEMA}`;
 
-PASO 4 — PROVEEDOR:
-- Usa el NOMBRE COMERCIAL principal (el más grande/prominente, normalmente el logo o encabezado)
-- Si hay nombre comercial Y razón social (S.L., S.A., S.L.U., S.C.), usa el nombre comercial
-- El cliente/destinatario (ANOMALY, Wordcream, etc.) NO es el proveedor
+  // ── Llamada a GPT-4o Vision ───────────────────────────────────────────────
+  async function callGPT(promptText,b64){
+    const resp=await fetch('https://api.openai.com/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
+      body:JSON.stringify({
+        model:'gpt-4o',max_tokens:4000,temperature:0,
+        messages:[{role:'user',content:[
+          {type:'text',text:promptText},
+          {type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64,detail:'high'}}
+        ]}]
+      })
+    });
+    if(!resp.ok){const e=await resp.json();throw new Error(e.error?.message||resp.status)}
+    const j=await resp.json();
+    const txt=j.choices[0].message.content.trim().replace(/^```json?\s*/,'').replace(/\s*```$/,'');
+    const data=JSON.parse(txt);
+    if(!data.lineas)data.lineas=[];
+    if(!data.cabecera)data.cabecera={};
+    return data;
+  }
 
-PASO 5 — LOTES (máxima precisión):
-- Lee carácter por carácter desde el texto OCR
-- Distingue: 0 vs O, 1 vs I vs l, B vs 8, S vs 5
-- Copia exactamente, incluyendo guiones y mayúsculas
+  // ── Flujo principal ───────────────────────────────────────────────────────
+  $('ocr-status').textContent='Procesando imagen...';
+  const [processed,tessResult]=await Promise.all([
+    preprocessImageForGPT(imageDataUrl),
+    Tesseract.recognize(imageDataUrl,'spa+eng',{logger:m=>{
+      if(m.status==='recognizing text')
+        $('ocr-status').textContent='OCR '+(Math.round(m.progress*100))+'%...';
+    }}).catch(()=>({data:{text:''}}))
+  ]);
+  const rawText=tessResult.data.text||'';
+  const base64=processed.split(',')[1];
 
-Devuelve ÚNICAMENTE este JSON (sin markdown, sin texto extra):
-{
-  "cabecera": {
-    "proveedor": "nombre comercial prominente",
-    "num_albaran": "número exacto",
-    "fecha": "YYYY-MM-DD",
-    "forma_pago": "texto o null",
-    "n_bultos": número o null,
-    "total": número decimal o null
-  },
-  "lineas": [
-    {
-      "ref": "código o null",
-      "descripcion": "nombre completo",
-      "lote": "código exacto o null",
-      "vencimiento": "YYYY-MM-DD o null",
-      "unidades": número entero o null,
-      "kg": número decimal o null,
-      "precio_unitario": número decimal o null,
-      "iva": número entero o null,
-      "importe": número decimal o null
-    }
-  ]
+  // Evaluar calidad del texto OCR
+  const words=rawText.split(/\s+/).filter(w=>w.length>1);
+  const goodWords=words.filter(w=>/[a-záéíóúñA-ZÁÉÍÓÚÑ]{2,}/.test(w));
+  const quality=words.length>5?Math.round(goodWords.length/words.length*100):0;
+  const textIsUsable=quality>25&&rawText.length>60;
+
+  // Intento 1: con texto si es usable, sin él si es basura
+  $('ocr-status').textContent=`Interpretando con IA (OCR ${quality}%)...`;
+  let data=await callGPT(textIsUsable?buildPromptConTexto(rawText,quality):PROMPT_IMAGEN,base64);
+
+  // Auto-retry: si no detectó líneas, reintentar solo con imagen
+  if(data.lineas.length===0){
+    $('ocr-status').textContent='Sin líneas detectadas — reintentando con visión pura...';
+    data=await callGPT(PROMPT_IMAGEN,base64);
+  }
+
+  return data;
 }
-
-REGLAS FINALES:
-- Extrae TODAS las filas de producto en orden
-- Ignora: mercancía no servida, totales de pie de página, condiciones legales
-- Separador decimal en JSON: siempre punto
-- Campos no visibles: null`;
-
-  const resp=await fetch('https://api.openai.com/v1/chat/completions',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
-    body:JSON.stringify({
-      model:'gpt-4o',
-      max_tokens:4000,
-      temperature:0,
-      messages:[{role:'user',content:[
-        {type:'text',text:prompt},
-        {type:'image_url',image_url:{url:'data:image/jpeg;base64,'+base64,detail:'high'}}
-      ]}]
-    })
-  });
-  if(!resp.ok){const e=await resp.json();throw new Error(e.error?.message||resp.status)}
-  const json=await resp.json();
-  const txt=json.choices[0].message.content.trim().replace(/^```json?\s*/,'').replace(/\s*```$/,'');
-  return JSON.parse(txt);
-}
-
 async function registrarInventario(){if(!confirm('¿Registrar inventario con el stock activo actual?\nSe guardarán '+S.length+' items.'))return;if(!S.length){alert('No hay stock activo para registrar');return}const rows=S.map(s=>({fecha:hoy,producto:s.producto,proveedor:s.proveedor||null,categoria:s.categoria||null,cantidad_uds:1,cantidad_kg:0,valor:0,notas:'Lote: '+s.lote+' | Venc: '+(s.vencimiento||'—')+' | Temp: '+s.temp+'°C'}));const{error}=await sb.from('inventario_mensual').insert(rows);if(error){alert('Error al guardar: '+error.message);return}alert('Inventario registrado: '+rows.length+' productos');renderInventario()}
 function renderInventario(){
   try{
