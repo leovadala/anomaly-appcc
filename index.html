@@ -2894,89 +2894,7 @@ h+='<div class="rp-f"><div>Responsable<br><br>_________________</div><div>Verifi
 h+='<div style="text-align:center;font-size:8px;color:#999;margin-top:1.5rem">ANOMALY Gelato & Specialty Coffee \u2014 Sistema APPCC \u2014 Generado: '+new Date().toLocaleString('es-ES')+'</div>';
 h+='</div>';$('rprev').innerHTML=h}
 
-function expPDF(){const p=document.querySelector('.rp');if(!p)return;const w=window.open('','_blank');w.document.write("<!DOCTYPE html><html><head><title>ANOMALY APPCC</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500');body{font-family:'DM Sans',sans-serif;padding:2rem;color:#1a1a1a;font-size:11px}h4{font-size:16px;font-weight:500;letter-spacing:2px;margin:0 0 2px}.rp-s{font-size:10px;color:#999;margin-bottom:1.5rem}.rp-sec{font-weight:500;font-size:11px;margin:1.5rem 0 .4rem;border-bottom:1px solid #1a1a1a;padding-bottom:3px;letter-spacing:1px;text-transform:uppercase}table{width:100%;border-collapse:collapse;margin-bottom:.8rem}th,td{padding:4px 6px;border:.5px solid #e0ddd6;text-align:left}th{font-weight:500;text-transform:uppercase;font-size:9px;color:#666}.rp-f{margin-top:3rem;display:flex;justify-content:space-between}.rp-f div{border-top:.5px solid #999;padding-top:6px;width:28%;text-align:center;font-size:10px}@media print{body{padding:1rem}}</style></head><body>"+p.innerHTML+"<script>window.onload=function(){window.print()}<\/script>
-<!-- V11: EMPLEADOS -->
-<div class="view" id="v11">
-  <div class="emp-sub">
-    <button class="emp-subtab on" id="empstab-dash" onclick="empSubTab('dash')">Dashboard</button>
-    <button class="emp-subtab" id="empstab-fichaje" onclick="empSubTab('fichaje')">Fichaje</button>
-  </div>
-  <!-- Dashboard panel -->
-  <div id="emp-panel-dash">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
-      <div style="display:flex;gap:8px">
-        <button class="btn-s" onclick="empSetPeriod('week')" id="emp-btn-week" style="border-color:var(--black)">Esta semana</button>
-        <button class="btn-s" onclick="empSetPeriod('month')" id="emp-btn-month">Este mes</button>
-      </div>
-      <button class="btn-s" onclick="openFichaje()">⏱ Abrir fichaje</button>
-    </div>
-    <div class="emp-kpi-grid" id="emp-kpi-grid">
-      <div style="color:var(--hint);font-size:11px;padding:1rem">Cargando empleados…</div>
-    </div>
-  </div>
-  <!-- Fichaje inline panel -->
-  <div id="emp-panel-fichaje" style="display:none">
-    <p style="font-size:11px;color:var(--muted);margin-bottom:1rem">Para la tablet de la puerta usá la URL dedicada: <code style="background:var(--surface);padding:2px 6px;font-size:10px">${window.location.origin}?fichaje=1</code></p>
-    <button class="btn" onclick="openFichaje()" style="width:100%;font-size:13px;padding:16px;letter-spacing:2px">⏱ ABRIR KIOSKO DE FICHAJE</button>
-    <div style="margin-top:1.5rem" id="emp-fichaje-hoy">
-      <div class="sec-t" style="margin-bottom:.6rem">Fichajes de hoy</div>
-      <div id="emp-hoy-list" style="font-size:11px;color:var(--muted)">Cargando…</div>
-    </div>
-  </div>
-  <!-- Ficha individual (shown when clicking an employee) -->
-  <div id="emp-ficha-panel" style="display:none"></div>
-</div>
-
-<!-- FICHAJE KIOSK MODAL -->
-<div id="fichaje-kiosk">
-  <button class="fk-close" onclick="closeFichaje()">✕ Cerrar</button>
-  <div class="fk-logo">ANOMALY</div>
-  <!-- PIN entry screen -->
-  <div id="fk-screen-pin">
-    <div class="fk-title">Ingresá tu PIN</div>
-    <div class="fk-dots" id="fk-dots">
-      <div class="fk-dot" id="fk-d0"></div>
-      <div class="fk-dot" id="fk-d1"></div>
-      <div class="fk-dot" id="fk-d2"></div>
-      <div class="fk-dot" id="fk-d3"></div>
-    </div>
-    <div class="fk-pad">
-      <button class="fk-key" onclick="fkDigit('1')">1</button>
-      <button class="fk-key" onclick="fkDigit('2')">2</button>
-      <button class="fk-key" onclick="fkDigit('3')">3</button>
-      <button class="fk-key" onclick="fkDigit('4')">4</button>
-      <button class="fk-key" onclick="fkDigit('5')">5</button>
-      <button class="fk-key" onclick="fkDigit('6')">6</button>
-      <button class="fk-key" onclick="fkDigit('7')">7</button>
-      <button class="fk-key" onclick="fkDigit('8')">8</button>
-      <button class="fk-key" onclick="fkDigit('9')">9</button>
-      <button class="fk-key" onclick="fkDigit('')" style="font-size:13px;color:rgba(255,255,255,.5)"></button>
-      <button class="fk-key" onclick="fkDigit('0')">0</button>
-      <button class="fk-key" onclick="fkBack()">⌫</button>
-    </div>
-    <div class="fk-err" id="fk-err"></div>
-  </div>
-  <!-- Confirm screen -->
-  <div id="fk-screen-confirm" style="display:none;text-align:center">
-    <div class="fk-result-name" id="fk-emp-name" style="margin-bottom:4px"></div>
-    <div class="fk-result-cargo" id="fk-emp-cargo" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:24px"></div>
-    <div style="display:flex;gap:16px;margin-bottom:16px">
-      <button class="fk-confirm" id="fk-btn-ingreso" onclick="fkRegistrar('ingreso')" style="background:#27ae60;color:#fff">✓ INGRESO</button>
-      <button class="fk-confirm" id="fk-btn-egreso" onclick="fkRegistrar('egreso')" style="background:#e74c3c;color:#fff">✓ EGRESO</button>
-    </div>
-    <button onclick="fkReset()" style="background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.5);padding:8px 16px;font-size:10px;letter-spacing:1px;cursor:pointer;border-radius:2px">← Volver</button>
-  </div>
-  <!-- Result screen -->
-  <div id="fk-screen-result" style="display:none" class="fk-result">
-    <div class="fk-result-icon" id="fk-res-icon"></div>
-    <div class="fk-result-name" id="fk-res-name"></div>
-    <div class="fk-result-tipo" id="fk-res-tipo"></div>
-    <div class="fk-result-time" id="fk-res-time"></div>
-    <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:16px">Próximo empleado en 3 segundos…</div>
-  </div>
-</div>
-
-</body></html>");w.document.close()}
+function expPDF(){const p=document.querySelector('.rp');if(!p)return;const w=window.open('','_blank');w.document.write("<!DOCTYPE html><html><head><title>ANOMALY APPCC</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500');body{font-family:'DM Sans',sans-serif;padding:2rem;color:#1a1a1a;font-size:11px}h4{font-size:16px;font-weight:500;letter-spacing:2px;margin:0 0 2px}.rp-s{font-size:10px;color:#999;margin-bottom:1.5rem}.rp-sec{font-weight:500;font-size:11px;margin:1.5rem 0 .4rem;border-bottom:1px solid #1a1a1a;padding-bottom:3px;letter-spacing:1px;text-transform:uppercase}table{width:100%;border-collapse:collapse;margin-bottom:.8rem}th,td{padding:4px 6px;border:.5px solid #e0ddd6;text-align:left}th{font-weight:500;text-transform:uppercase;font-size:9px;color:#666}.rp-f{margin-top:3rem;display:flex;justify-content:space-between}.rp-f div{border-top:.5px solid #999;padding-top:6px;width:28%;text-align:center;font-size:10px}@media print{body{padding:1rem}}</style></head><body>"+p.innerHTML+"<script>window.onload=function(){window.print()}<\/script></body></html>");w.document.close()}
 
 
 // ─── EGRESOS RÁPIDOS ──────────────────────────────────────────────────────────
@@ -4968,5 +4886,86 @@ async function fkRegistrar(tipo){
 })();
 
 </script>
+<!-- V11: EMPLEADOS -->
+<div class="view" id="v11">
+  <div class="emp-sub">
+    <button class="emp-subtab on" id="empstab-dash" onclick="empSubTab('dash')">Dashboard</button>
+    <button class="emp-subtab" id="empstab-fichaje" onclick="empSubTab('fichaje')">Fichaje</button>
+  </div>
+  <!-- Dashboard panel -->
+  <div id="emp-panel-dash">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;gap:8px">
+        <button class="btn-s" onclick="empSetPeriod('week')" id="emp-btn-week" style="border-color:var(--black)">Esta semana</button>
+        <button class="btn-s" onclick="empSetPeriod('month')" id="emp-btn-month">Este mes</button>
+      </div>
+      <button class="btn-s" onclick="openFichaje()">⏱ Abrir fichaje</button>
+    </div>
+    <div class="emp-kpi-grid" id="emp-kpi-grid">
+      <div style="color:var(--hint);font-size:11px;padding:1rem">Cargando empleados…</div>
+    </div>
+  </div>
+  <!-- Fichaje inline panel -->
+  <div id="emp-panel-fichaje" style="display:none">
+    <p style="font-size:11px;color:var(--muted);margin-bottom:1rem">Para la tablet de la puerta usá la URL dedicada: <code style="background:var(--surface);padding:2px 6px;font-size:10px">${window.location.origin}?fichaje=1</code></p>
+    <button class="btn" onclick="openFichaje()" style="width:100%;font-size:13px;padding:16px;letter-spacing:2px">⏱ ABRIR KIOSKO DE FICHAJE</button>
+    <div style="margin-top:1.5rem" id="emp-fichaje-hoy">
+      <div class="sec-t" style="margin-bottom:.6rem">Fichajes de hoy</div>
+      <div id="emp-hoy-list" style="font-size:11px;color:var(--muted)">Cargando…</div>
+    </div>
+  </div>
+  <!-- Ficha individual (shown when clicking an employee) -->
+  <div id="emp-ficha-panel" style="display:none"></div>
+</div>
+
+<!-- FICHAJE KIOSK MODAL -->
+<div id="fichaje-kiosk">
+  <button class="fk-close" onclick="closeFichaje()">✕ Cerrar</button>
+  <div class="fk-logo">ANOMALY</div>
+  <!-- PIN entry screen -->
+  <div id="fk-screen-pin">
+    <div class="fk-title">Ingresá tu PIN</div>
+    <div class="fk-dots" id="fk-dots">
+      <div class="fk-dot" id="fk-d0"></div>
+      <div class="fk-dot" id="fk-d1"></div>
+      <div class="fk-dot" id="fk-d2"></div>
+      <div class="fk-dot" id="fk-d3"></div>
+    </div>
+    <div class="fk-pad">
+      <button class="fk-key" onclick="fkDigit('1')">1</button>
+      <button class="fk-key" onclick="fkDigit('2')">2</button>
+      <button class="fk-key" onclick="fkDigit('3')">3</button>
+      <button class="fk-key" onclick="fkDigit('4')">4</button>
+      <button class="fk-key" onclick="fkDigit('5')">5</button>
+      <button class="fk-key" onclick="fkDigit('6')">6</button>
+      <button class="fk-key" onclick="fkDigit('7')">7</button>
+      <button class="fk-key" onclick="fkDigit('8')">8</button>
+      <button class="fk-key" onclick="fkDigit('9')">9</button>
+      <button class="fk-key" onclick="fkDigit('')" style="font-size:13px;color:rgba(255,255,255,.5)"></button>
+      <button class="fk-key" onclick="fkDigit('0')">0</button>
+      <button class="fk-key" onclick="fkBack()">⌫</button>
+    </div>
+    <div class="fk-err" id="fk-err"></div>
+  </div>
+  <!-- Confirm screen -->
+  <div id="fk-screen-confirm" style="display:none;text-align:center">
+    <div class="fk-result-name" id="fk-emp-name" style="margin-bottom:4px"></div>
+    <div class="fk-result-cargo" id="fk-emp-cargo" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:24px"></div>
+    <div style="display:flex;gap:16px;margin-bottom:16px">
+      <button class="fk-confirm" id="fk-btn-ingreso" onclick="fkRegistrar('ingreso')" style="background:#27ae60;color:#fff">✓ INGRESO</button>
+      <button class="fk-confirm" id="fk-btn-egreso" onclick="fkRegistrar('egreso')" style="background:#e74c3c;color:#fff">✓ EGRESO</button>
+    </div>
+    <button onclick="fkReset()" style="background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.5);padding:8px 16px;font-size:10px;letter-spacing:1px;cursor:pointer;border-radius:2px">← Volver</button>
+  </div>
+  <!-- Result screen -->
+  <div id="fk-screen-result" style="display:none" class="fk-result">
+    <div class="fk-result-icon" id="fk-res-icon"></div>
+    <div class="fk-result-name" id="fk-res-name"></div>
+    <div class="fk-result-tipo" id="fk-res-tipo"></div>
+    <div class="fk-result-time" id="fk-res-time"></div>
+    <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:16px">Próximo empleado en 3 segundos…</div>
+  </div>
+</div>
+
 </body>
 </html>
