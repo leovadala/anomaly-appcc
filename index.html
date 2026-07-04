@@ -4582,6 +4582,7 @@ async function initEmpleados(){
   _empFichajeHoy=_empFichajes.filter(f=>f.timestamp.startsWith(todayStr));
   renderEmpDashboard();
   renderEmpIntegrantes();
+  empSubTab('integrantes');
 }
 
 // ── Dashboard ───────────────────────────────────────────────────────
@@ -5108,12 +5109,12 @@ async function fkRegistrar(tipo){
 <!-- V11: EMPLEADOS -->
 <div class="view" id="v11">
   <div class="emp-sub">
-    <button class="emp-subtab on" id="empstab-dash" onclick="empSubTab('dash')">Dashboard</button>
-    <button class="emp-subtab" id="empstab-integrantes" onclick="empSubTab('integrantes')">Integrantes</button>
+    <button class="emp-subtab" id="empstab-dash" onclick="empSubTab('dash')">Dashboard</button>
+    <button class="emp-subtab on" id="empstab-integrantes" onclick="empSubTab('integrantes')">Integrantes</button>
     <button class="emp-subtab" id="empstab-fichaje" onclick="empSubTab('fichaje')">Fichaje</button>
   </div>
   <!-- Dashboard panel -->
-  <div id="emp-panel-dash">
+  <div id="emp-panel-dash" style="display:none">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
       <div style="display:flex;gap:8px">
         <button class="btn-s" onclick="empSetPeriod('week')" id="emp-btn-week" style="border-color:var(--black)">Esta semana</button>
