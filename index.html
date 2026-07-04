@@ -255,6 +255,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .fk-result-time{font-size:28px;font-weight:700;font-family:var(--mono);color:#fff}
 .fk-err{font-size:11px;color:#ff6b6b;letter-spacing:.5px;text-align:center;min-height:16px;margin-top:8px}
 .fk-close{position:absolute;top:20px;right:20px;background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.5);padding:6px 12px;font-size:10px;letter-spacing:1px;cursor:pointer;border-radius:2px}
+#fk-screen-pin,#fk-screen-confirm{display:flex;flex-direction:column;align-items:center;text-align:center}
 /* Ficha individual */
 .emp-ficha-header{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:.5px solid var(--border);margin-bottom:1.2rem}
 .emp-ficha-avatar{width:48px;height:48px;border-radius:50%;background:var(--surface);border:.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--hint);flex-shrink:0}
@@ -3452,7 +3453,7 @@ function renderHorSummary(){
 
 async function loadHorEmpleados(){
   const{data}=await sb.from('hor_empleados').select('*').order('nombre');
-  horEmpleados=(data||[]).map(r=>({id:r.id,nombre:r.nombre,cargo:r.cargo||'',horas_contrato:r.horas_contrato||0,tipo_contrato:r.tipo_contrato||'parcial',salario_hora:r.salario_hora||0,noct_pct:r.noct_pct||25,fest_pct:r.fest_pct||75,dias_vacaciones:r.dias_vacaciones||22,fecha_ingreso:r.fecha_ingreso||''}));
+  horEmpleados=(data||[]).map(r=>({id:r.id,nombre:r.nombre,cargo:r.cargo||'',pin_fichaje:r.pin_fichaje||'',horas_contrato:r.horas_contrato||0,tipo_contrato:r.tipo_contrato||'parcial',salario_hora:r.salario_hora||0,noct_pct:r.noct_pct||25,fest_pct:r.fest_pct||75,dias_vacaciones:r.dias_vacaciones||22,fecha_ingreso:r.fecha_ingreso||''}));
 }
 
 async function saveHorEmpleado(){
