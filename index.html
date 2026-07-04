@@ -41,6 +41,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .nav-grid button{padding:13px 14px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);font-size:10px;font-weight:400;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .18s;text-align:left;line-height:1}
 .nav-grid button:hover{border-color:var(--border-h);color:var(--black);background:var(--bg)}
 .nav-grid button.on{border-color:var(--black);color:var(--black);font-weight:500;background:var(--bg)}
+#app-footer{padding:10px 0 6px;border-top:.5px solid var(--border)}
+.af-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.af-clock{font-family:var(--mono);font-size:10px;color:#c8c4bb;letter-spacing:.3px}
+.af-ingreso{font-family:var(--mono);font-size:10px;color:#c8c4bb;letter-spacing:.3px}
+.af-credit{font-size:9px;color:#d0ccc7;letter-spacing:.4px}
 /* VIEWS */
 .view{display:none}.view.on{display:block}
 
@@ -298,6 +303,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <button onclick="go(9)">Inventario</button>
 <button onclick="go(10)">Finanzas</button>
 <button onclick="go(11)">Empleados</button>
+</div>
+<div id="app-footer" style="display:none">
+  <div class="af-row"><span class="af-clock" id="af-clock">--:--</span><span class="af-ingreso" id="af-ingreso">—</span></div>
+  <span class="af-credit">Creado por Leonardo Vadalá · 2026</span>
 </div>
 
 <!-- V0: PROVEEDORES -->
@@ -1881,7 +1890,9 @@ $('ab').addEventListener('input',uLF);
 $('rd1').value=hoy;$('rd2').value=hoy;
 
 function goConfig(){$('onboard').style.display='none';$('main').style.display='block';go(5)}
-function enterApp(){const v=$('ob-user').value;if(!v){alert('Seleccion\u00e1 un responsable');return}currentUser=v;$('onboard').style.display='none';$('main').style.display='block';$('hdr-user').textContent=currentUser;$('ar').value=currentUser;$('af').valueAsDate=new Date();goHome()}
+function startClock(){function _t(){var n=new Date(),dy=['dom','lun','mar','mi\u00e9','jue','vie','s\u00e1b'],mo=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'],h=String(n.getHours()).padStart(2,'0'),m=String(n.getMinutes()).padStart(2,'0'),s=String(n.getSeconds()).padStart(2,'0'),el=$('af-clock');if(el)el.textContent=h+':'+m+':'+s+' \u00b7 '+dy[n.getDay()]+' '+n.getDate()+' '+mo[n.getMonth()]+' '+n.getFullYear();}_t();setInterval(_t,1000);}
+async function loadLastIngreso(){try{const{data}=await sb.from('albaranes').select('fecha,proveedor_nombre').order('created_at',{ascending:false}).limit(1).single();const el=$('af-ingreso');if(data&&el){const d=new Date(data.fecha),dd=String(d.getDate()).padStart(2,'0'),mm=String(d.getMonth()+1).padStart(2,'0');el.textContent='\u00falt. ingreso: '+(data.proveedor_nombre||'\u2014')+' \u00b7 '+dd+'/'+mm;}}catch(e){}}
+function enterApp(){const v=$('ob-user').value;if(!v){alert('Seleccion\u00e1 un responsable');return}currentUser=v;$('onboard').style.display='none';$('main').style.display='block';$('hdr-user').textContent=currentUser;$('ar').value=currentUser;$('af').valueAsDate=new Date();startClock();loadLastIngreso();goHome()}
 function logout(){currentUser='';_finUnlocked=false;$('main').style.display='none';$('onboard').style.display='flex';$('ob-user').value='';window.scrollTo(0,0)}
 function renderTeamSelect(){$('ob-user').innerHTML='<option value="">Seleccionar...</option>'+team.map(n=>`<option>${n.nombre}</option>`).join('')}
 
@@ -1955,6 +1966,7 @@ function autoGenREHE(){const fechaStr=$('af').value;if(!fechaStr)return;const[ye
 function goHome(){
   $('btn-back').style.display='none';
   $('nav').style.display='';
+  $('app-footer').style.display='';
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));
   document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));
   window.scrollTo(0,0);
@@ -1966,6 +1978,7 @@ function go(n){
   $('v'+n).classList.add('on');
   document.querySelectorAll('#nav button')[n].classList.add('on');
   $('nav').style.display='none';
+  $('app-footer').style.display='none';
   $('btn-back').style.display='inline-block';
   if(n===1){uSP();initRecDate();renderHistorial()};
   if(n===2){rS();renderSH()};
