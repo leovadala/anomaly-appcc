@@ -4982,7 +4982,7 @@ function closeFichaje(){const k=$('fichaje-kiosk');if(!k)return;k.style.display=
 
 function fkReset(){
   _fkPin='';_fkEmp=null;
-  $('fk-screen-pin').style.display='block';
+  $('fk-screen-pin').style.display='flex';
   $('fk-screen-confirm').style.display='none';
   $('fk-screen-result').style.display='none';
   $('fk-err').textContent='';
@@ -4991,7 +4991,10 @@ function fkReset(){
 
 function fkUpdateDots(){
   for(let i=0;i<4;i++){
-    const d=$('fk-d'+i);if(d)d.classList.toggle('filled',i<_fkPin.length);
+    const d=$('fk-d'+i);if(!d)continue;
+    const on=i<_fkPin.length;
+    d.style.background=on?'#fff':'';
+    d.style.borderColor=on?'#fff':'rgba(255,255,255,.3)';
   }
 }
 
@@ -5009,6 +5012,7 @@ function fkBack(){
 }
 
 async function fkCheckPin(){
+  try{
   // Check against horEmpleados pin_fichaje
   if(!horEmpleados.length) await loadHorEmpleados();
   _fkEmp=horEmpleados.find(e=>e.pin_fichaje&&e.pin_fichaje===_fkPin)||null;
@@ -5033,6 +5037,7 @@ async function fkCheckPin(){
   }
   $('fk-screen-pin').style.display='none';
   $('fk-screen-confirm').style.display='block';
+  }catch(e){console.error('[fkCheckPin]',e);$('fk-err').textContent='Error. Intentá de nuevo.';_fkPin='';fkUpdateDots();}
 }
 
 async function fkRegistrar(tipo){
