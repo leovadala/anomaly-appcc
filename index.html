@@ -4550,12 +4550,13 @@ let _fkEmp=null; // matched employee object
 
 // ── Sub-tab navigation ──────────────────────────────────────────────
 function empSubTab(tab){
-  ['dash','fichaje'].forEach(t=>{
+  ['dash','integrantes','fichaje'].forEach(t=>{
     const p=$('emp-panel-'+t);if(p)p.style.display=t===tab?'block':'none';
     const b=$('empstab-'+t);if(b)b.classList.toggle('on',t===tab);
   });
   $('emp-ficha-panel').style.display='none';
-  if(tab==='fichaje')renderEmpHoy();
+  if(tab==='fichaje'){renderEmpHoy();const u=$('emp-fichaje-url');if(u)u.textContent=window.location.origin+'?fichaje=1';}
+  if(tab==='integrantes')renderEmpIntegrantes();
 }
 
 function empSetPeriod(p){
@@ -4580,6 +4581,7 @@ async function initEmpleados(){
   const todayStr=new Date().toISOString().split('T')[0];
   _empFichajeHoy=_empFichajes.filter(f=>f.timestamp.startsWith(todayStr));
   renderEmpDashboard();
+  renderEmpIntegrantes();
 }
 
 // ── Dashboard ───────────────────────────────────────────────────────
@@ -4855,7 +4857,27 @@ async function openEmpFicha(nombre){
 
 function closeEmpFicha(){
   $('emp-ficha-panel').style.display='none';
-  $('emp-panel-dash').style.display='block';
+  empSubTab('integrantes');
+}
+
+function renderEmpIntegrantes(){
+  const el=$('emp-panel-integrantes');if(!el)return;
+  if(!horEmpleados.length){
+    el.innerHTML='<div style="color:var(--hint);font-size:11px;padding:1rem 0">Sin integrantes. Configurá en Configuración → Empleados.</div>';
+    return;
+  }
+  el.innerHTML=horEmpleados.map(e=>{
+    const initials=(e.nombre||'?').split(' ').map(w=>w[0]||'').join('').substring(0,2).toUpperCase();
+    const pinOk=e.pin_fichaje&&e.pin_fichaje.length===4;
+    return `<div onclick="openEmpFicha('${e.nombre.replace(/'/g,"\'")}')" style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:.5px solid var(--border);cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--surface);border:.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--hint);flex-shrink:0">${initials}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;color:var(--black)">${e.nombre}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${e.cargo||'Sin cargo'} · ${e.horas_contrato||0}h/sem</div>
+      </div>
+      <div style="font-size:9px;letter-spacing:.5px;color:${pinOk?'#1D9E75':'var(--hint)'};">${pinOk?'PIN ✓':'sin PIN'}</div>
+    </div>`;
+  }).join('');
 }
 
 function empFichaTab(btn,panelId){
@@ -5087,6 +5109,7 @@ async function fkRegistrar(tipo){
 <div class="view" id="v11">
   <div class="emp-sub">
     <button class="emp-subtab on" id="empstab-dash" onclick="empSubTab('dash')">Dashboard</button>
+    <button class="emp-subtab" id="empstab-integrantes" onclick="empSubTab('integrantes')">Integrantes</button>
     <button class="emp-subtab" id="empstab-fichaje" onclick="empSubTab('fichaje')">Fichaje</button>
   </div>
   <!-- Dashboard panel -->
@@ -5104,13 +5127,15 @@ async function fkRegistrar(tipo){
   </div>
   <!-- Fichaje inline panel -->
   <div id="emp-panel-fichaje" style="display:none">
-    <p style="font-size:11px;color:var(--muted);margin-bottom:1rem">Para la tablet de la puerta usá la URL dedicada: <code style="background:var(--surface);padding:2px 6px;font-size:10px">${window.location.origin}?fichaje=1</code></p>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:1rem">Para la tablet de la puerta usá la URL dedicada: <code id="emp-fichaje-url" style="background:var(--surface);padding:2px 6px;font-size:10px"></code></p>
     <button class="btn" onclick="openFichaje()" style="width:100%;font-size:13px;padding:16px;letter-spacing:2px">⏱ ABRIR KIOSKO DE FICHAJE</button>
     <div style="margin-top:1.5rem" id="emp-fichaje-hoy">
       <div class="sec-t" style="margin-bottom:.6rem">Fichajes de hoy</div>
       <div id="emp-hoy-list" style="font-size:11px;color:var(--muted)">Cargando…</div>
     </div>
   </div>
+  <!-- Integrantes panel -->
+  <div id="emp-panel-integrantes" style="display:none"></div>
   <!-- Ficha individual (shown when clicking an employee) -->
   <div id="emp-ficha-panel" style="display:none"></div>
 </div>
