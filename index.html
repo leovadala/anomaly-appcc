@@ -4766,12 +4766,9 @@ async function renderEmpHoy(){
 async function openEmpFicha(nombre){
   const emp=horEmpleados.find(e=>(e.nombre||e.name)===nombre);
   if(!emp)return;
-  // Hide dashboard, show ficha
-  $('emp-panel-dash').style.display='none';
-  $('emp-panel-fichaje').style.display='none';
-  const fichaPanel=$('emp-ficha-panel');
-  fichaPanel.style.display='block';
-  fichaPanel.innerHTML='<div style="color:var(--hint);font-size:11px;padding:1rem">Cargando ficha…</div>';
+  // Show modal
+  $('emp-ficha-modal').style.display='block';
+  $('emp-ficha-content').innerHTML='<div style="color:var(--hint);font-size:11px;padding:1rem">Cargando ficha…</div>';
 
   // Load data
   const todayStr=new Date().toISOString().split('T')[0];
@@ -4792,8 +4789,7 @@ async function openEmpFicha(nombre){
   const initials=(nombre.split(' ').map(w=>w[0]||'').join('').substring(0,2)).toUpperCase();
   const ingresoAnos=emp.fecha_ingreso?Math.floor((new Date()-new Date(emp.fecha_ingreso))/31536000000):null;
 
-  fichaPanel.innerHTML=`
-    <button onclick="closeEmpFicha()" style="background:transparent;border:none;color:var(--hint);font-size:11px;cursor:pointer;padding:0;margin-bottom:1rem;letter-spacing:.5px">← Volver al dashboard</button>
+  $('emp-ficha-content').innerHTML=`
     <div class="emp-ficha-header">
       <div class="emp-ficha-avatar">${initials}</div>
       <div>
@@ -4891,8 +4887,7 @@ async function openEmpFicha(nombre){
 }
 
 function closeEmpFicha(){
-  $('emp-ficha-panel').style.display='none';
-  empSubTab('integrantes');
+  $('emp-ficha-modal').style.display='none';
 }
 
 function renderEmpIntegrantes(){
@@ -4916,7 +4911,7 @@ function renderEmpIntegrantes(){
 }
 
 function empFichaTab(btn,panelId){
-  btn.closest('.view').querySelectorAll('.emp-ficha-tab').forEach(b=>b.classList.remove('on'));
+  (btn.closest('#emp-ficha-modal')||btn.closest('.view')).querySelectorAll('.emp-ficha-tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
   ['ft-datos','ft-horas','ft-ausencias','ft-eval'].forEach(id=>{
     const el=$(id);if(el)el.style.display=id===panelId?'block':'none';
@@ -5245,6 +5240,12 @@ async function fkRegistrar(tipo){
     <div class="fk-result-tipo" id="fk-res-tipo"></div>
     <div class="fk-result-time" id="fk-res-time"></div>
     <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:16px">Próximo empleado en 3 segundos…</div>
+  </div>
+</div>
+<div id="emp-ficha-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.55);z-index:2000;overflow-y:auto" onclick="if(event.target===this)closeEmpFicha()">
+  <div style="background:var(--bg);max-width:600px;margin:2rem auto 3rem;padding:1.5rem;position:relative">
+    <button onclick="closeEmpFicha()" style="position:absolute;top:1rem;right:1rem;background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0">✕</button>
+    <div id="emp-ficha-content"></div>
   </div>
 </div>
 </body>
