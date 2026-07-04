@@ -994,7 +994,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     </div>
   </div>
   <!-- Integrantes panel -->
-  <div id="emp-panel-integrantes" style="display:none"></div>
+  <div id="emp-panel-integrantes" style="display:none"><div style="color:var(--hint);font-size:11px;padding:1rem 0">Cargando...</div></div>
   <!-- Ficha individual (shown when clicking an employee) -->
   <div id="emp-ficha-panel" style="display:none"></div>
 </div>
@@ -2154,7 +2154,7 @@ function go(n){
   if(n===8)initEgresos();
   if(n===9)renderInventario();
   if(n===10){if(!_finUnlocked){showFinanzasPin();return;}initFinanzas();}
-  if(n===11)initEmpleados();
+  if(n===11){empSubTab('integrantes');initEmpleados();}
   window.scrollTo(0,0);
 }
 
