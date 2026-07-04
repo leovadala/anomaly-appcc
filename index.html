@@ -1852,7 +1852,7 @@ async function loadAll(){
   const cfgData=cfg.data||[];const pinRow=cfgData.find(r=>r.key==='pin_supervisor');if(pinRow)pinSupervisor=pinRow.value;const finRow=cfgData.find(r=>r.key==='pin_finanzas');if(finRow)pinFinanzas=finRow.value;const oaiRow=cfgData.find(r=>r.key==='openai_key');if(oaiRow)OPENAI_KEY=oaiRow.value;const hlRow=cfgData.find(r=>r.key==='horario_local');if(hlRow){try{horLocal=JSON.parse(hlRow.value)||{}}catch(e){horLocal={}}};
   renderTeamSelect();renderTeam();rRH();rPL();renderSabores();renderSaborSelect();
 }
-loadAll().then(()=>setTimeout(initTurno,200));
+loadAll().then(()=>{setTimeout(initTurno,200);setTimeout(openFichaje,600);});
 
 async function renderDashboard(){
   const all=[...S,...SH];
@@ -4975,7 +4975,7 @@ function openFichaje(){
   fkReset();
   $('fichaje-kiosk').classList.add('open');
 }
-function closeFichaje(){$('fichaje-kiosk').classList.remove('open');}
+function closeFichaje(){$('fichaje-kiosk').classList.remove('open');loadTurnoFichaje();}
 
 function fkReset(){
   _fkPin='';_fkEmp=null;
