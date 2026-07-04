@@ -4973,10 +4973,11 @@ async function saveEval(nombre,modal){
 // FICHAJE KIOSK
 // ═══════════════════════════════════════════════════════════════════
 function openFichaje(){
-  fkReset();
-  $('fichaje-kiosk').classList.add('open');
+  const k=$('fichaje-kiosk');if(!k)return;
+  try{fkReset();}catch(e){console.error('[fk]',e);}
+  k.style.display='flex';k.classList.add('open');
 }
-function closeFichaje(){$('fichaje-kiosk').classList.remove('open');loadTurnoFichaje();}
+function closeFichaje(){const k=$('fichaje-kiosk');if(!k)return;k.style.display='';k.classList.remove('open');loadTurnoFichaje();}
 
 function fkReset(){
   _fkPin='';_fkEmp=null;
@@ -5213,4 +5214,6 @@ async function fkRegistrar(tipo){
     <div class="fk-result-time" id="fk-res-time"></div>
     <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:16px">Próximo empleado en 3 segundos…</div>
   </div>
-</
+</div>
+</body>
+</html>
