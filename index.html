@@ -264,6 +264,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .emp-ficha-tabs{display:flex;gap:0;border-bottom:.5px solid var(--border);margin-bottom:1rem;overflow-x:auto;scrollbar-width:none}
 .emp-ficha-tab{padding:8px 12px;border:none;border-bottom:2px solid transparent;background:transparent;font-family:var(--font);font-size:9px;font-weight:400;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer;white-space:nowrap;margin-bottom:-1px}
 .emp-ficha-tab.on{color:var(--black);font-weight:500;border-bottom-color:var(--black)}
+.aleh-tag{display:inline-block;font-size:8px;letter-spacing:.5px;padding:2px 6px;border-radius:2px;font-weight:600;text-transform:uppercase;margin:1px 0}
+.aleh-tag.ok{background:#e8f5e9;color:#27ae60}
+.aleh-tag.warn{background:#fff8e1;color:#b8860b}
+.aleh-tag.red{background:#fdecea;color:#c0392b}
 .eval-star{cursor:pointer;font-size:20px;color:#ddd;transition:color .1s}
 .eval-star.on{color:#f39c12}
 
@@ -979,7 +983,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
         <button class="btn-s" onclick="empSetPeriod('week')" id="emp-btn-week" style="border-color:var(--black)">Esta semana</button>
         <button class="btn-s" onclick="empSetPeriod('month')" id="emp-btn-month">Este mes</button>
       </div>
-      <button class="btn-s" onclick="openFichaje()">⏱ Abrir fichaje</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn-s" onclick="exportFichajesCSV()">↓ CSV</button>
+        <button class="btn-s" onclick="openFichaje()">⏱ Fichaje</button>
+      </div>
     </div>
     <div class="emp-kpi-grid" id="emp-kpi-grid">
       <div style="color:var(--hint);font-size:11px;padding:1rem">Cargando empleados…</div>
@@ -4677,16 +4684,10 @@ function renderEmpDashboard(){
       byDay[d].push(f);
     });
     let realH=0,tardanzas=0;
+    const alehAlerts=checkALEH(empF);
     Object.values(byDay).forEach(dayFs=>{
-      dayFs.sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
-      let lastIn=null;
-      dayFs.forEach(f=>{
-        if(f.tipo==='ingreso'){lastIn=new Date(f.timestamp);if(f.tardanza_min>0)tardanzas++;}
-        else if(f.tipo==='egreso'&&lastIn){
-          realH+=(new Date(f.timestamp)-lastIn)/3600000;
-          lastIn=null;
-        }
-      });
+      realH+=calcNetMinutes(dayFs)/60;
+      dayFs.filter(f=>(!f.estado||f.estado==='activo')&&f.tipo==='ingreso'&&f.tardanza_min>0).forEach(()=>tardanzas++);
     });
     realH=Math.round(realH*10)/10;
 
@@ -4729,8 +4730,64 @@ function renderEmpDashboard(){
           <div class="emp-kpi-lbl">Tard.</div>
         </div>
       </div>
+      ${alehAlerts.length?`<div style="margin-top:8px;display:flex;flex-direction:column;gap:3px">
+        ${alehAlerts.slice(0,3).map(a=>`<div class="aleh-tag ${a.tipo}">${a.tipo==='red'?'⛔':'⚠'} ${a.msg}</div>`).join('')}
+      </div>`:''}
     </div>`;
   }).join('');
+}
+
+// ── ALEH hostelería utilities ──────────────────────────────────────
+// Net working minutes from fichaje array (ascending order, activos only)
+function calcNetMinutes(fichs){
+  const sorted=(fichs||[]).filter(f=>!f.estado||f.estado==='activo').slice().sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
+  let net=0,lastIn=null;
+  sorted.forEach(f=>{
+    if(f.tipo==='ingreso'||f.tipo==='vuelta'){lastIn=new Date(f.timestamp);}
+    else if((f.tipo==='egreso'||f.tipo==='pausa')&&lastIn){
+      net+=Math.max(0,Math.round((new Date(f.timestamp)-lastIn)/60000));
+      lastIn=null;
+    }
+  });
+  if(lastIn)net+=Math.max(0,Math.round((new Date()-lastIn)/60000));
+  return net;
+}
+
+// ALEH hostelería compliance check — returns [{tipo:'red'|'warn', msg}]
+function checkALEH(fichajes){
+  const alerts=[];
+  const activos=(fichajes||[]).filter(f=>!f.estado||f.estado==='activo');
+  const byDay={};
+  activos.forEach(f=>{const d=f.timestamp.split('T')[0];if(!byDay[d])byDay[d]=[];byDay[d].push(f);});
+  const sortedDays=Object.keys(byDay).sort();
+  let prevEgreso=null;
+  sortedDays.forEach(day=>{
+    const dayFs=byDay[day];
+    const min=calcNetMinutes(dayFs);
+    // Daily limit: 9h ALEH hostelería
+    if(min>9*60)alerts.push({tipo:'red',msg:`${day.slice(5)}: ${(min/60).toFixed(1)}h — excede máx 9h/día`});
+    else if(min>8*60)alerts.push({tipo:'warn',msg:`${day.slice(5)}: ${(min/60).toFixed(1)}h — próx. al límite`});
+    // Rest between shifts: 12h min
+    const firstIngreso=dayFs.find(f=>f.tipo==='ingreso');
+    if(prevEgreso&&firstIngreso){
+      const restH=(new Date(firstIngreso.timestamp)-new Date(prevEgreso))/3600000;
+      if(restH<12)alerts.push({tipo:'red',msg:`${day.slice(5)}: descanso inter-jornada ${restH.toFixed(1)}h (mín 12h)`});
+    }
+    const egresos=dayFs.filter(f=>f.tipo==='egreso');
+    if(egresos.length)prevEgreso=egresos[egresos.length-1].timestamp;
+    // Break compliance: 15min pause required if >6h continuous
+    if(min>6*60&&!dayFs.some(f=>f.tipo==='pausa'))
+      alerts.push({tipo:'warn',msg:`${day.slice(5)}: jornada >${(min/60).toFixed(0)}h sin pausa (mín 15 min)`});
+  });
+  // Weekly limit: 40h
+  const now=new Date();
+  const monday=new Date(now);monday.setDate(now.getDate()-((now.getDay()+6)%7));monday.setHours(0,0,0,0);
+  const mondayStr=monday.toISOString().split('T')[0];
+  let weekMin=0;
+  sortedDays.filter(d=>d>=mondayStr).forEach(d=>weekMin+=calcNetMinutes(byDay[d]));
+  if(weekMin>40*60)alerts.push({tipo:'red',msg:`Esta semana: ${(weekMin/60).toFixed(1)}h — excede 40h semanales`});
+  else if(weekMin>38*60)alerts.push({tipo:'warn',msg:`Esta semana: ${(weekMin/60).toFixed(1)}h — próx. límite 40h`});
+  return alerts;
 }
 
 // ── Fichaje hoy ─────────────────────────────────────────────────────
@@ -4749,9 +4806,10 @@ async function renderEmpHoy(){
       <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400">Hora</th>
       <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400">Tard.</th>
     </tr></thead><tbody>
-    ${_empFichajeHoy.map(f=>{
+    ${_empFichajeHoy.filter(f=>!f.estado||f.estado==='activo').map(f=>{
       const hora=new Date(f.timestamp).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-      const tipoColor=f.tipo==='ingreso'?'#27ae60':'#e74c3c';
+      const tipoColors={ingreso:'#27ae60',egreso:'#e74c3c',pausa:'#c9a227',vuelta:'#1a7f64'};
+      const tipoColor=tipoColors[f.tipo]||'var(--muted)';
       return`<tr style="border-bottom:.5px solid var(--border)">
         <td style="padding:5px 6px;font-weight:500">${f.empleado_nombre}</td>
         <td style="padding:5px 6px;color:${tipoColor};font-weight:600;text-transform:uppercase;font-size:9px;letter-spacing:.5px">${f.tipo}</td>
@@ -4825,25 +4883,42 @@ async function openEmpFicha(nombre){
     </div>
     <!-- HORAS -->
     <div id="ft-horas" style="display:none">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:1rem">Últimos 30 fichajes</div>
+      ${(()=>{
+        const aleh=checkALEH(fichajes);
+        const netMin=calcNetMinutes(fichajes);
+        const netH=Math.floor(netMin/60),netM=netMin%60;
+        return (aleh.length?`<div style="margin-bottom:1rem;display:flex;flex-direction:column;gap:4px">
+          ${aleh.map(a=>`<div class="aleh-tag ${a.tipo}" style="display:block">${a.tipo==='red'?'⛔':'⚠'} ${a.msg}</div>`).join('')}
+        </div>`:'')
+        +(netMin>0?`<div style="font-size:11px;color:var(--muted);margin-bottom:.8rem">Total fichado: <strong>${netH?netH+'h ':''} ${netM}m</strong></div>`:'');
+      })()}
+      <div style="font-size:11px;color:var(--muted);margin-bottom:.6rem">Últimos 50 fichajes</div>
       ${fichajes.length?`<table style="width:100%;border-collapse:collapse;font-size:11px">
         <thead><tr style="border-bottom:.5px solid var(--border)">
           <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400">Fecha</th>
           <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400">Tipo</th>
           <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400">Hora</th>
           <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400">Tard.</th>
+          <th style="padding:4px 6px"></th>
         </tr></thead><tbody>
         ${fichajes.map(f=>{
           const dt=new Date(f.timestamp);
           const fecha=dt.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'});
           const hora=dt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-          const tc=f.tipo==='ingreso'?'#27ae60':'#e74c3c';
-          return`<tr style="border-bottom:.5px solid var(--border)">
+          const tipoColors={ingreso:'#27ae60',egreso:'#e74c3c',pausa:'#c9a227',vuelta:'#1a7f64'};
+          const tc=tipoColors[f.tipo]||'var(--muted)';
+          const isCorrected=f.estado==='corregido';
+          const rowStyle=isCorrected?'opacity:.45;text-decoration:line-through':'';
+          const safets=f.timestamp.replace(/'/g,"\'");
+          return`<tr style="border-bottom:.5px solid var(--border);${rowStyle}">
             <td style="padding:5px 6px">${fecha}</td>
-            <td style="padding:5px 6px;color:${tc};font-weight:600;font-size:9px;letter-spacing:.5px;text-transform:uppercase">${f.tipo}</td>
+            <td style="padding:5px 6px;color:${tc};font-weight:600;font-size:9px;letter-spacing:.5px;text-transform:uppercase">${f.tipo}${isCorrected?' ✎':''}</td>
             <td style="padding:5px 6px;font-family:var(--mono)">${hora}</td>
             <td style="padding:5px 6px;color:${f.tardanza_min>0?'#b33':'var(--hint)'}">${f.tardanza_min>0?'+'+f.tardanza_min+'m':'—'}</td>
-          </tr>`;
+            <td style="padding:5px 6px">${!isCorrected?`<button onclick="openFichajeCorrection(${f.id},'${safets}','${f.tipo}','${nombre.replace(/'/g,"\'")}','${f.empleado_nombre.replace(/'/g,"\'")}')" style="font-size:9px;color:var(--muted);background:transparent;border:.5px solid var(--border);cursor:pointer;padding:2px 5px;border-radius:2px">Corregir</button>`:''}</td>
+          </tr>
+          ${f.motivo_correccion?`<tr style="border-bottom:.5px solid var(--border);background:var(--surface)"><td colspan="5" style="padding:3px 6px;font-size:9px;color:var(--hint)">✎ ${f.motivo_correccion}${f.corregido_por?' · '+f.corregido_por:''}</td></tr>`:''}`
+          ;
         }).join('')}
         </tbody></table>`:'<div style="color:var(--hint);padding:.5rem">Sin fichajes registrados</div>'}
     </div>
@@ -4888,6 +4963,57 @@ async function openEmpFicha(nombre){
 
 function closeEmpFicha(){
   $('emp-ficha-modal').style.display='none';
+}
+
+function openFichajeCorrection(fid,ts,tipo,nombre,empNombre){
+  $('correc-fid').value=fid;
+  $('correc-nombre').value=empNombre||nombre;
+  $('correc-tipo').value=tipo;
+  const d=new Date(ts);
+  const pad=n=>String(n).padStart(2,'0');
+  $('correc-ts').value=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  $('correc-original').textContent=`${tipo} · ${d.toLocaleString('es-ES')}`;
+  $('correc-motivo').value='';$('correc-por').value='';
+  $('ficha-correc-modal').style.display='block';
+}
+
+async function submitFichajeCorrection(){
+  const fid=parseInt($('correc-fid').value);
+  const empNombre=$('correc-nombre').value;
+  const tipo=$('correc-tipo').value;
+  const ts=$('correc-ts').value;
+  const motivo=$('correc-motivo').value.trim();
+  const por=$('correc-por').value.trim()||'Admin';
+  if(!motivo){alert('El motivo de corrección es obligatorio');return;}
+  if(!ts){alert('El nuevo horario es obligatorio');return;}
+  await sb.from('fichajes').update({estado:'corregido',corregido_por:por,motivo_correccion:motivo}).eq('id',fid);
+  await sb.from('fichajes').insert({
+    empleado_nombre:empNombre,tipo,
+    timestamp:new Date(ts).toISOString(),
+    estado:'activo',correccion_de:fid,
+    motivo_correccion:motivo,corregido_por:por,tardanza_min:0
+  });
+  $('ficha-correc-modal').style.display='none';
+  openEmpFicha(empNombre);
+}
+
+async function exportFichajesCSV(){
+  const{data,error}=await sb.from('fichajes').select('*').order('timestamp',{ascending:true});
+  if(error||!data||!data.length){alert('Sin fichajes para exportar');return;}
+  const hdrs='Empleado,Tipo,Fecha,Hora,Estado,Tardanza_min,Correccion_de,Motivo,Corregido_por';
+  const rows=data.map(f=>{
+    const dt=new Date(f.timestamp);
+    return[f.empleado_nombre||'',f.tipo||'',
+      dt.toLocaleDateString('es-ES'),dt.toLocaleTimeString('es-ES'),
+      f.estado||'activo',f.tardanza_min||0,
+      f.correccion_de||'',f.motivo_correccion||'',f.corregido_por||''
+    ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
+  });
+  const csv=hdrs+'\n'+rows.join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=`fichajes_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 
 function renderEmpIntegrantes(){
@@ -5065,7 +5191,6 @@ function fkBack(){
 
 async function fkCheckPin(){
   try{
-  // Check against horEmpleados pin_fichaje
   if(!horEmpleados.length) await loadHorEmpleados();
   _fkEmp=horEmpleados.find(e=>e.pin_fichaje&&e.pin_fichaje===_fkPin)||null;
   if(!_fkEmp){
@@ -5073,20 +5198,45 @@ async function fkCheckPin(){
     _fkPin='';fkUpdateDots();
     return;
   }
-  // Determine auto ingreso/egreso from last fichaje today
   const todayStr=new Date().toISOString().split('T')[0];
-  const{data}=await sb.from('fichajes').select('tipo').eq('empleado_nombre',_fkEmp.nombre||_fkEmp.name).gte('timestamp',todayStr+'T00:00:00').order('timestamp',{ascending:false}).limit(1);
-  const lastTipo=data&&data[0]?data[0].tipo:null;
+  const{data}=await sb.from('fichajes').select('*')
+    .eq('empleado_nombre',_fkEmp.nombre||_fkEmp.name)
+    .gte('timestamp',todayStr+'T00:00:00')
+    .order('timestamp',{ascending:true});
+  // Only active fichajes (ignore corrected/annulled)
+  const todayFichs=(data||[]).filter(f=>!f.estado||f.estado==='activo');
+  const lastFich=todayFichs.length?todayFichs[todayFichs.length-1]:null;
+  const lastTipo=lastFich?lastFich.tipo:null;
   const nombre=_fkEmp.nombre||_fkEmp.name;
   $('fk-emp-name').textContent=nombre;
   $('fk-emp-cargo').textContent=_fkEmp.cargo||'';
-  // Show appropriate button prominently
-  const btnIn=$('fk-btn-ingreso'),btnOut=$('fk-btn-egreso');
-  if(lastTipo==='ingreso'){
-    btnIn.style.opacity='.4';btnOut.style.opacity='1';btnOut.style.transform='scale(1.05)';btnIn.style.transform='';
+  // Net hours today
+  const netMin=calcNetMinutes(todayFichs);
+  const netH=Math.floor(netMin/60),netM=netMin%60;
+  const hb=$('fk-horas-badge');
+  if(netMin>0){
+    hb.textContent=(netH?netH+'h ':'')+netM+'m trabajadas hoy';
+    hb.style.color=netMin>9*60?'#e74c3c':netMin>8*60?'#c9a227':'rgba(255,255,255,.6)';
   } else {
-    btnOut.style.opacity='.4';btnIn.style.opacity='1';btnIn.style.transform='scale(1.05)';btnOut.style.transform='';
+    hb.textContent='';
   }
+  // Smart buttons
+  const btnIn=$('fk-btn-ingreso'),btnPausa=$('fk-btn-pausa'),btnVuelta=$('fk-btn-vuelta'),btnOut=$('fk-btn-egreso');
+  [btnIn,btnPausa,btnVuelta,btnOut].forEach(b=>{b.style.display='none';b.style.transform='';});
+  let estadoText='';
+  if(!lastTipo||lastTipo==='egreso'){
+    btnIn.style.display='inline-block';btnIn.style.transform='scale(1.08)';
+    estadoText='Sin fichar hoy';
+  } else if(lastTipo==='ingreso'||lastTipo==='vuelta'){
+    btnPausa.style.display='inline-block';
+    btnOut.style.display='inline-block';btnOut.style.transform='scale(1.08)';
+    estadoText=lastTipo==='vuelta'?'▶ En turno (vuelta de pausa)':'▶ En turno';
+  } else if(lastTipo==='pausa'){
+    btnVuelta.style.display='inline-block';btnVuelta.style.transform='scale(1.08)';
+    btnOut.style.display='inline-block';
+    estadoText='⏸ En pausa';
+  }
+  $('fk-estado-badge').textContent=estadoText;
   $('fk-screen-pin').style.display='none';
   $('fk-screen-confirm').style.display='block';
   }catch(e){console.error('[fkCheckPin]',e);$('fk-err').textContent='Error. Intentá de nuevo.';_fkPin='';fkUpdateDots();}
@@ -5096,10 +5246,9 @@ async function fkRegistrar(tipo){
   if(!_fkEmp)return;
   const nombre=_fkEmp.nombre||_fkEmp.name;
   const now=new Date();
-  // Calculate tardanza if ingreso and we have a scheduled start
   let tardanza_min=0;
   if(tipo==='ingreso'){
-    const dayIdx=now.getDay()===0?6:now.getDay()-1; // Mon=0
+    const dayIdx=now.getDay()===0?6:now.getDay()-1;
     const hl=horLocal[dayIdx];
     if(hl&&hl.a){
       const[hh,mm]=(hl.a||'').split(':').map(Number);
@@ -5111,15 +5260,16 @@ async function fkRegistrar(tipo){
   const wk=getScheduleKey();
   const{error}=await sb.from('fichajes').insert({
     empleado_id:_fkEmp.id||null,empleado_nombre:nombre,tipo,
-    timestamp:now.toISOString(),semana_key:wk,tardanza_min
+    timestamp:now.toISOString(),semana_key:wk,tardanza_min,estado:'activo'
   });
   if(error){alert('Error: '+error.message);return;}
-  // Result screen
   $('fk-screen-confirm').style.display='none';
   $('fk-screen-result').style.display='block';
-  $('fk-res-icon').textContent=tipo==='ingreso'?'✅':'🏁';
+  const icons={ingreso:'✅',pausa:'⏸',vuelta:'▶️',egreso:'🏁'};
+  const labels={ingreso:'Ingreso registrado',pausa:'Pausa registrada',vuelta:'Vuelta de pausa',egreso:'Egreso registrado'};
+  $('fk-res-icon').textContent=icons[tipo]||'✓';
   $('fk-res-name').textContent=nombre;
-  $('fk-res-tipo').textContent=tipo==='ingreso'?'Ingreso registrado':'Egreso registrado';
+  $('fk-res-tipo').textContent=labels[tipo]||tipo;
   $('fk-res-time').textContent=now.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
   setTimeout(fkReset,3000);
 }
@@ -5226,10 +5376,14 @@ async function fkRegistrar(tipo){
   <!-- Confirm screen -->
   <div id="fk-screen-confirm" style="display:none;text-align:center">
     <div class="fk-result-name" id="fk-emp-name" style="margin-bottom:4px"></div>
-    <div class="fk-result-cargo" id="fk-emp-cargo" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:24px"></div>
-    <div style="display:flex;gap:16px;margin-bottom:16px">
-      <button class="fk-confirm" id="fk-btn-ingreso" onclick="fkRegistrar('ingreso')" style="background:#27ae60;color:#fff">✓ INGRESO</button>
-      <button class="fk-confirm" id="fk-btn-egreso" onclick="fkRegistrar('egreso')" style="background:#e74c3c;color:#fff">✓ EGRESO</button>
+    <div class="fk-result-cargo" id="fk-emp-cargo" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:6px"></div>
+    <div id="fk-estado-badge" style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:4px;letter-spacing:.5px"></div>
+    <div id="fk-horas-badge" style="font-size:12px;font-weight:600;margin-bottom:22px"></div>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:16px">
+      <button class="fk-confirm" id="fk-btn-ingreso"  onclick="fkRegistrar('ingreso')" style="display:none;background:#27ae60;color:#fff">✓ INGRESO</button>
+      <button class="fk-confirm" id="fk-btn-pausa"    onclick="fkRegistrar('pausa')"   style="display:none;background:#c9a227;color:#fff">⏸ PAUSA</button>
+      <button class="fk-confirm" id="fk-btn-vuelta"   onclick="fkRegistrar('vuelta')"  style="display:none;background:#1a7f64;color:#fff">▶ VUELTA</button>
+      <button class="fk-confirm" id="fk-btn-egreso"   onclick="fkRegistrar('egreso')"  style="display:none;background:#e74c3c;color:#fff">✓ EGRESO</button>
     </div>
     <button onclick="fkReset()" style="background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.5);padding:8px 16px;font-size:10px;letter-spacing:1px;cursor:pointer;border-radius:2px">← Volver</button>
   </div>
@@ -5240,6 +5394,30 @@ async function fkRegistrar(tipo){
     <div class="fk-result-tipo" id="fk-res-tipo"></div>
     <div class="fk-result-time" id="fk-res-time"></div>
     <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:16px">Próximo empleado en 3 segundos…</div>
+  </div>
+</div>
+<div id="ficha-correc-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.72);z-index:3000;overflow-y:auto" onclick="if(event.target===this)$('ficha-correc-modal').style.display='none'">
+  <div style="background:var(--bg);max-width:420px;margin:3rem auto 2rem;padding:1.5rem;position:relative">
+    <button onclick="$('ficha-correc-modal').style.display='none'" style="position:absolute;top:1rem;right:1rem;background:transparent;border:none;font-size:18px;cursor:pointer;color:var(--muted)">✕</button>
+    <div style="font-size:13px;font-weight:600;margin-bottom:.5rem;color:var(--black)">Corregir fichaje</div>
+    <div style="font-size:10px;color:var(--hint);margin-bottom:1.2rem">Original: <span id="correc-original" style="font-style:italic"></span></div>
+    <input type="hidden" id="correc-fid">
+    <input type="hidden" id="correc-nombre">
+    <div class="f" style="margin-bottom:.8rem"><label>Nuevo tipo</label>
+      <select id="correc-tipo" style="width:100%;padding:6px 8px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);font-size:11px">
+        <option value="ingreso">Ingreso</option>
+        <option value="pausa">Pausa</option>
+        <option value="vuelta">Vuelta de pausa</option>
+        <option value="egreso">Egreso</option>
+      </select></div>
+    <div class="f" style="margin-bottom:.8rem"><label>Nuevo horario</label>
+      <input type="datetime-local" id="correc-ts" style="width:100%;box-sizing:border-box;padding:6px 8px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);font-size:11px"></div>
+    <div class="f" style="margin-bottom:.8rem"><label>Motivo de corrección <span style="color:#c0392b">*</span></label>
+      <input id="correc-motivo" placeholder="ej. Olvidó fichar salida…" style="width:100%;box-sizing:border-box"></div>
+    <div class="f" style="margin-bottom:1.2rem"><label>Corregido por</label>
+      <input id="correc-por" placeholder="Nombre del responsable" style="width:100%;box-sizing:border-box"></div>
+    <div style="font-size:9px;color:var(--hint);margin-bottom:1rem;line-height:1.5">El registro original quedará marcado como corregido y se creará un nuevo fichaje activo. El historial de auditoría es obligatorio según normativa (RDL 8/2019).</div>
+    <button class="btn" style="width:100%" onclick="submitFichajeCorrection()">Guardar corrección</button>
   </div>
 </div>
 <div id="emp-ficha-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.55);z-index:2000;overflow-y:auto" onclick="if(event.target===this)closeEmpFicha()">
