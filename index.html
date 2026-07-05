@@ -4588,6 +4588,9 @@ let _empFichajes=[];   // loaded fichajes for current period
 let _empFichajeHoy=[]; // today's fichajes
 let _fkPin='';
 let _fkEmp=null; // matched employee object
+let _isKioskMode=false;
+let _fkSupervisorMode=false;
+let _fkAmbientInterval=null;
 
 // ── Sub-tab navigation ──────────────────────────────────────────────
 function empSubTab(tab){
@@ -5156,15 +5159,64 @@ function openFichaje(){
   try{fkReset();}catch(e){console.error('[fk]',e);}
   k.style.display='flex';k.classList.add('open');
 }
-function closeFichaje(){const k=$('fichaje-kiosk');if(!k)return;k.style.display='';k.classList.remove('open');loadTurnoFichaje();}
+function closeFichaje(){
+  if(_isKioskMode){
+    // Require supervisor PIN to exit kiosk
+    _fkSupervisorMode=true;
+    _fkPin='';fkUpdateDots();
+    $('fk-screen-ambient').style.display='none';
+    $('fk-screen-confirm').style.display='none';
+    $('fk-screen-result').style.display='none';
+    $('fk-screen-pin').style.display='flex';
+    const t=$('fk-pin-title');if(t)t.textContent='PIN de supervisor para salir';
+    $('fk-err').textContent='';
+    fkStopAmbientClock();
+    return;
+  }
+  const k=$('fichaje-kiosk');if(!k)return;
+  k.style.display='';k.classList.remove('open');loadTurnoFichaje();
+}
 
 function fkReset(){
-  _fkPin='';_fkEmp=null;
-  $('fk-screen-pin').style.display='flex';
+  _fkPin='';_fkEmp=null;_fkSupervisorMode=false;
+  fkUpdateDots();
   $('fk-screen-confirm').style.display='none';
   $('fk-screen-result').style.display='none';
   $('fk-err').textContent='';
-  fkUpdateDots();
+  if(_isKioskMode){
+    $('fk-screen-pin').style.display='none';
+    $('fk-screen-ambient').style.display='flex';
+    fkStartAmbientClock();
+  } else {
+    $('fk-screen-pin').style.display='flex';
+    $('fk-screen-ambient').style.display='none';
+  }
+  const t=$('fk-pin-title');if(t)t.textContent='Ingresá tu PIN';
+}
+
+function fkTapAmbient(){
+  fkStopAmbientClock();
+  $('fk-screen-ambient').style.display='none';
+  $('fk-screen-pin').style.display='flex';
+}
+
+function fkStartAmbientClock(){
+  fkStopAmbientClock();
+  function _tick(){
+    const n=new Date();
+    const h=String(n.getHours()).padStart(2,'0'),m=String(n.getMinutes()).padStart(2,'0');
+    const days=['dom','lun','mar','mié','jue','vie','sáb'];
+    const months=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    const clk=$('fk-amb-clock'),dt=$('fk-amb-date');
+    if(clk)clk.textContent=h+':'+m;
+    if(dt)dt.textContent=days[n.getDay()]+' '+n.getDate()+' '+months[n.getMonth()]+' '+n.getFullYear();
+  }
+  _tick();
+  _fkAmbientInterval=setInterval(_tick,10000);
+}
+
+function fkStopAmbientClock(){
+  if(_fkAmbientInterval){clearInterval(_fkAmbientInterval);_fkAmbientInterval=null;}
 }
 
 function fkUpdateDots(){
@@ -5184,6 +5236,17 @@ function fkDigit(d){
 }
 
 function fkBack(){
+  if(_fkSupervisorMode){
+    _fkSupervisorMode=false;_fkPin='';fkUpdateDots();
+    const t=$('fk-pin-title');if(t)t.textContent='Ingresá tu PIN';
+    $('fk-err').textContent='';
+    if(_isKioskMode){
+      $('fk-screen-pin').style.display='none';
+      $('fk-screen-ambient').style.display='flex';
+      fkStartAmbientClock();
+    }
+    return;
+  }
   _fkPin=_fkPin.slice(0,-1);
   fkUpdateDots();
   $('fk-err').textContent='';
@@ -5277,9 +5340,19 @@ async function fkRegistrar(tipo){
 // Auto-open kiosk if URL param ?fichaje=1
 (function(){
   if(window.location.search.includes('fichaje=1')||window.location.hash==='#fichaje'){
+    _isKioskMode=true;
     window.addEventListener('DOMContentLoaded',()=>{
       // wait for sb to init
-      setTimeout(()=>{if(!horEmpleados.length)loadHorEmpleados();openFichaje();},1500);
+      setTimeout(()=>{
+        if(!horEmpleados.length)loadHorEmpleados();
+        openFichaje();
+        // Start ambient clock: hide PIN, show ambient screen
+        setTimeout(()=>{
+          $('fk-screen-pin').style.display='none';
+          const amb=$('fk-screen-ambient');
+          if(amb){amb.style.display='flex';fkStartAmbientClock();}
+        },200);
+      },1500);
     });
   }
 })();
@@ -5348,9 +5421,15 @@ async function fkRegistrar(tipo){
 <div id="fichaje-kiosk">
   <button class="fk-close" onclick="closeFichaje()">✕ Cerrar</button>
   <div class="fk-logo">ANOMALY</div>
+  <!-- Ambient screen (kiosk idle) -->
+  <div id="fk-screen-ambient" style="display:none;text-align:center;cursor:pointer;width:100%" onclick="fkTapAmbient()">
+    <div id="fk-amb-clock" style="font-size:60px;font-weight:100;letter-spacing:6px;color:rgba(255,255,255,.9);margin-bottom:6px">00:00</div>
+    <div id="fk-amb-date" style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.22);margin-bottom:48px">—</div>
+    <div style="font-size:10px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,.18)">toca para fichar</div>
+  </div>
   <!-- PIN entry screen -->
   <div id="fk-screen-pin">
-    <div class="fk-title">Ingresá tu PIN</div>
+    <div class="fk-title" id="fk-pin-title">Ingresá tu PIN</div>
     <div class="fk-dots" id="fk-dots">
       <div class="fk-dot" id="fk-d0"></div>
       <div class="fk-dot" id="fk-d1"></div>
@@ -5377,8 +5456,9 @@ async function fkRegistrar(tipo){
   <div id="fk-screen-confirm" style="display:none;text-align:center">
     <div class="fk-result-name" id="fk-emp-name" style="margin-bottom:4px"></div>
     <div class="fk-result-cargo" id="fk-emp-cargo" style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:6px"></div>
+    <div id="fk-shift-info" style="font-size:10px;background:rgba(255,255,255,.07);padding:5px 12px;border-radius:2px;margin-bottom:8px;min-height:14px"></div>
     <div id="fk-estado-badge" style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:4px;letter-spacing:.5px"></div>
-    <div id="fk-horas-badge" style="font-size:12px;font-weight:600;margin-bottom:22px"></div>
+    <div id="fk-horas-badge" style="font-size:12px;font-weight:600;margin-bottom:16px"></div>
     <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:16px">
       <button class="fk-confirm" id="fk-btn-ingreso"  onclick="fkRegistrar('ingreso')" style="display:none;background:#27ae60;color:#fff">✓ INGRESO</button>
       <button class="fk-confirm" id="fk-btn-pausa"    onclick="fkRegistrar('pausa')"   style="display:none;background:#c9a227;color:#fff">⏸ PAUSA</button>
