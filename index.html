@@ -5198,10 +5198,16 @@ function fkDiag(label){
     var d0=document.getElementById('fk-d0');
     var scr=document.getElementById('fk-screen-pin');
     var k=document.getElementById('fichaje-kiosk');
-    s=(label||'?')+'|pin='+_fkPin+'|km='+_isKioskMode+'|d0='+(d0?d0.className:'NULL')+'|scr='+(scr?scr.style.display:'NULL');
+    var d0bg=d0?window.getComputedStyle(d0).backgroundColor:'?';
+    s=(label||'?')
+     +'|pin=['+_fkPin+']'
+     +'|km='+_isKioskMode
+     +'|d0cls='+(d0?d0.className:'NULL')
+     +'|d0bg='+d0bg
+     +'|scr='+(scr?scr.style.display:'NULL');
   }catch(ex){s='ERR:'+ex.message;}
-  var dbg=document.getElementById('fk-debug');
-  if(dbg){dbg.style.background='#c00';dbg.style.color='#fff';dbg.style.fontSize='14px';dbg.style.padding='8px';dbg.textContent=s;}
+  var err=document.getElementById('fk-err');
+  if(err){err.style.color='#ff0';err.style.fontSize='11px';err.style.whiteSpace='pre';err.style.background='#000';err.style.padding='4px';err.textContent=s;}
 }
 function fkBindEvents(){
   // v23.6: events now bound via inline onclick attributes
@@ -5493,7 +5499,7 @@ async function fkRegistrar(tipo){
   <div id="fk-debug"></div>
   <button class="fk-close" id="fk-close-btn" onclick="fkDiag('PRE-CLOSE');closeFichaje()">✕ Cerrar</button>
   <div class="fk-logo">ANOMALY</div>
-  <div class="fk-ver">v23.10</div>
+  <div class="fk-ver">v23.11</div>
   <!-- Ambient screen (kiosk idle) -->
   <div id="fk-screen-ambient" style="display:none;text-align:center;cursor:pointer;width:100%" onclick="fkTapAmbient()">
     <div id="fk-amb-clock" style="font-size:60px;font-weight:100;letter-spacing:6px;color:rgba(255,255,255,.9);margin-bottom:6px">00:00</div>
