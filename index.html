@@ -5480,9 +5480,9 @@ async function fkRegistrar(tipo){
 <!-- FICHAJE KIOSK MODAL -->
 <div id="fichaje-kiosk" onmousemove="document.getElementById('fk-debug').textContent='DIV-MOVE '+event.clientX+','+event.clientY" onclick="document.getElementById('fk-debug').textContent='DIV-CLICK >'+event.target.tagName">
   <div id="fk-debug"></div>
-  <button class="fk-close" id="fk-close-btn" onclick="closeFichaje()">✕ Cerrar</button>
+  <button class="fk-close" id="fk-close-btn" onclick="alert('CERRAR CLICK');closeFichaje()">✕ Cerrar</button>
   <div class="fk-logo">ANOMALY</div>
-  <div class="fk-ver">v23.7</div>
+  <div class="fk-ver">v23.8</div>
   <!-- Ambient screen (kiosk idle) -->
   <div id="fk-screen-ambient" style="display:none;text-align:center;cursor:pointer;width:100%" onclick="fkTapAmbient()">
     <div id="fk-amb-clock" style="font-size:60px;font-weight:100;letter-spacing:6px;color:rgba(255,255,255,.9);margin-bottom:6px">00:00</div>
@@ -5499,7 +5499,7 @@ async function fkRegistrar(tipo){
       <div class="fk-dot" id="fk-d3"></div>
     </div>
     <div class="fk-pad">
-      <button class="fk-key" data-fk="1" onclick="fkDigit('1')">1</button>
+      <button class="fk-key" data-fk="1" onclick="alert('1 CLICK');fkDigit('1')">1</button>
       <button class="fk-key" data-fk="2" onclick="fkDigit('2')">2</button>
       <button class="fk-key" data-fk="3" onclick="fkDigit('3')">3</button>
       <button class="fk-key" data-fk="4" onclick="fkDigit('4')">4</button>
