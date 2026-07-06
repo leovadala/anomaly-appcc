@@ -4718,19 +4718,19 @@ function renderEmpDashboard(){
       <div class="emp-card-cargo">${emp.cargo||'—'}</div>
       <div class="emp-kpi-row">
         <div class="emp-kpi">
-          <div class="emp-kpi-val">${planH}h</div>
-          <div class="emp-kpi-lbl">Planif.</div>
+          <div class="emp-kpi-val">${fmtH(planH).replace('+','')}</div>
+          <div class="emp-kpi-lbl">${_empPeriod==='week'?'Planif.':'Objetivo'}</div>
         </div>
         <div class="emp-kpi">
-          <div class="emp-kpi-val ${hasReal?'':'emp-kpi-warn'}">${hasReal?realH+'h':'—'}</div>
+          <div class="emp-kpi-val ${hasReal?'':'emp-kpi-warn'}">${hasReal?fmtH(realH).replace('+',''):'—'}</div>
           <div class="emp-kpi-lbl">Fichadas</div>
         </div>
         <div class="emp-kpi">
-          <div class="emp-kpi-val ${hasReal?diffClass:''}'">${hasReal?diffStr+'h':'—'}</div>
+          <div class="emp-kpi-val ${hasReal?diffClass:''}">${hasReal?fmtH(diff):'—'}</div>
           <div class="emp-kpi-lbl">Dif.</div>
         </div>
         <div class="emp-kpi">
-          <div class="emp-kpi-val ${tardClass}">${tardanzas}</div>
+          <div class="emp-kpi-val ${tardClass}">${tardanzas||'—'}</div>
           <div class="emp-kpi-lbl">Tard.</div>
         </div>
       </div>
