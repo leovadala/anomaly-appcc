@@ -5198,14 +5198,10 @@ function fkDiag(label){
     var d0=document.getElementById('fk-d0');
     var scr=document.getElementById('fk-screen-pin');
     var k=document.getElementById('fichaje-kiosk');
-    s=(label||'fkDiag')
-     +'\n_fkPin='+_fkPin
-     +'\n_isKioskMode='+_isKioskMode
-     +'\nd0='+(d0?d0.className:'NULL')
-     +'\nscreen-pin='+(scr?scr.style.display:'NULL')
-     +'\nkiosk='+(k?k.style.display+'/cls:'+k.className:'NULL');
-  }catch(ex){s='fkDiag error: '+ex.message;}
-  alert(s);
+    s=(label||'?')+'|pin='+_fkPin+'|km='+_isKioskMode+'|d0='+(d0?d0.className:'NULL')+'|scr='+(scr?scr.style.display:'NULL');
+  }catch(ex){s='ERR:'+ex.message;}
+  var dbg=document.getElementById('fk-debug');
+  if(dbg){dbg.style.background='#c00';dbg.style.color='#fff';dbg.style.fontSize='14px';dbg.style.padding='8px';dbg.textContent=s;}
 }
 function fkBindEvents(){
   // v23.6: events now bound via inline onclick attributes
@@ -5495,9 +5491,9 @@ async function fkRegistrar(tipo){
 <!-- FICHAJE KIOSK MODAL -->
 <div id="fichaje-kiosk" onmousemove="document.getElementById('fk-debug').textContent='DIV-MOVE '+event.clientX+','+event.clientY" onclick="document.getElementById('fk-debug').textContent='DIV-CLICK >'+event.target.tagName">
   <div id="fk-debug"></div>
-  <button class="fk-close" id="fk-close-btn" onclick="closeFichaje();fkDiag('after close')">✕ Cerrar</button>
+  <button class="fk-close" id="fk-close-btn" onclick="fkDiag('PRE-CLOSE');closeFichaje()">✕ Cerrar</button>
   <div class="fk-logo">ANOMALY</div>
-  <div class="fk-ver">v23.9</div>
+  <div class="fk-ver">v23.10</div>
   <!-- Ambient screen (kiosk idle) -->
   <div id="fk-screen-ambient" style="display:none;text-align:center;cursor:pointer;width:100%" onclick="fkTapAmbient()">
     <div id="fk-amb-clock" style="font-size:60px;font-weight:100;letter-spacing:6px;color:rgba(255,255,255,.9);margin-bottom:6px">00:00</div>
