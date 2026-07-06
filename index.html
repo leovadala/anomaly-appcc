@@ -1852,7 +1852,7 @@ let editingTeamIdx=null;
 let _aipItems=[];
 let currentSabIngr=[];
 let currentIngr=[];
-let pinSupervisor='0000',pinFinanzas=null,_finUnlocked=false;
+let pinSupervisor='0000',pinFinanzas=null,_finUnlocked=false,_empSupUnlocked=false;
 let horLocal={};  // {dayIdx:{a:'12:00',c:'00:00'}}
 // ─── Horarios module globals ───
 const FESTIVOS_ES={'01-01':true,'01-06':true,'04-18':true,'05-01':true,'08-15':true,'10-12':true,'11-01':true,'12-06':true,'12-08':true,'12-25':true};
@@ -4833,7 +4833,42 @@ async function renderEmpHoy(){
 }
 
 // ── Ficha individual ────────────────────────────────────────────────
+function requireSupPin(cb){
+  if(_empSupUnlocked){cb();return;}
+  let ov=document.getElementById('sup-pin-ov');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='sup-pin-ov';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:9999';
+    ov.innerHTML=`<div style="background:var(--bg);border:.5px solid var(--border);border-radius:10px;padding:26px 24px;width:272px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+      <div style="font-size:13px;font-weight:600;letter-spacing:.3px;margin-bottom:4px">Acceso restringido</div>
+      <div style="font-size:11px;color:var(--hint);margin-bottom:18px">Ingresá el PIN de supervisor</div>
+      <input id="sup-pin-input" type="password" inputmode="numeric" maxlength="4" placeholder="••••"
+        style="font-size:24px;font-family:var(--mono);letter-spacing:8px;text-align:center;width:100%;box-sizing:border-box;border:.5px solid var(--border);border-radius:6px;padding:9px;background:var(--surface);color:var(--text)">
+      <div id="sup-pin-err" style="color:#e74c3c;font-size:10px;margin-top:7px;min-height:14px"></div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button onclick="document.getElementById('sup-pin-ov').remove()"
+          style="flex:1;padding:9px;border:.5px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;color:var(--text);font-size:12px">Cancelar</button>
+        <button id="sup-pin-ok-btn"
+          style="flex:1;padding:9px;border-radius:6px;background:var(--black);color:var(--white);cursor:pointer;border:none;font-size:12px">Confirmar</button>
+      </div>
+    </div>`;
+    document.body.appendChild(ov);
+  }
+  ov.style.display='flex';
+  const inp=document.getElementById('sup-pin-input');
+  const errEl=document.getElementById('sup-pin-err');
+  inp.value='';errEl.textContent='';
+  setTimeout(()=>inp.focus(),60);
+  function verify(){
+    if(inp.value===pinSupervisor){_empSupUnlocked=true;ov.remove();cb();}
+    else{errEl.textContent='PIN incorrecto';inp.value='';inp.focus();}
+  }
+  inp.onkeydown=e=>{if(e.key==='Enter')verify();};
+  document.getElementById('sup-pin-ok-btn').onclick=verify;
+}
 async function openEmpFicha(nombre){
+  if(!_empSupUnlocked){requireSupPin(()=>openEmpFicha(nombre));return;}
   const emp=horEmpleados.find(e=>(e.nombre||e.name)===nombre);
   if(!emp)return;
   // Show modal
