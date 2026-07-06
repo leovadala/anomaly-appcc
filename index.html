@@ -968,15 +968,45 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   <div id="pl-content"><div class="empty">Cargando...</div></div>
 </div>
 </div><!-- /v10 -->
-</div><!-- /main -->
 
 <!-- V11: EMPLEADOS -->
 <div class="view" id="v11">
+  <div class="emp-sub">
+    <button class="emp-subtab" id="empstab-dash" onclick="empSubTab('dash')">Dashboard</button>
+    <button class="emp-subtab on" id="empstab-integrantes" onclick="empSubTab('integrantes')">Integrantes</button>
+    <button class="emp-subtab" id="empstab-fichaje" onclick="empSubTab('fichaje')">Fichaje</button>
+  </div>
+  <!-- Dashboard panel -->
+  <div id="emp-panel-dash" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;gap:8px">
+        <button class="btn-s" onclick="empSetPeriod('week')" id="emp-btn-week" style="border-color:var(--black)">Esta semana</button>
+        <button class="btn-s" onclick="empSetPeriod('month')" id="emp-btn-month">Este mes</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-s" onclick="exportFichajesCSV()">↓ CSV</button>
+        <button class="btn-s" onclick="openFichaje()">⏱ Fichaje</button>
+      </div>
+    </div>
+    <div class="emp-kpi-grid" id="emp-kpi-grid">
+      <div style="color:var(--hint);font-size:11px;padding:1rem">Cargando empleados…</div>
+    </div>
+  </div>
+  <!-- Fichaje inline panel -->
+  <div id="emp-panel-fichaje" style="display:none">
+    <p style="font-size:11px;color:var(--muted);margin-bottom:1rem">Para la tablet de la puerta usá la URL dedicada: <code id="emp-fichaje-url" style="background:var(--surface);padding:2px 6px;font-size:10px"></code></p>
+    <button class="btn" onclick="openFichaje()" style="width:100%;font-size:13px;padding:16px;letter-spacing:2px">⏱ ABRIR KIOSKO DE FICHAJE</button>
+    <div style="margin-top:1.5rem" id="emp-fichaje-hoy">
+      <div class="sec-t" style="margin-bottom:.6rem">Fichajes de hoy</div>
+      <div id="emp-hoy-list" style="font-size:11px;color:var(--muted)">Cargando…</div>
+    </div>
+  </div>
   <!-- Integrantes panel -->
-  <div id="emp-panel-integrantes"><div style="color:var(--hint);font-size:11px;padding:1rem 0">Cargando...</div></div>
-  <!-- Ficha individual (shown when clicking an employee) -->
+  <div id="emp-panel-integrantes" style="display:none"><div style="color:var(--hint);font-size:11px;padding:1rem 0">Cargando...</div></div>
+  <!-- Ficha individual -->
   <div id="emp-ficha-panel" style="display:none"></div>
 </div>
+</div><!-- /main -->
 </div><!-- /app -->
 
 <div id="eg-quick-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.65);z-index:2000;align-items:center;justify-content:center">
@@ -4595,7 +4625,9 @@ async function initEmpleados(){
   // Today's fichajes
   const todayStr=new Date().toISOString().split('T')[0];
   _empFichajeHoy=_empFichajes.filter(f=>f.timestamp.startsWith(todayStr));
+  renderEmpDashboard();
   renderEmpIntegrantes();
+  empSubTab('integrantes');
 }
 
 // ── Dashboard ───────────────────────────────────────────────────────
