@@ -235,7 +235,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .emp-kpi-ok{color:#2d6a2d}.emp-kpi-warn{color:#b8860b}.emp-kpi-bad{color:#b33}
 .emp-badge{display:inline-block;padding:2px 6px;font-size:8px;letter-spacing:.5px;text-transform:uppercase;background:var(--bg);border:.5px solid var(--border);border-radius:2px;color:var(--muted)}
 /* Fichaje kiosk */
-#fichaje-kiosk{position:fixed;inset:0;background:#1a1a2e;z-index:5000;display:none;flex-direction:column;align-items:center;justify-content:center;font-family:var(--font)}
+#fichaje-kiosk{position:fixed;inset:0;background:#1a1a2e;z-index:5000;pointer-events:all;display:none;flex-direction:column;align-items:center;justify-content:center;font-family:var(--font)}
 #fichaje-kiosk.open{display:flex}
 .fk-logo{font-size:22px;font-weight:800;letter-spacing:4px;color:#fff;margin-bottom:2rem}
 .fk-title{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:1.5rem}
@@ -243,7 +243,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .fk-dot{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.3);transition:background .15s}
 .fk-dot.filled{background:#fff;border-color:#fff}
 .fk-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:240px}
-.fk-key{padding:16px;background:rgba(255,255,255,.08);border:none;color:#fff;font-size:18px;font-weight:500;cursor:pointer;border-radius:4px;font-family:var(--font);transition:background .12s}
+.fk-key{padding:16px;background:rgba(255,255,255,.08);border:none;color:#fff;font-size:18px;font-weight:500;cursor:pointer;border-radius:4px;font-family:var(--font);transition:background .12s;touch-action:manipulation;-webkit-tap-highlight-color:rgba(255,255,255,.2);user-select:none;-webkit-user-select:none}
 .fk-key:hover{background:rgba(255,255,255,.16)}
 .fk-key:active{background:rgba(255,255,255,.25)}
 .fk-confirm{width:240px;margin-top:1rem;padding:14px;background:#fff;color:#1a1a2e;border:none;font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:var(--font)}
@@ -254,7 +254,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .fk-result-tipo{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:6px}
 .fk-result-time{font-size:28px;font-weight:700;font-family:var(--mono);color:#fff}
 .fk-err{font-size:11px;color:#ff6b6b;letter-spacing:.5px;text-align:center;min-height:16px;margin-top:8px}
-.fk-close{position:absolute;top:20px;right:20px;background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.5);padding:6px 12px;font-size:10px;letter-spacing:1px;cursor:pointer;border-radius:2px}
+.fk-close{position:absolute;top:20px;right:20px;background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.5);padding:6px 12px;font-size:10px;letter-spacing:1px;cursor:pointer;border-radius:2px;touch-action:manipulation;-webkit-tap-highlight-color:rgba(255,255,255,.2);z-index:5001}
 #fk-screen-pin,#fk-screen-confirm{display:flex;flex-direction:column;align-items:center;text-align:center}
 /* Ficha individual */
 .emp-ficha-header{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:.5px solid var(--border);margin-bottom:1.2rem}
@@ -5183,48 +5183,41 @@ function closeFichaje(){
 }
 
 function fkBindEvents(){
-  // Wire up kiosk via addEventListener — more robust than inline onclick in PWA/WebView contexts
   const kiosk=document.getElementById('fichaje-kiosk');
   if(!kiosk||kiosk._fkBound)return;
   kiosk._fkBound=true;
 
+  // Use both click and touchend — iOS PWA sometimes needs touchend
+  function on(el,fn){
+    if(!el)return;
+    var fired=false;
+    el.addEventListener('touchend',function(e){e.preventDefault();e.stopPropagation();fired=true;fn(e);},{passive:false});
+    el.addEventListener('click',function(e){e.stopPropagation();if(!fired)fn(e);fired=false;});
+  }
+
   // Close button
-  const closeBtn=document.getElementById('fk-close-btn');
-  if(closeBtn)closeBtn.addEventListener('click',function(e){e.stopPropagation();closeFichaje();});
+  on(document.getElementById('fk-close-btn'),function(){closeFichaje();});
 
-  // Ambient screen tap
-  const amb=document.getElementById('fk-screen-ambient');
-  if(amb)amb.addEventListener('click',function(e){e.stopPropagation();fkTapAmbient();});
+  // Ambient screen
+  on(document.getElementById('fk-screen-ambient'),function(){fkTapAmbient();});
 
-  // Numpad keys — event delegation on .fk-pad
-  const pad=kiosk.querySelector('.fk-pad');
-  if(pad){
-    pad.addEventListener('click',function(e){
-      const btn=e.target.closest('[data-fk]');
-      if(!btn)return;
-      e.stopPropagation();
-      const v=btn.getAttribute('data-fk');
+  // Numpad — touchend on each key directly
+  kiosk.querySelectorAll('[data-fk]').forEach(function(btn){
+    on(btn,function(){
+      var v=btn.getAttribute('data-fk');
       if(v==='back')fkBack();
       else fkDigit(v);
     });
-  }
+  });
 
   // Confirm action buttons
-  const btnIn=document.getElementById('fk-btn-ingreso');
-  const btnPa=document.getElementById('fk-btn-pausa');
-  const btnVu=document.getElementById('fk-btn-vuelta');
-  const btnEg=document.getElementById('fk-btn-egreso');
-  if(btnIn)btnIn.addEventListener('click',function(e){e.stopPropagation();fkRegistrar('ingreso');});
-  if(btnPa)btnPa.addEventListener('click',function(e){e.stopPropagation();fkRegistrar('pausa');});
-  if(btnVu)btnVu.addEventListener('click',function(e){e.stopPropagation();fkRegistrar('vuelta');});
-  if(btnEg)btnEg.addEventListener('click',function(e){e.stopPropagation();fkRegistrar('egreso');});
+  on(document.getElementById('fk-btn-ingreso'),function(){fkRegistrar('ingreso');});
+  on(document.getElementById('fk-btn-pausa'),function(){fkRegistrar('pausa');});
+  on(document.getElementById('fk-btn-vuelta'),function(){fkRegistrar('vuelta');});
+  on(document.getElementById('fk-btn-egreso'),function(){fkRegistrar('egreso');});
 
-  // Volver button
-  const volver=document.getElementById('fk-btn-volver');
-  if(volver)volver.addEventListener('click',function(e){e.stopPropagation();fkReset();});
-
-  // Kiosk itself: stop propagation so nothing bleeds through
-  kiosk.addEventListener('click',function(e){e.stopPropagation();});
+  // Volver
+  on(document.getElementById('fk-btn-volver'),function(){fkReset();});
 }
 
 function fkReset(){
