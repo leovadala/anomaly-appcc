@@ -1895,7 +1895,7 @@ async function loadAll(){
   const cfgData=cfg.data||[];const pinRow=cfgData.find(r=>r.key==='pin_supervisor');if(pinRow)pinSupervisor=pinRow.value;const finRow=cfgData.find(r=>r.key==='pin_finanzas');if(finRow)pinFinanzas=finRow.value;const oaiRow=cfgData.find(r=>r.key==='openai_key');if(oaiRow)OPENAI_KEY=oaiRow.value;const hlRow=cfgData.find(r=>r.key==='horario_local');if(hlRow){try{horLocal=JSON.parse(hlRow.value)||{}}catch(e){horLocal={}}};
   renderTeamSelect();renderTeam();rRH();rPL();renderSabores();renderSaborSelect();
 }
-loadAll().then(()=>{setTimeout(initTurno,200);setTimeout(openFichaje,600);});
+loadAll().then(()=>{setTimeout(initTurno,200);});
 
 async function renderDashboard(){
   const all=[...S,...SH];
@@ -5219,12 +5219,24 @@ function fkStopAmbientClock(){
   if(_fkAmbientInterval){clearInterval(_fkAmbientInterval);_fkAmbientInterval=null;}
 }
 
+// Physical keyboard support for kiosk numpad
+document.addEventListener('keydown',function(e){
+  const k=$('fichaje-kiosk');
+  if(!k||!k.classList.contains('open'))return;
+  const s=$('fk-screen-pin');
+  if(!s||s.style.display==='none')return;
+  if(e.key>='0'&&e.key<='9'){fkDigit(e.key);}
+  else if(e.key==='Backspace'){fkBack();}
+  else if(e.key==='Enter'&&_fkPin.length===4){fkCheckPin();}
+  else if(e.key==='Escape'&&!_isKioskMode){closeFichaje();}
+});
+
 function fkUpdateDots(){
   for(let i=0;i<4;i++){
     const d=$('fk-d'+i);if(!d)continue;
     const on=i<_fkPin.length;
-    d.style.background=on?'#fff':'';
-    d.style.borderColor=on?'#fff':'rgba(255,255,255,.3)';
+    d.classList.toggle('filled',on);
+    d.style.transform=on?'scale(1.2)':'scale(1)';
   }
 }
 
