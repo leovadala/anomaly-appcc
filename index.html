@@ -5159,6 +5159,8 @@ function openFichaje(){
   // Close any open modals that might intercept clicks
   const efm=$('emp-ficha-modal');if(efm)efm.style.display='none';
   const fcm=$('ficha-correc-modal');if(fcm)fcm.style.display='none';
+  // Bind events via addEventListener (robust for PWA/WebView)
+  fkBindEvents();
   try{fkReset();}catch(e){console.error('[fk]',e);}
   k.style.display='flex';k.classList.add('open');
 }
@@ -5178,6 +5180,51 @@ function closeFichaje(){
   }
   const k=$('fichaje-kiosk');if(!k)return;
   k.style.display='';k.classList.remove('open');loadTurnoFichaje();
+}
+
+function fkBindEvents(){
+  // Wire up kiosk via addEventListener — more robust than inline onclick in PWA/WebView contexts
+  const kiosk=document.getElementById('fichaje-kiosk');
+  if(!kiosk||kiosk._fkBound)return;
+  kiosk._fkBound=true;
+
+  // Close button
+  const closeBtn=document.getElementById('fk-close-btn');
+  if(closeBtn)closeBtn.addEventListener('click',function(e){e.stopPropagation();closeFichaje();});
+
+  // Ambient screen tap
+  const amb=document.getElementById('fk-screen-ambient');
+  if(amb)amb.addEventListener('click',function(e){e.stopPropagation();fkTapAmbient();});
+
+  // Numpad keys — event delegation on .fk-pad
+  const pad=kiosk.querySelector('.fk-pad');
+  if(pad){
+    pad.addEventListener('click',function(e){
+      const btn=e.target.closest('[data-fk]');
+      if(!btn)return;
+      e.stopPropagation();
+      const v=btn.getAttribute('data-fk');
+      if(v==='back')fkBack();
+      else fkDigit(v);
+    });
+  }
+
+  // Confirm action buttons
+  const btnIn=document.getElementById('fk-btn-ingreso');
+  const btnPa=document.getElementById('fk-btn-pausa');
+  const btnVu=document.getElementById('fk-btn-vuelta');
+  const btnEg=document.getElementById('fk-btn-egreso');
+  if(btnIn)btnIn.addEventListener('click',function(e){e.stopPropagation();fkRegistrar('ingreso');});
+  if(btnPa)btnPa.addEventListener('click',function(e){e.stopPropagation();fkRegistrar('pausa');});
+  if(btnVu)btnVu.addEventListener('click',function(e){e.stopPropagation();fkRegistrar('vuelta');});
+  if(btnEg)btnEg.addEventListener('click',function(e){e.stopPropagation();fkRegistrar('egreso');});
+
+  // Volver button
+  const volver=document.getElementById('fk-btn-volver');
+  if(volver)volver.addEventListener('click',function(e){e.stopPropagation();fkReset();});
+
+  // Kiosk itself: stop propagation so nothing bleeds through
+  kiosk.addEventListener('click',function(e){e.stopPropagation();});
 }
 
 function fkReset(){
@@ -5434,10 +5481,10 @@ async function fkRegistrar(tipo){
 
 <!-- FICHAJE KIOSK MODAL -->
 <div id="fichaje-kiosk">
-  <button class="fk-close" onclick="closeFichaje()">✕ Cerrar</button>
+  <button class="fk-close" id="fk-close-btn">✕ Cerrar</button>
   <div class="fk-logo">ANOMALY</div>
   <!-- Ambient screen (kiosk idle) -->
-  <div id="fk-screen-ambient" style="display:none;text-align:center;cursor:pointer;width:100%" onclick="fkTapAmbient()">
+  <div id="fk-screen-ambient" style="display:none;text-align:center;cursor:pointer;width:100%">
     <div id="fk-amb-clock" style="font-size:60px;font-weight:100;letter-spacing:6px;color:rgba(255,255,255,.9);margin-bottom:6px">00:00</div>
     <div id="fk-amb-date" style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.22);margin-bottom:48px">—</div>
     <div style="font-size:10px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,.18)">toca para fichar</div>
@@ -5452,18 +5499,18 @@ async function fkRegistrar(tipo){
       <div class="fk-dot" id="fk-d3"></div>
     </div>
     <div class="fk-pad">
-      <button class="fk-key" onclick="fkDigit('1')">1</button>
-      <button class="fk-key" onclick="fkDigit('2')">2</button>
-      <button class="fk-key" onclick="fkDigit('3')">3</button>
-      <button class="fk-key" onclick="fkDigit('4')">4</button>
-      <button class="fk-key" onclick="fkDigit('5')">5</button>
-      <button class="fk-key" onclick="fkDigit('6')">6</button>
-      <button class="fk-key" onclick="fkDigit('7')">7</button>
-      <button class="fk-key" onclick="fkDigit('8')">8</button>
-      <button class="fk-key" onclick="fkDigit('9')">9</button>
-      <button class="fk-key" onclick="fkDigit('')" style="font-size:13px;color:rgba(255,255,255,.5)"></button>
-      <button class="fk-key" onclick="fkDigit('0')">0</button>
-      <button class="fk-key" onclick="fkBack()">⌫</button>
+      <button class="fk-key" data-fk="1">1</button>
+      <button class="fk-key" data-fk="2">2</button>
+      <button class="fk-key" data-fk="3">3</button>
+      <button class="fk-key" data-fk="4">4</button>
+      <button class="fk-key" data-fk="5">5</button>
+      <button class="fk-key" data-fk="6">6</button>
+      <button class="fk-key" data-fk="7">7</button>
+      <button class="fk-key" data-fk="8">8</button>
+      <button class="fk-key" data-fk="9">9</button>
+      <button class="fk-key" data-fk="" style="font-size:13px;color:rgba(255,255,255,.5)"></button>
+      <button class="fk-key" data-fk="0">0</button>
+      <button class="fk-key" data-fk="back">⌫</button>
     </div>
     <div class="fk-err" id="fk-err"></div>
   </div>
@@ -5475,12 +5522,12 @@ async function fkRegistrar(tipo){
     <div id="fk-estado-badge" style="font-size:11px;color:rgba(255,255,255,.45);margin-bottom:4px;letter-spacing:.5px"></div>
     <div id="fk-horas-badge" style="font-size:12px;font-weight:600;margin-bottom:16px"></div>
     <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:16px">
-      <button class="fk-confirm" id="fk-btn-ingreso"  onclick="fkRegistrar('ingreso')" style="display:none;background:#27ae60;color:#fff">✓ INGRESO</button>
-      <button class="fk-confirm" id="fk-btn-pausa"    onclick="fkRegistrar('pausa')"   style="display:none;background:#c9a227;color:#fff">⏸ PAUSA</button>
-      <button class="fk-confirm" id="fk-btn-vuelta"   onclick="fkRegistrar('vuelta')"  style="display:none;background:#1a7f64;color:#fff">▶ VUELTA</button>
-      <button class="fk-confirm" id="fk-btn-egreso"   onclick="fkRegistrar('egreso')"  style="display:none;background:#e74c3c;color:#fff">✓ EGRESO</button>
+      <button class="fk-confirm" id="fk-btn-ingreso"  style="display:none;background:#27ae60;color:#fff">✓ INGRESO</button>
+      <button class="fk-confirm" id="fk-btn-pausa"    style="display:none;background:#c9a227;color:#fff">⏸ PAUSA</button>
+      <button class="fk-confirm" id="fk-btn-vuelta"   style="display:none;background:#1a7f64;color:#fff">▶ VUELTA</button>
+      <button class="fk-confirm" id="fk-btn-egreso"   style="display:none;background:#e74c3c;color:#fff">✓ EGRESO</button>
     </div>
-    <button onclick="fkReset()" style="background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.5);padding:8px 16px;font-size:10px;letter-spacing:1px;cursor:pointer;border-radius:2px">← Volver</button>
+    <button id="fk-btn-volver" style="background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.5);padding:8px 16px;font-size:10px;letter-spacing:1px;cursor:pointer;border-radius:2px">← Volver</button>
   </div>
   <!-- Result screen -->
   <div id="fk-screen-result" style="display:none" class="fk-result">
