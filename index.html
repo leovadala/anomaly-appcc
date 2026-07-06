@@ -4631,6 +4631,14 @@ async function initEmpleados(){
 }
 
 // ── Dashboard ───────────────────────────────────────────────────────
+function fmtH(h){
+  if(h===0)return '0h';
+  const neg=h<0,abs=Math.abs(h);
+  const hrs=Math.floor(abs),mins=Math.round((abs-hrs)*60);
+  if(abs<1)return (neg?'-':'')+Math.round(abs*60)+'m';
+  if(mins===0)return (neg?'-':'')+hrs+'h';
+  return (neg?'-':'')+hrs+'h '+mins+'m';
+}
 function renderEmpDashboard(){
   const grid=$('emp-kpi-grid');
   if(!horEmpleados.length){
