@@ -235,7 +235,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .emp-kpi-ok{color:#2d6a2d}.emp-kpi-warn{color:#b8860b}.emp-kpi-bad{color:#b33}
 .emp-badge{display:inline-block;padding:2px 6px;font-size:8px;letter-spacing:.5px;text-transform:uppercase;background:var(--bg);border:.5px solid var(--border);border-radius:2px;color:var(--muted)}
 /* Fichaje kiosk */
-#fichaje-kiosk{position:fixed;inset:0;background:#1a1a2e;z-index:5000;pointer-events:all;display:none;flex-direction:column;align-items:center;justify-content:center;font-family:var(--font)}
+#fichaje-kiosk{position:relative;width:100%;min-height:100vh;background:#1a1a2e;display:none;flex-direction:column;align-items:center;justify-content:center;font-family:var(--font)}
 #fichaje-kiosk.open{display:flex}
 .fk-logo{font-size:22px;font-weight:800;letter-spacing:4px;color:#fff;margin-bottom:2rem}
 .fk-title{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:1.5rem}
@@ -5156,10 +5156,15 @@ async function saveEval(nombre,modal){
 // ═══════════════════════════════════════════════════════════════════
 function openFichaje(){
   const k=$('fichaje-kiosk');if(!k)return;
-  // Close any open modals that might intercept clicks
-  const efm=$('emp-ficha-modal');if(efm)efm.style.display='none';
-  const fcm=$('ficha-correc-modal');if(fcm)fcm.style.display='none';
-  // Bind events via addEventListener (robust for PWA/WebView)
+  // Full-page swap: hide app content so nothing covers the kiosk
+  const app=document.querySelector('.app');if(app)app.style.display='none';
+  // Remove any dynamically-created fixed overlays (hl-modal, etc.)
+  document.querySelectorAll('body>div').forEach(function(el){
+    if(el===k||el.id==='ficha-correc-modal'||el.id==='emp-ficha-modal')return;
+    if(el.style.position==='fixed'||window.getComputedStyle(el).position==='fixed')el.remove();
+  });
+  $('ficha-correc-modal').style.display='none';
+  $('emp-ficha-modal').style.display='none';
   fkBindEvents();
   try{fkReset();}catch(e){console.error('[fk]',e);}
   k.style.display='flex';k.classList.add('open');
@@ -5179,7 +5184,9 @@ function closeFichaje(){
     return;
   }
   const k=$('fichaje-kiosk');if(!k)return;
-  k.style.display='';k.classList.remove('open');loadTurnoFichaje();
+  k.style.display='none';k.classList.remove('open');
+  const app=document.querySelector('.app');if(app)app.style.display='';
+  loadTurnoFichaje();
 }
 
 function fkBindEvents(){
@@ -5309,6 +5316,21 @@ function fkBack(){
 
 async function fkCheckPin(){
   try{
+  // Supervisor exit mode
+  if(_fkSupervisorMode){
+    if(_fkPin===pinSupervisor){
+      _fkSupervisorMode=false;_isKioskMode=false;
+      fkStopAmbientClock();
+      const k=$('fichaje-kiosk');if(k){k.style.display='none';k.classList.remove('open');}
+      const app=document.querySelector('.app');if(app)app.style.display='';
+      window.history.replaceState({},'',window.location.pathname);
+      loadTurnoFichaje();
+    } else {
+      $('fk-err').textContent='PIN de supervisor incorrecto.';
+      _fkPin='';fkUpdateDots();
+    }
+    return;
+  }
   if(!horEmpleados.length) await loadHorEmpleados();
   _fkEmp=horEmpleados.find(e=>e.pin_fichaje&&e.pin_fichaje===_fkPin)||null;
   if(!_fkEmp){
