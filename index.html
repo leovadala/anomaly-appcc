@@ -4870,14 +4870,15 @@ async function openEmpFicha(nombre){
     <!-- DATOS -->
     <div id="ft-datos">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem">
-        <div class="f"><label>DNI / Documento</label><input id="ficha-dni" value="${emp.dni||''}" placeholder="—" onchange="saveEmpField('${nombre}','dni',this.value)"></div>
-        <div class="f"><label>Teléfono</label><input id="ficha-tel" value="${emp.telefono||''}" placeholder="—" onchange="saveEmpField('${nombre}','telefono',this.value)"></div>
-        <div class="f"><label>Email</label><input id="ficha-email" value="${emp.email||''}" placeholder="—" onchange="saveEmpField('${nombre}','email',this.value)"></div>
-        <div class="f"><label>PIN fichaje (4 dígitos)</label><input id="ficha-pin" type="password" maxlength="4" value="${emp.pin_fichaje||''}" placeholder="0000" onchange="saveEmpField('${nombre}','pin_fichaje',this.value)"></div>
-        <div class="f"><label>Salario/hora (€)</label><input type="number" value="${emp.salario_hora||''}" placeholder="0" onchange="saveEmpField('${nombre}','salario_hora',this.value)"></div>
-        <div class="f"><label>Horas contrato/sem.</label><input type="number" value="${emp.horas_contrato||''}" placeholder="0" onchange="saveEmpField('${nombre}','horas_contrato',this.value)"></div>
+        <div class="f"><label>DNI / Documento</label><input id="ficha-dni" value="${emp.dni||''}" placeholder="—"></div>
+        <div class="f"><label>Teléfono</label><input id="ficha-tel" value="${emp.telefono||''}" placeholder="—"></div>
+        <div class="f"><label>Email</label><input id="ficha-email" value="${emp.email||''}" placeholder="—"></div>
+        <div class="f"><label>PIN fichaje (4 dígitos)</label><input id="ficha-pin" type="password" maxlength="4" value="${emp.pin_fichaje||''}" placeholder="0000"></div>
+        <div class="f"><label>Salario/hora (€)</label><input id="ficha-salario" type="number" value="${emp.salario_hora||''}" placeholder="0"></div>
+        <div class="f"><label>Horas contrato/sem.</label><input id="ficha-horas" type="number" value="${emp.horas_contrato||''}" placeholder="0"></div>
       </div>
-      <div class="f"><label>Notas internas</label><textarea rows="3" style="width:100%;box-sizing:border-box;font-family:var(--font);font-size:11px;padding:6px 8px;border:.5px solid var(--border);background:var(--surface);color:var(--black);resize:vertical" onchange="saveEmpField('${nombre}','notas',this.value)">${emp.notas||''}</textarea></div>
+      <div class="f"><label>Notas internas</label><textarea id="ficha-notas" rows="3" style="width:100%;box-sizing:border-box;font-family:var(--font);font-size:11px;padding:6px 8px;border:.5px solid var(--border);background:var(--surface);color:var(--black);resize:vertical">${emp.notas||''}</textarea></div>
+      <button id="ficha-save-btn" onclick="saveEmpDatos('${nombre}')" style="margin-top:1rem;width:100%;padding:10px;background:var(--black);color:var(--bg);border:none;font-family:var(--font);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all .2s">Guardar datos</button>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:.8rem;font-size:11px;color:var(--muted)">
         <div>Horas contrato: <strong>${emp.horas_contrato||0}h/sem</strong></div>
         <div>Tipo: <strong>${emp.tipo_contrato||'—'}</strong></div>
@@ -5053,6 +5054,28 @@ async function saveEmpField(nombre,field,value){
   if(!emp||!emp.id)return;
   emp[field]=value;
   await sb.from('hor_empleados').update({[field]:value}).eq('id',emp.id);
+}
+async function saveEmpDatos(nombre){
+  const btn=document.getElementById('ficha-save-btn');
+  if(btn){btn.textContent='Guardando…';btn.disabled=true;}
+  const emp=horEmpleados.find(e=>(e.nombre||e.name)===nombre);
+  if(!emp||!emp.id){if(btn){btn.textContent='Error';btn.disabled=false;}return;}
+  const fields={
+    dni:($('ficha-dni')||{}).value||null,
+    telefono:($('ficha-tel')||{}).value||null,
+    email:($('ficha-email')||{}).value||null,
+    pin_fichaje:($('ficha-pin')||{}).value||null,
+    salario_hora:parseFloat(($('ficha-salario')||{}).value)||null,
+    horas_contrato:parseFloat(($('ficha-horas')||{}).value)||null,
+    notas:($('ficha-notas')||{}).value||null
+  };
+  Object.assign(emp,fields);
+  const{error}=await sb.from('hor_empleados').update(fields).eq('id',emp.id);
+  if(btn){
+    if(error){btn.textContent='Error al guardar';btn.style.background='#c0392b';btn.disabled=false;}
+    else{btn.textContent='✓ Guardado';btn.style.background='#27ae60';btn.disabled=false;
+      setTimeout(()=>{btn.textContent='Guardar datos';btn.style.background='';},2000);}
+  }
 }
 
 // ── Ausencia modal ──────────────────────────────────────────────────
