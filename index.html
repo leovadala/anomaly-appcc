@@ -237,7 +237,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 /* Fichaje kiosk */
 #fichaje-kiosk{position:relative;width:100%;min-height:100vh;background:#1a1a2e;display:none;flex-direction:column;align-items:center;justify-content:center;font-family:var(--font)}
 #fichaje-kiosk.open{display:flex}
-.fk-logo{font-size:22px;font-weight:800;letter-spacing:4px;color:#fff;margin-bottom:2rem}
+.fk-logo{font-size:22px;font-weight:800;letter-spacing:4px;color:#fff;margin-bottom:.5rem}
+.fk-ver{font-size:8px;letter-spacing:2px;color:rgba(255,255,255,.3);margin-bottom:1.5rem}
 .fk-title{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:1.5rem}
 .fk-dots{display:flex;gap:14px;margin-bottom:1.5rem;height:20px;align-items:center}
 .fk-dot{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.3);transition:background .15s}
@@ -247,7 +248,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .fk-key:hover{background:rgba(255,255,255,.16)}
 .fk-key:active{background:rgba(255,255,255,.25)}
 #fichaje-kiosk,#fichaje-kiosk *{pointer-events:auto !important}
-#fk-debug{position:fixed;bottom:8px;left:8px;font-size:9px;font-family:monospace;color:rgba(255,255,255,.35);letter-spacing:.5px;pointer-events:none;z-index:9999;max-width:90vw;white-space:nowrap;overflow:hidden}
+#fk-debug{position:fixed;bottom:8px;left:8px;font-size:11px;font-family:monospace;color:#fff;background:rgba(0,0,0,.7);padding:3px 8px;border-radius:3px;pointer-events:none;z-index:99999;max-width:95vw;white-space:nowrap;overflow:hidden}
 .fk-confirm{width:240px;margin-top:1rem;padding:14px;background:#fff;color:#1a1a2e;border:none;font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:var(--font)}
 .fk-confirm:hover{background:#f0eeeb}
 .fk-result{text-align:center;padding:20px}
@@ -5170,23 +5171,6 @@ function openFichaje(){
   fkBindEvents();
   try{fkReset();}catch(e){console.error('[fk]',e);}
   k.style.display='flex';k.classList.add('open');
-  // v23.6 debug: live element-under-cursor + click counter
-  if(!k._dbgBound){
-    k._dbgBound=true;
-    var _fkClicks=0;
-    document.addEventListener('click',function(e){
-      if(!$('fichaje-kiosk').classList.contains('open'))return;
-      _fkClicks++;
-      var d=$('fk-debug');
-      if(d)d.textContent='['+_fkClicks+'] CLICK: '+(e.target.id||e.target.className||e.target.tagName)+' x'+e.clientX+' y'+e.clientY;
-    },true);
-    document.addEventListener('mousemove',function(e){
-      if(!$('fichaje-kiosk').classList.contains('open'))return;
-      var el=document.elementFromPoint(e.clientX,e.clientY);
-      var d=$('fk-debug');
-      if(d&&el)d.textContent='hover: '+(el.id||el.className||el.tagName)+' x'+e.clientX+' y'+e.clientY;
-    });
-  }
 }
 function closeFichaje(){
   if(_isKioskMode){
@@ -5419,6 +5403,20 @@ async function fkRegistrar(tipo){
   }
 })();
 
+// v23.7: global debug, attached immediately (no openFichaje dependency)
+;(function(){
+  var _dc=0;
+  function _dbg(txt){var d=document.getElementById('fk-debug');if(d)d.textContent=txt;}
+  document.addEventListener('mousemove',function(e){
+    var el=document.elementFromPoint(e.clientX,e.clientY);
+    _dbg('MOVE '+e.clientX+','+e.clientY+(el?' | '+(el.id||el.className.toString().slice(0,20)||el.tagName):''));
+  });
+  document.addEventListener('click',function(e){
+    _dc++;
+    _dbg('['+_dc+'] CLICK '+e.clientX+','+e.clientY+' | '+(e.target.id||e.target.className.toString().slice(0,20)||e.target.tagName));
+  },true);
+})();
+
 </script>
 
 <!-- TURNO MODALS -->
@@ -5480,10 +5478,11 @@ async function fkRegistrar(tipo){
 </div>
 
 <!-- FICHAJE KIOSK MODAL -->
-<div id="fichaje-kiosk">
+<div id="fichaje-kiosk" onmousemove="document.getElementById('fk-debug').textContent='DIV-MOVE '+event.clientX+','+event.clientY" onclick="document.getElementById('fk-debug').textContent='DIV-CLICK >'+event.target.tagName">
   <div id="fk-debug"></div>
   <button class="fk-close" id="fk-close-btn" onclick="closeFichaje()">✕ Cerrar</button>
   <div class="fk-logo">ANOMALY</div>
+  <div class="fk-ver">v23.7</div>
   <!-- Ambient screen (kiosk idle) -->
   <div id="fk-screen-ambient" style="display:none;text-align:center;cursor:pointer;width:100%" onclick="fkTapAmbient()">
     <div id="fk-amb-clock" style="font-size:60px;font-weight:100;letter-spacing:6px;color:rgba(255,255,255,.9);margin-bottom:6px">00:00</div>
