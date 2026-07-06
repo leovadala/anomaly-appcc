@@ -247,8 +247,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .fk-key{padding:16px;background:rgba(255,255,255,.08);border:none;color:#fff;font-size:18px;font-weight:500;cursor:pointer;border-radius:4px;font-family:var(--font);transition:background .12s;touch-action:manipulation;-webkit-tap-highlight-color:rgba(255,255,255,.2);user-select:none;-webkit-user-select:none}
 .fk-key:hover{background:rgba(255,255,255,.16)}
 .fk-key:active{background:rgba(255,255,255,.25)}
-#fichaje-kiosk,#fichaje-kiosk *{pointer-events:auto !important}
-#fk-debug{position:fixed;bottom:8px;left:8px;font-size:11px;font-family:monospace;color:#fff;background:rgba(0,0,0,.7);padding:3px 8px;border-radius:3px;pointer-events:none;z-index:99999;max-width:95vw;white-space:nowrap;overflow:hidden}
 .fk-confirm{width:240px;margin-top:1rem;padding:14px;background:#fff;color:#1a1a2e;border:none;font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:var(--font)}
 .fk-confirm:hover{background:#f0eeeb}
 .fk-result{text-align:center;padding:20px}
@@ -4586,14 +4584,14 @@ async function verDetalleConteo(id){
 // ═══════════════════════════════════════════════════════════════════
 // MÓDULO EMPLEADOS
 // ═══════════════════════════════════════════════════════════════════
-let _empPeriod='week';
-let _empFichajes=[];   // loaded fichajes for current period
-let _empFichajeHoy=[]; // today's fichajes
-let _fkPin='';
-let _fkEmp=null; // matched employee object
-let _isKioskMode=false;
-let _fkSupervisorMode=false;
-let _fkAmbientInterval=null;
+var _empPeriod='week';
+var _empFichajes=[];   // loaded fichajes for current period
+var _empFichajeHoy=[]; // today's fichajes
+var _fkPin='';
+var _fkEmp=null; // matched employee object
+var _isKioskMode=false;
+var _fkSupervisorMode=false;
+var _fkAmbientInterval=null;
 
 // ── Sub-tab navigation ──────────────────────────────────────────────
 function empSubTab(tab){
@@ -5191,24 +5189,6 @@ function closeFichaje(){
   const app=document.querySelector('.app');if(app)app.style.display='';
   loadTurnoFichaje();
 }
-
-function fkDiag(label){
-  var s='';
-  try{
-    var d0=document.getElementById('fk-d0');
-    var scr=document.getElementById('fk-screen-pin');
-    var k=document.getElementById('fichaje-kiosk');
-    var d0bg=d0?window.getComputedStyle(d0).backgroundColor:'?';
-    s=(label||'?')
-     +'|pin=['+_fkPin+']'
-     +'|km='+_isKioskMode
-     +'|d0cls='+(d0?d0.className:'NULL')
-     +'|d0bg='+d0bg
-     +'|scr='+(scr?scr.style.display:'NULL');
-  }catch(ex){s='ERR:'+ex.message;}
-  var err=document.getElementById('fk-err');
-  if(err){err.style.color='#ff0';err.style.fontSize='11px';err.style.whiteSpace='pre';err.style.background='#000';err.style.padding='4px';err.textContent=s;}
-}
 function fkBindEvents(){
   // v23.6: events now bound via inline onclick attributes
 }
@@ -5420,19 +5400,6 @@ async function fkRegistrar(tipo){
   }
 })();
 
-// v23.7: global debug, attached immediately (no openFichaje dependency)
-;(function(){
-  var _dc=0;
-  function _dbg(txt){var d=document.getElementById('fk-debug');if(d)d.textContent=txt;}
-  document.addEventListener('mousemove',function(e){
-    var el=document.elementFromPoint(e.clientX,e.clientY);
-    _dbg('MOVE '+e.clientX+','+e.clientY+(el?' | '+(el.id||el.className.toString().slice(0,20)||el.tagName):''));
-  });
-  document.addEventListener('click',function(e){
-    _dc++;
-    _dbg('['+_dc+'] CLICK '+e.clientX+','+e.clientY+' | '+(e.target.id||e.target.className.toString().slice(0,20)||e.target.tagName));
-  },true);
-})();
 
 </script>
 
@@ -5495,11 +5462,10 @@ async function fkRegistrar(tipo){
 </div>
 
 <!-- FICHAJE KIOSK MODAL -->
-<div id="fichaje-kiosk" onmousemove="document.getElementById('fk-debug').textContent='DIV-MOVE '+event.clientX+','+event.clientY" onclick="document.getElementById('fk-debug').textContent='DIV-CLICK >'+event.target.tagName">
-  <div id="fk-debug"></div>
-  <button class="fk-close" id="fk-close-btn" onclick="fkDiag('PRE-CLOSE');closeFichaje()">✕ Cerrar</button>
+<div id="fichaje-kiosk">
+  <button class="fk-close" id="fk-close-btn" onclick="closeFichaje()">✕ Cerrar</button>
   <div class="fk-logo">ANOMALY</div>
-  <div class="fk-ver">v23.11</div>
+  <div class="fk-ver">v24.0</div>
   <!-- Ambient screen (kiosk idle) -->
   <div id="fk-screen-ambient" style="display:none;text-align:center;cursor:pointer;width:100%" onclick="fkTapAmbient()">
     <div id="fk-amb-clock" style="font-size:60px;font-weight:100;letter-spacing:6px;color:rgba(255,255,255,.9);margin-bottom:6px">00:00</div>
@@ -5516,7 +5482,7 @@ async function fkRegistrar(tipo){
       <div class="fk-dot" id="fk-d3"></div>
     </div>
     <div class="fk-pad">
-      <button class="fk-key" data-fk="1" onclick="fkDigit('1');fkDiag()">1</button>
+      <button class="fk-key" data-fk="1" onclick="fkDigit('1')">1</button>
       <button class="fk-key" data-fk="2" onclick="fkDigit('2')">2</button>
       <button class="fk-key" data-fk="3" onclick="fkDigit('3')">3</button>
       <button class="fk-key" data-fk="4" onclick="fkDigit('4')">4</button>
