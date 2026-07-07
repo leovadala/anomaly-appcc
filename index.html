@@ -294,6 +294,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .cat-General{background:#f1efe8;color:#5F5E5A}
 .nov-cat-btn{padding:4px 10px;border:.5px solid var(--border);background:transparent;font-size:9px;color:var(--muted);cursor:pointer;font-family:var(--font);border-radius:2px;transition:all .15s}
 .nov-cat-btn.on{border-color:var(--black);color:var(--black)}
+
+.caj-row{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:.5px solid var(--border)}
+.caj-denom{width:34px;font-size:13px;font-weight:700;color:var(--black);font-family:var(--mono);flex-shrink:0}
+.caj-stepper{display:flex;align-items:stretch;flex:1;border:.5px solid var(--border);border-radius:4px;overflow:hidden}
+.caj-stepper button{width:34px;border:none;background:var(--surface);font-size:19px;cursor:pointer;font-family:inherit;line-height:1;flex-shrink:0;transition:background .1s}
+.caj-stepper button:active{background:var(--bg)}
+.caj-stepper input{flex:1;text-align:center;border:none;border-left:.5px solid var(--border);border-right:.5px solid var(--border);font-family:var(--mono);font-size:15px;font-weight:600;background:var(--white,#fff);min-width:0;padding:0}
+.caj-amt{width:58px;text-align:right;font-size:12px;font-family:var(--mono);color:var(--muted);flex-shrink:0}
 </style>
 </head>
 <body>
@@ -2009,10 +2017,10 @@ async function loadTurnoFichaje(){
 }
 async function loadTurnoCaja(){
   const t=new Date().toISOString().slice(0,10);
-  const{data}=await sb.from('registros_caja').select('tipo,monto').gte('created_at',t+'T00:00:00').order('created_at',{ascending:false});
-  const c=$('tur-card-caja'),ap=(data||[]).find(r=>r.tipo==='apertura');
-  if(ap){c.className='tur-card t-ok';$('tur-caja-val').textContent=ap.monto!=null?'\u20ac'+ap.monto:'Abierta';$('tur-caja-sub').textContent='apertura registrada';}
-  else{c.className='tur-card t-warn';$('tur-caja-val').textContent='Pendiente';$('tur-caja-sub').textContent='sin apertura';}
+  const{data}=await sb.from('cajas').select('id,total_efectivo,square,datafono,controlado_at').eq('fecha',t).limit(1);
+  const c=$('tur-card-caja'),r=(data||[])[0];
+  if(r){const tot=(r.total_efectivo||0)+(r.square||0)+(r.datafono||0);c.className='tur-card t-ok';$('tur-caja-val').textContent='\u20ac'+tot.toFixed(2);$('tur-caja-sub').textContent=r.controlado_at?'controlado \u2713':'cierre registrado';}
+  else{c.className='tur-card t-pend';$('tur-caja-val').textContent='\u2014';$('tur-caja-sub').textContent='sin cierre hoy';}
 }
 async function loadTurnoTemp(){
   const t=new Date().toISOString().slice(0,10);
@@ -2062,13 +2070,105 @@ async function guardarNovedad(){
   $('tur-nov-sub').textContent=(data||[]).length+' hoy';
   $('tur-card-nov').className='tur-card t-ok';
 }
-function openCajaModal(){$('caja-modal-monto').value='';$('caja-modal-notas').value='';$('caja-modal-tipo').value='apertura';$('caja-modal').style.display='flex';}
+// ── Módulo Control de Caja ──
+const cajDenoms=[
+  {id:'b50',col:'bill_50',val:50},{id:'b20',col:'bill_20',val:20},{id:'b10',col:'bill_10',val:10},{id:'b5',col:'bill_5',val:5},
+  {id:'c200',col:'coin_200',val:2},{id:'c100',col:'coin_100',val:1},{id:'c050',col:'coin_050',val:.5},{id:'c020',col:'coin_020',val:.2},
+  {id:'c010',col:'coin_010',val:.1},{id:'c005',col:'coin_005',val:.05},{id:'c002',col:'coin_002',val:.02},{id:'c001',col:'coin_001',val:.01}
+];
+let _cajRecord=null;
+async function openCajaModal(){
+  cajDenoms.forEach(d=>{const el=$('caj-'+d.id);if(el)el.value=0;});
+  calcCajaEfectivo();
+  $('caj-square').value='';$('caj-datafono').value='';$('caj-notas').value='';
+  $('caj-fecha').value=new Date().toISOString().slice(0,10);
+  const rsel=$('caj-resp');rsel.innerHTML='';
+  let pool=horEmpleados.length?horEmpleados:((await sb.from('hor_empleados').select('nombre').order('nombre')).data||[]);
+  if(!pool.length)pool=team||[];
+  pool.forEach(e=>{const o=document.createElement('option');o.value=e.nombre;o.textContent=e.nombre;rsel.appendChild(o);});
+  if(currentUser){const opt=[...rsel.options].find(o=>o.value===currentUser);if(opt)rsel.value=currentUser;}
+  const btn=$('caj-save-btn');btn.textContent='Guardar cierre';btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';btn.disabled=false;
+  cajSwitchTab('cierre');
+  $('caja-modal').style.display='flex';
+}
 function closeCajaModal(){$('caja-modal').style.display='none';}
-async function guardarCaja(){
-  const tipo=$('caja-modal-tipo').value,monto=parseFloat($('caja-modal-monto').value)||null,notas=$('caja-modal-notas').value.trim()||null;
-  const{error}=await sb.from('registros_caja').insert({tipo,monto,notas,usuario:currentUser||$('ob-user').value||'Equipo'});
-  if(error){alert('Error: '+error.message);return;}
-  closeCajaModal();loadTurnoCaja();
+function cajSwitchTab(t){
+  ['cierre','ctrl'].forEach(x=>{
+    $('caja-tab-'+x).style.borderBottomColor=t===x?'var(--black)':'transparent';
+    $('caja-tab-'+x).style.color=t===x?'var(--black)':'var(--muted)';
+    $('caja-panel-'+x).style.display=t===x?'block':'none';
+  });
+  if(t==='ctrl'){$('caj-pin-gate').style.display='flex';$('caj-ctrl-content').style.display='none';$('caj-pin-input').value='';$('caj-pin-err').textContent='';setTimeout(()=>$('caj-pin-input').focus(),80);}
+}
+function cajStep(id,dir){const el=$('caj-'+id);if(!el)return;el.value=Math.max(0,(parseInt(el.value)||0)+dir);calcCajaEfectivo();}
+function calcCajaEfectivo(){
+  let total=0;
+  cajDenoms.forEach(d=>{
+    const q=parseInt($('caj-'+d.id)?.value||0)||0;
+    const sub=Math.round(q*d.val*100)/100;
+    const el=$('caj-'+d.id+'-tot');
+    if(el)el.textContent='€'+sub.toFixed(2);
+    total+=sub;
+  });
+  if($('caj-total-efe'))$('caj-total-efe').textContent='€'+total.toFixed(2);
+}
+async function guardarCierre(){
+  const btn=$('caj-save-btn');
+  const fecha=$('caj-fecha').value;
+  if(!fecha){alert('Fecha requerida');return;}
+  btn.textContent='Guardando…';btn.disabled=true;
+  const row={fecha,responsable_cierre:$('caj-resp').value,notas_cierre:$('caj-notas').value.trim()||null,square:parseFloat($('caj-square').value)||0,datafono:parseFloat($('caj-datafono').value)||0};
+  let total=0;
+  cajDenoms.forEach(d=>{const q=parseInt($('caj-'+d.id)?.value||0)||0;row[d.col]=q;total=Math.round((total+q*d.val)*100)/100;});
+  row.total_efectivo=total;
+  const{data:ex}=await sb.from('cajas').select('id').eq('fecha',fecha).limit(1);
+  let error;
+  if(ex&&ex[0]){const r=await sb.from('cajas').update(row).eq('id',ex[0].id).select();error=r.error;_cajRecord=(r.data||[])[0]||null;}
+  else{const r=await sb.from('cajas').insert(row).select();error=r.error;_cajRecord=(r.data||[])[0]||null;}
+  if(error){btn.textContent='Guardar cierre';btn.disabled=false;alert('Error: '+error.message);return;}
+  btn.textContent='✓ Guardado correctamente';btn.style.background='#1a7a3d';btn.style.color='#fff';btn.style.borderColor='#1a7a3d';
+  loadTurnoCaja();
+  setTimeout(()=>closeCajaModal(),1800);
+}
+async function verifCajaPIN(){
+  const pin=$('caj-pin-input').value;
+  if(pin!==pinSupervisor){$('caj-pin-err').textContent='PIN incorrecto';return;}
+  $('caj-pin-gate').style.display='none';
+  const t=new Date().toISOString().slice(0,10);
+  const{data}=await sb.from('cajas').select('*').eq('fecha',t).limit(1);
+  _cajRecord=(data||[])[0]||null;
+  const r=_cajRecord,el=$('caj-ctrl-resumen');
+  if(r){
+    const ef=r.total_efectivo||0,sq=r.square||0,dt=r.datafono||0,tot=ef+sq+dt;
+    el.innerHTML=`Efectivo contado: <b>€${ef.toFixed(2)}</b><br>Square: <b>€${sq.toFixed(2)}</b><br>Datáfono: <b>€${dt.toFixed(2)}</b><br><span style="display:block;border-top:.5px solid var(--border);margin-top:5px;padding-top:5px">Total del día: <b style="font-size:14px">€${tot.toFixed(2)}</b></span>`;
+    if(r.ingreso_banco!=null)$('caj-banco').value=r.ingreso_banco;
+    if(r.fondo_apertura!=null)$('caj-fondo').value=r.fondo_apertura;
+    if(r.referencia_banco)$('caj-banco-ref').value=r.referencia_banco;
+    if(r.notas_control)$('caj-ctrl-notas').value=r.notas_control;
+    calcCajaControl();
+  }else{el.innerHTML='<span style="color:var(--muted);font-size:12px">Sin cierre registrado hoy.</span>';}
+  $('caj-ctrl-content').style.display='flex';
+}
+function calcCajaControl(){
+  if(!_cajRecord)return;
+  const ef=_cajRecord.total_efectivo||0;
+  const banco=parseFloat($('caj-banco').value)||0,fondo=parseFloat($('caj-fondo').value)||0;
+  const diff=Math.round((ef-banco-fondo)*100)/100;
+  const el=$('caj-cuadre-val'),box=$('caj-cuadre-box');
+  el.textContent=(diff>=0?'+':'')+'€'+diff.toFixed(2);
+  if(diff===0){box.style.background='#f0faf5';el.style.color='#1a7a3d';}
+  else if(Math.abs(diff)<=5){box.style.background='#fffbf0';el.style.color='#b8860b';}
+  else{box.style.background='#fff5f5';el.style.color='#c0392b';}
+}
+async function guardarControl(){
+  if(!_cajRecord){alert('Sin cierre registrado hoy');return;}
+  const btn=$('caj-ctrl-btn');btn.textContent='Guardando…';btn.disabled=true;
+  const upd={ingreso_banco:parseFloat($('caj-banco').value)||null,fondo_apertura:parseFloat($('caj-fondo').value)||null,referencia_banco:$('caj-banco-ref').value.trim()||null,notas_control:$('caj-ctrl-notas').value.trim()||null,encargado:currentUser||null,controlado_at:new Date().toISOString()};
+  const{error}=await sb.from('cajas').update(upd).eq('id',_cajRecord.id);
+  if(error){btn.textContent='Guardar control';btn.disabled=false;alert('Error: '+error.message);return;}
+  btn.textContent='✓ Control guardado';btn.style.background='#1a7a3d';btn.style.color='#fff';btn.style.borderColor='#1a7a3d';
+  loadTurnoCaja();
+  setTimeout(()=>closeCajaModal(),1800);
 }
 // --- Módulo Control de Temperaturas ---
 const tempSensors=[
@@ -5600,18 +5700,76 @@ async function fkRegistrar(tipo){
   </div>
 </div>
 
-<div class="ocr-modal" id="caja-modal" style="display:none" onclick="if(event.target===this)closeCajaModal()">
-  <div style="background:var(--white,#fff);width:100%;max-width:480px;padding:1.4rem 1.2rem;border-radius:8px 8px 0 0">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
-      <span style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Registro de caja</span>
+<div class="ocr-modal" id="caja-modal" style="display:none;align-items:center" onclick="if(event.target===this)closeCajaModal()">
+  <div style="background:var(--white,#fff);width:100%;max-width:460px;border-radius:10px;overflow:hidden;max-height:92vh;display:flex;flex-direction:column;margin:1rem">
+    <div style="padding:.9rem 1.2rem;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid var(--border);flex-shrink:0">
+      <span style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Control de Caja</span>
       <button type="button" onclick="closeCajaModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">&times;</button>
     </div>
-    <div class="r2">
-      <div class="f"><label>Tipo</label><select id="caja-modal-tipo"><option value="apertura">Apertura</option><option value="cierre">Cierre</option></select></div>
-      <div class="f"><label>Monto (€)</label><input type="number" id="caja-modal-monto" step="0.01" placeholder="0.00"></div>
+    <div style="display:flex;border-bottom:.5px solid var(--border);flex-shrink:0">
+      <button type="button" id="caja-tab-cierre" onclick="cajSwitchTab('cierre')" style="flex:1;padding:10px;border:none;background:transparent;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid var(--black);font-family:var(--font);color:var(--black)">Cierre</button>
+      <button type="button" id="caja-tab-ctrl" onclick="cajSwitchTab('ctrl')" style="flex:1;padding:10px;border:none;background:transparent;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font);color:var(--muted)">&#128274; Control</button>
     </div>
-    <div class="f"><label>Notas</label><input id="caja-modal-notas" placeholder="Observaciones…"></div>
-    <button type="button" class="btn" onclick="guardarCaja()" style="width:100%;margin-top:1rem">Guardar</button>
+    <!-- PANEL CIERRE -->
+    <div id="caja-panel-cierre" style="overflow-y:auto;padding:1rem 1.2rem;flex:1;display:flex;flex-direction:column;gap:9px">
+      <div style="display:grid;grid-template-columns:1fr 130px;gap:8px">
+        <div class="f" style="margin:0"><label>Responsable</label><select id="caj-resp" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;background:var(--surface)"></select></div>
+        <div class="f" style="margin:0"><label>Fecha</label><input type="date" id="caj-fecha" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;background:var(--surface)"></div>
+      </div>
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Billetes</div>
+        <div class="caj-row"><span class="caj-denom">&euro;50</span><div class="caj-stepper"><button type="button" onclick="cajStep('b50',-1)">&minus;</button><input type="number" id="caj-b50" value="0" min="0" inputmode="numeric" oninput="calcCajaEfectivo()"><button type="button" onclick="cajStep('b50',1)">+</button></div><span id="caj-b50-tot" class="caj-amt">&euro;0,00</span></div>
+        <div class="caj-row"><span class="caj-denom">&euro;20</span><div class="caj-stepper"><button type="button" onclick="cajStep('b20',-1)">&minus;</button><input type="number" id="caj-b20" value="0" min="0" inputmode="numeric" oninput="calcCajaEfectivo()"><button type="button" onclick="cajStep('b20',1)">+</button></div><span id="caj-b20-tot" class="caj-amt">&euro;0,00</span></div>
+        <div class="caj-row"><span class="caj-denom">&euro;10</span><div class="caj-stepper"><button type="button" onclick="cajStep('b10',-1)">&minus;</button><input type="number" id="caj-b10" value="0" min="0" inputmode="numeric" oninput="calcCajaEfectivo()"><button type="button" onclick="cajStep('b10',1)">+</button></div><span id="caj-b10-tot" class="caj-amt">&euro;0,00</span></div>
+        <div class="caj-row"><span class="caj-denom">&euro;5</span><div class="caj-stepper"><button type="button" onclick="cajStep('b5',-1)">&minus;</button><input type="number" id="caj-b5" value="0" min="0" inputmode="numeric" oninput="calcCajaEfectivo()"><button type="button" onclick="cajStep('b5',1)">+</button></div><span id="caj-b5-tot" class="caj-amt">&euro;0,00</span></div>
+      </div>
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Monedas</div>
+        <div class="caj-row"><span class="caj-denom">&euro;2</span><div class="caj-stepper"><button type="button" onclick="cajStep('c200',-1)">&minus;</button><input type="number" id="caj-c200" value="0" min="0" inputmode="numeric" oninput="calcCajaEfectivo()"><button type="button" onclick="cajStep('c200',1)">+</button></div><span id="caj-c200-tot" class="caj-amt">&euro;0,00</span></div>
+        <div class="caj-row"><span class="caj-denom">&euro;1</span><div class="caj-stepper"><button type="button" onclick="cajStep('c100',-1)">&minus;</button><input type="number" id="caj-c100" value="0" min="0" inputmode="numeric" oninput="calcCajaEfectivo()"><button type="button" onclick="cajStep('c100',1)">+</button></div><span id="caj-c100-tot" class="caj-amt">&euro;0,00</span></div>
+        <div class="caj-row"><span class="caj-denom">50&cent;</span><div class="caj-stepper"><button type="button" onclick="cajStep('c050',-1)">&minus;</button><input type="number" id="caj-c050" value="0" min="0" inputmode="numeric" oninput="calcCajaEfectivo()"><button type="button" onclick="cajStep('c050',1)">+</button></div><span id="caj-c050-tot" class="caj-amt">&euro;0,00</span></div>
+        <div class="caj-row"><span class="caj-denom">20&cent;</span><div class="caj-stepper"><button type="button" onclick="cajStep('c020',-1)">&minus;</button><input type="number" id="caj-c020" value="0" min="0" inputmode="numeric" oninput="calcCajaEfectivo()"><button type="button" onclick="cajStep('c020',1)">+</button></div><span id="caj-c020-tot" class="caj-amt">&euro;0,00</span></div>
+        <div class="caj-row"><span class="caj-denom">10&cent;</span><div class="caj-stepper"><button type="button" onclick="cajStep('c010',-1)">&minus;</button><input type="number" id="caj-c010" value="0" min="0" inputmode="numeric" oninput="calcCajaEfectivo()"><button type="button" onclick="cajStep('c010',1)">+</button></div><span id="caj-c010-tot" class="caj-amt">&euro;0,00</span></div>
+        <div class="caj-row"><span class="caj-denom">5&cent;</span><div class="caj-stepper"><button type="button" onclick="cajStep('c005',-1)">&minus;</button><input type="number" id="caj-c005" value="0" min="0" inputmode="numeric" oninput="calcCajaEfectivo()"><button type="button" onclick="cajStep('c005',1)">+</button></div><span id="caj-c005-tot" class="caj-amt">&euro;0,00</span></div>
+        <div class="caj-row"><span class="caj-denom">2&cent;</span><div class="caj-stepper"><button type="button" onclick="cajStep('c002',-1)">&minus;</button><input type="number" id="caj-c002" value="0" min="0" inputmode="numeric" oninput="calcCajaEfectivo()"><button type="button" onclick="cajStep('c002',1)">+</button></div><span id="caj-c002-tot" class="caj-amt">&euro;0,00</span></div>
+        <div class="caj-row" style="border-bottom:none"><span class="caj-denom">1&cent;</span><div class="caj-stepper"><button type="button" onclick="cajStep('c001',-1)">&minus;</button><input type="number" id="caj-c001" value="0" min="0" inputmode="numeric" oninput="calcCajaEfectivo()"><button type="button" onclick="cajStep('c001',1)">+</button></div><span id="caj-c001-tot" class="caj-amt">&euro;0,00</span></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--surface);border-radius:6px;border:.5px solid var(--border)">
+        <span style="font-size:12px;font-weight:500">Total efectivo</span>
+        <span id="caj-total-efe" style="font-size:20px;font-weight:700;font-family:var(--mono)">&euro;0,00</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="f" style="margin:0"><label>Square (&euro;)</label><input type="number" id="caj-square" step="0.01" placeholder="0.00" style="width:100%;padding:9px;border:.5px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:15px;font-weight:600;background:var(--surface)"></div>
+        <div class="f" style="margin:0"><label>Dat&aacute;fono (&euro;)</label><input type="number" id="caj-datafono" step="0.01" placeholder="0.00" style="width:100%;padding:9px;border:.5px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:15px;font-weight:600;background:var(--surface)"></div>
+      </div>
+      <div class="f" style="margin:0"><label>Notas (opcional)</label><textarea id="caj-notas" rows="2" placeholder="Incidencias…" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;resize:none;background:var(--surface)"></textarea></div>
+      <button type="button" id="caj-save-btn" onclick="guardarCierre()" style="padding:11px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s">Guardar cierre</button>
+    </div>
+    <!-- PANEL CONTROL (PIN encargado) -->
+    <div id="caja-panel-ctrl" style="display:none;overflow-y:auto;padding:1rem 1.2rem;flex:1">
+      <div id="caj-pin-gate" style="display:flex;flex-direction:column;align-items:center;padding:20px 0">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px;letter-spacing:.5px">PIN de supervisor</div>
+        <input id="caj-pin-input" type="password" inputmode="numeric" maxlength="4" placeholder="&bull;&bull;&bull;&bull;" style="font-size:24px;letter-spacing:10px;text-align:center;width:130px;border:.5px solid var(--border);border-radius:6px;padding:10px;font-family:var(--mono);background:var(--surface)" onkeydown="if(event.key==='Enter')verifCajaPIN()">
+        <div id="caj-pin-err" style="color:#e74c3c;font-size:10px;margin-top:8px;min-height:14px"></div>
+        <button type="button" onclick="verifCajaPIN()" style="margin-top:14px;padding:9px 24px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px">Verificar</button>
+      </div>
+      <div id="caj-ctrl-content" style="display:none;flex-direction:column;gap:10px">
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">Resumen del cierre</div>
+        <div id="caj-ctrl-resumen" style="background:var(--surface);border-radius:6px;padding:10px 12px;font-size:13px;line-height:2;border:.5px solid var(--border)"></div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:4px">Destino del efectivo</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="f" style="margin:0"><label>Ingreso banco (&euro;)</label><input type="number" id="caj-banco" step="0.01" placeholder="0.00" oninput="calcCajaControl()" style="width:100%;padding:9px;border:.5px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:15px;font-weight:600;background:var(--surface)"></div>
+          <div class="f" style="margin:0"><label>Fondo ma&ntilde;ana (&euro;)</label><input type="number" id="caj-fondo" step="0.01" placeholder="0.00" oninput="calcCajaControl()" style="width:100%;padding:9px;border:.5px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:15px;font-weight:600;background:var(--surface)"></div>
+        </div>
+        <div class="f" style="margin:0"><label>Referencia / recibo banco</label><input type="text" id="caj-banco-ref" placeholder="N&ordm; recibo…" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;background:var(--surface)"></div>
+        <div id="caj-cuadre-box" style="padding:10px 14px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;border:.5px solid var(--border);background:var(--surface)">
+          <span style="font-size:12px;font-weight:500">Diferencia</span>
+          <span id="caj-cuadre-val" style="font-size:20px;font-weight:700;font-family:var(--mono)">&mdash;</span>
+        </div>
+        <div class="f" style="margin:0"><label>Notas del control</label><textarea id="caj-ctrl-notas" rows="2" placeholder="Observaciones del encargado…" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;resize:none;background:var(--surface)"></textarea></div>
+        <button type="button" id="caj-ctrl-btn" onclick="guardarControl()" style="padding:11px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s">Guardar control</button>
+      </div>
+    </div>
   </div>
 </div>
 
