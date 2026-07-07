@@ -2088,11 +2088,13 @@ async function openTempModal(){
   const now=new Date();
   $('temp-fecha').value=now.toISOString().slice(0,10);
   $('temp-hora').value=now.toTimeString().slice(0,5);
-  // Populate responsable select from team
+  // Populate responsable from hor_empleados (full list) or team as fallback
   const rsel=$('temp-responsable');rsel.innerHTML='';
-  (team||[]).forEach(e=>{const o=document.createElement('option');o.value=e.nombre;o.textContent=e.nombre;rsel.appendChild(o);});
-  if(currentUser&&[...(team||[])].some(e=>e.nombre===currentUser))rsel.value=currentUser;
-  else if(team&&team.length)rsel.value=team[0].nombre;
+  let empPool=horEmpleados.length?horEmpleados:(await sb.from('hor_empleados').select('nombre').order('nombre')).data||[];
+  if(!empPool.length)empPool=team||[];
+  empPool.forEach(e=>{const o=document.createElement('option');o.value=e.nombre;o.textContent=e.nombre;rsel.appendChild(o);});
+  const match=empPool.find(e=>e.nombre===currentUser||e.nombre.toLowerCase()===currentUser.toLowerCase());
+  if(match)rsel.value=match.nombre;else if(empPool.length)rsel.value=empPool[0].nombre;
   const h=now.getHours();$('temp-turno').value=h<12?'Apertura':h<17?'Tarde':'Cierre';
   const{data}=await sb.from('registros_temperatura').select('pozzetti_1,pozzetti_2,pozzetti_3,armario_2,nev_pasteleria,nev_cafeteria,nev_obrador_1,nev_obrador_2').order('created_at',{ascending:false}).limit(1);
   const last=data&&data[0];
