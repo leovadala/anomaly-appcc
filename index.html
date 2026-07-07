@@ -968,6 +968,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   <div id="pl-content"><div class="empty">Cargando...</div></div>
 </div>
 </div><!-- /v10 -->
+</div><!-- /main -->
 
 <!-- V11: EMPLEADOS -->
 <div class="view" id="v11">
@@ -1006,7 +1007,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   <!-- Ficha individual -->
   <div id="emp-ficha-panel" style="display:none"></div>
 </div>
-</div><!-- /main -->
 </div><!-- /app -->
 
 <div id="eg-quick-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.65);z-index:2000;align-items:center;justify-content:center">
@@ -2067,7 +2067,7 @@ async function guardarTemp(){
 }
 
 function enterApp(){const v=$('ob-user').value;if(!v){alert('Seleccion\u00e1 un responsable');return}currentUser=v;$('onboard').style.display='none';$('main').style.display='block';$('hdr-user').textContent=currentUser;$('ar').value=currentUser;$('af').valueAsDate=new Date();loadLastIngreso();try{localStorage.setItem('anomaly_last_login',JSON.stringify({user:v,time:new Date().toISOString()}))}catch(e){};startClock();goHome()}
-function logout(){currentUser='';_finUnlocked=false;$('main').style.display='none';$('onboard').style.display='flex';$('ob-user').value='';window.scrollTo(0,0)}
+function logout(){currentUser='';_finUnlocked=false;document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));$('main').style.display='none';$('onboard').style.display='flex';$('ob-user').value='';window.scrollTo(0,0)}
 function renderTeamSelect(){$('ob-user').innerHTML='<option value="">Seleccionar...</option>'+team.map(n=>`<option>${n.nombre}</option>`).join('')}
 
 async 
