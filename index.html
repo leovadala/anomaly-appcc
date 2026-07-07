@@ -2019,9 +2019,9 @@ async function loadTurnoCaja(){
 }
 async function loadTurnoTemp(){
   const t=new Date().toISOString().slice(0,10);
-  const{data}=await sb.from('registros_temperatura').select('zona,valor').gte('created_at',t+'T00:00:00').order('created_at',{ascending:false});
+  const{data}=await sb.from('registros_temperatura').select('turno,pozzetti_1').gte('fecha',t).order('created_at',{ascending:false}).limit(1);
   const c=$('tur-card-temp');
-  if((data||[]).length>0){c.className='tur-card t-ok';$('tur-temp-val').textContent=data[0].valor+'\u00b0';$('tur-temp-sub').textContent=data[0].zona;}
+  if((data||[]).length>0){const r=data[0];const v=r.pozzetti_1!=null?(r.pozzetti_1<0?'\u2212':'')+Math.abs(r.pozzetti_1).toFixed(1)+'\u00b0':'\u2713';c.className='tur-card t-ok';$('tur-temp-val').textContent=v;$('tur-temp-sub').textContent=(r.turno||'')+' registrado';}
   else{c.className='tur-card t-pend';$('tur-temp-val').textContent='\u2014';$('tur-temp-sub').textContent='sin registro hoy';}
 }
 async function loadTurnoNovedades(){
@@ -2056,14 +2056,103 @@ async function guardarCaja(){
   if(error){alert('Error: '+error.message);return;}
   closeCajaModal();loadTurnoCaja();
 }
-function openTempModal(){$('temp-modal-zona').value='C\u00e1mara frigor\u00edfica';$('temp-modal-valor').value='';$('temp-modal').style.display='flex';}
+// --- Módulo Control de Temperaturas ---
+const tempSensors=[
+  {id:'pozzetti_1',label:'Pozzetti 1',default:-14.5,neg:true,min:-20,max:-8},
+  {id:'pozzetti_2',label:'Pozzetti 2',default:-15.0,neg:true,min:-20,max:-8},
+  {id:'pozzetti_3',label:'Pozzetti 3',default:-13.5,neg:true,min:-20,max:-8},
+  {id:'armario_2', label:'Armario 2', default:-17.0,neg:true,min:-25,max:-10},
+  {id:'nev_pasteleria',label:'Nev. Pasteleria',default:4.0,neg:false,min:0,max:8},
+  {id:'nev_cafeteria', label:'Nev. Cafeteria', default:3.5,neg:false,min:0,max:8},
+  {id:'nev_obrador_1', label:'Nev. Obrador 1', default:3.0,neg:false,min:0,max:8},
+  {id:'nev_obrador_2', label:'Nev. Obrador 2', default:4.0,neg:false,min:0,max:8},
+];
+let tempVals={};
+function buildTempSteppers(){
+  const neg=tempSensors.filter(s=>s.neg),pos=tempSensors.filter(s=>!s.neg);
+  const makeRow=s=>{const v=tempVals[s.id];const out=v<s.min||v>s.max;const disp=(v<0?'−':'+')+Math.abs(v).toFixed(1)+'°';const col=out?'#c0392b':s.neg?'#2266bb':'#1a7a3d';return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:9px 10px;border:.5px solid ${out?'#c0392b':'var(--border)'};border-radius:4px;background:${out?'#fff5f5':'transparent'}"><span style="flex:1;font-size:13px">${s.label}</span><button type="button" onclick="adjTemp('${s.id}',-0.5)" style="width:28px;height:28px;border:.5px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;font-size:18px;line-height:1;font-family:var(--font)">−</button><span id="tv-${s.id}" style="font-size:14px;font-weight:500;min-width:52px;text-align:center;color:${col}">${disp}</span><button type="button" onclick="adjTemp('${s.id}',0.5)" style="width:28px;height:28px;border:.5px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;font-size:18px;line-height:1;font-family:var(--font)">+</button>${out?'<span style="font-size:9px;color:#c0392b;font-weight:700">ALERTA</span>':''}</div>`;};
+  $('temp-steppers-neg').innerHTML=neg.map(makeRow).join('');
+  $('temp-steppers-pos').innerHTML=pos.map(makeRow).join('');
+}
+function adjTemp(id,delta){
+  tempVals[id]=Math.round((tempVals[id]+delta)*10)/10;
+  const s=tempSensors.find(x=>x.id===id);const v=tempVals[id];
+  const out=v<s.min||v>s.max;const disp=(v<0?'−':'+')+Math.abs(v).toFixed(1)+'°';
+  const el=$('tv-'+id);el.textContent=disp;el.style.color=out?'#c0392b':s.neg?'#2266bb':'#1a7a3d';
+  const row=el.parentElement;row.style.borderColor=out?'#c0392b':'var(--border)';row.style.background=out?'#fff5f5':'transparent';
+  let al=row.querySelector('.t-alert-lbl');
+  if(out&&!al){const sp=document.createElement('span');sp.className='t-alert-lbl';sp.style.cssText='font-size:9px;color:#c0392b;font-weight:700';sp.textContent='ALERTA';row.appendChild(sp);}
+  else if(!out&&al)al.remove();
+}
+async function openTempModal(){
+  const now=new Date();
+  $('temp-fecha').value=now.toISOString().slice(0,10);
+  $('temp-hora').value=now.toTimeString().slice(0,5);
+  $('temp-responsable').value=currentUser;
+  const h=now.getHours();$('temp-turno').value=h<12?'Apertura':h<17?'Tarde':'Cierre';
+  const{data}=await sb.from('registros_temperatura').select('pozzetti_1,pozzetti_2,pozzetti_3,armario_2,nev_pasteleria,nev_cafeteria,nev_obrador_1,nev_obrador_2').order('created_at',{ascending:false}).limit(1);
+  const last=data&&data[0];
+  tempSensors.forEach(s=>{tempVals[s.id]=last&&last[s.id]!=null?last[s.id]:s.default;});
+  buildTempSteppers();
+  $('temp-incidencia').value='';
+  const btn=$('temp-save-btn');btn.textContent='Guardar registro';btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';btn.disabled=false;
+  tempTab('reg');
+  $('temp-modal').style.display='flex';
+}
 function closeTempModal(){$('temp-modal').style.display='none';}
+function tempTab(t){
+  $('temp-panel-reg').style.display=t==='reg'?'block':'none';
+  $('temp-panel-his').style.display=t==='his'?'block':'none';
+  const rb=$('temp-tab-reg'),hb=$('temp-tab-his');
+  rb.style.borderBottomColor=t==='reg'?'var(--black)':'transparent';rb.style.color=t==='reg'?'var(--black)':'var(--muted)';
+  hb.style.borderBottomColor=t==='his'?'var(--black)':'transparent';hb.style.color=t==='his'?'var(--black)':'var(--muted)';
+  if(t==='his')initTempHisFilters();
+}
 async function guardarTemp(){
-  const zona=$('temp-modal-zona').value,valor=parseFloat($('temp-modal-valor').value);
-  if(isNaN(valor)){alert('Ingres\u00e1 una temperatura v\u00e1lida');return;}
-  const{error}=await sb.from('registros_temperatura').insert({zona,valor,usuario:currentUser||$('ob-user').value||'Equipo'});
-  if(error){alert('Error: '+error.message);return;}
-  closeTempModal();loadTurnoTemp();
+  const btn=$('temp-save-btn');btn.textContent='Guardando…';btn.disabled=true;
+  const row={fecha:$('temp-fecha').value,hora:$('temp-hora').value,turno:$('temp-turno').value,responsable:$('temp-responsable').value||currentUser};
+  tempSensors.forEach(s=>{row[s.id]=tempVals[s.id];});
+  const inc=$('temp-incidencia').value.trim();if(inc)row.incidencia=inc;
+  const{error}=await sb.from('registros_temperatura').insert(row);
+  if(error){btn.textContent='Guardar registro';btn.disabled=false;alert('Error al guardar: '+error.message);return;}
+  btn.textContent='✓ Registro guardado correctamente';btn.style.background='#1a7a3d';btn.style.color='#fff';btn.style.borderColor='#1a7a3d';
+  loadTurnoTemp();
+  setTimeout(()=>closeTempModal(),1800);
+}
+function initTempHisFilters(){
+  const now=new Date(),mesEl=$('temp-his-mes'),a=document.createElement.bind(document);
+  if(mesEl.options.length)return renderTempHistorial();
+  const añoEl=$('temp-his-año');
+  ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].forEach((m,i)=>{const o=a('option');o.value=i+1;o.textContent=m;mesEl.appendChild(o);});
+  for(let y=now.getFullYear();y>=2024;y--){const o=a('option');o.value=y;o.textContent=y;añoEl.appendChild(o);}
+  mesEl.value=now.getMonth()+1;añoEl.value=now.getFullYear();
+  renderTempHistorial();
+}
+async function renderTempHistorial(){
+  const mes=String($('temp-his-mes').value).padStart(2,'0'),año=$('temp-his-año').value;
+  const from=`${año}-${mes}-01`;
+  const lastDay=new Date(año,$('temp-his-mes').value,0).getDate();
+  const to=`${año}-${mes}-${String(lastDay).padStart(2,'0')}`;
+  const el=$('temp-historial-list');el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:.5rem 0">Cargando…</div>';
+  const{data}=await sb.from('registros_temperatura').select('*').gte('fecha',from).lte('fecha',to).order('fecha',{ascending:false}).order('hora',{ascending:false});
+  if(!(data&&data.length)){el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:.5rem 0">Sin registros para este período.</div>';return;}
+  window._tempHisData=data;
+  el.innerHTML=data.map(r=>{
+    const alerts=tempSensors.filter(s=>r[s.id]!=null&&(r[s.id]<s.min||r[s.id]>s.max));
+    const grid=tempSensors.map(s=>{const v=r[s.id];const out=v!=null&&(v<s.min||v>s.max);return`<div><div style="color:var(--muted);font-size:9px;margin-bottom:2px">${s.label}</div><div style="font-weight:500;font-size:11px;color:${out?'#c0392b':s.neg?'#2266bb':'#1a7a3d'}">${v!=null?((v<0?'−':'+')+Math.abs(v).toFixed(1)+'°'):'—'}</div></div>`;}).join('');
+    return`<div style="border:.5px solid ${alerts.length?'#c0392b':'var(--border)'};border-radius:4px;padding:10px 12px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:8px"><span style="font-size:12px;font-weight:500">${r.fecha} · ${(r.hora||'').slice(0,5)}</span><span style="font-size:10px;color:var(--muted)">${r.turno} · ${r.responsable}</span>${alerts.length?'<span style="font-size:9px;color:#c0392b;font-weight:700">⚠ ALERTA</span>':''}</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${grid}</div>${r.incidencia?`<div style="margin-top:8px;font-size:11px;color:var(--muted);border-top:.5px solid var(--border);padding-top:6px">Incidencia: ${r.incidencia}</div>`:''}</div>`;
+  }).join('');
+}
+function exportTempCSV(){
+  const data=window._tempHisData;if(!data||!data.length){alert('Sin datos para exportar');return;}
+  const cols=['fecha','hora','turno','responsable','pozzetti_1','pozzetti_2','pozzetti_3','armario_2','nev_pasteleria','nev_cafeteria','nev_obrador_1','nev_obrador_2','incidencia'];
+  const hdr=['Fecha','Hora','Turno','Responsable','Pozzetti 1','Pozzetti 2','Pozzetti 3','Armario 2','Nev.Pasteleria','Nev.Cafeteria','Nev.Obrador 1','Nev.Obrador 2','Incidencia'];
+  let csv=hdr.join(',')+'\n';
+  data.forEach(r=>{csv+=cols.map(c=>r[c]!=null?String(r[c]).replace(/,/g,';'):'').join(',')+'\n';});
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);const link=document.createElement('a');
+  link.href=url;link.download=`temperaturas_${$('temp-his-año').value}-${String($('temp-his-mes').value).padStart(2,'0')}.csv`;
+  link.click();URL.revokeObjectURL(url);
 }
 
 function enterApp(){const v=$('ob-user').value;if(!v){alert('Seleccion\u00e1 un responsable');return}currentUser=v;$('onboard').style.display='none';$('main').style.display='block';$('hdr-user').textContent=currentUser;$('ar').value=currentUser;$('af').valueAsDate=new Date();loadLastIngreso();try{localStorage.setItem('anomaly_last_login',JSON.stringify({user:v,time:new Date().toISOString()}))}catch(e){};startClock();goHome()}
@@ -5506,24 +5595,42 @@ async function fkRegistrar(tipo){
 </div>
 
 <div class="ocr-modal" id="temp-modal" style="display:none" onclick="if(event.target===this)closeTempModal()">
-  <div style="background:var(--white,#fff);width:100%;max-width:480px;padding:1.4rem 1.2rem;border-radius:8px 8px 0 0">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
-      <span style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Registro de temperatura</span>
+  <div style="background:var(--white,#fff);width:100%;max-width:480px;border-radius:8px 8px 0 0;overflow:hidden">
+    <div style="padding:1rem 1.2rem;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid var(--border)">
+      <span style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Control de Temperaturas</span>
       <button type="button" onclick="closeTempModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">&times;</button>
     </div>
-    <div class="r2">
-      <div class="f"><label>Zona</label>
-        <select id="temp-modal-zona">
-          <option>Cámara frigorífica</option>
-          <option>Congelador</option>
-          <option>Vitrina</option>
-          <option>Ambiente</option>
-          <option>Otro</option>
-        </select>
-      </div>
-      <div class="f"><label>Temperatura (°C)</label><input type="number" id="temp-modal-valor" step="0.1" placeholder="ej: 4.1"></div>
+    <div style="display:flex;border-bottom:.5px solid var(--border)">
+      <button type="button" id="temp-tab-reg" onclick="tempTab('reg')" style="flex:1;padding:10px;border:none;background:transparent;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid var(--black);font-family:var(--font);color:var(--black)">Registrar</button>
+      <button type="button" id="temp-tab-his" onclick="tempTab('his')" style="flex:1;padding:10px;border:none;background:transparent;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font);color:var(--muted)">Historial</button>
     </div>
-    <button type="button" class="btn" onclick="guardarTemp()" style="width:100%;margin-top:1rem">Guardar</button>
+    <div id="temp-panel-reg" style="padding:1rem 1.2rem;max-height:72vh;overflow-y:auto">
+      <div class="r2" style="margin-bottom:10px">
+        <div class="f"><label>Fecha</label><input type="date" id="temp-fecha" readonly style="background:var(--surface,#f5f5f5)"></div>
+        <div class="f"><label>Hora</label><input type="time" id="temp-hora" readonly style="background:var(--surface,#f5f5f5)"></div>
+      </div>
+      <div class="r2" style="margin-bottom:14px">
+        <div class="f"><label>Responsable</label><input type="text" id="temp-responsable" readonly style="background:var(--surface,#f5f5f5)"></div>
+        <div class="f"><label>Turno</label><select id="temp-turno"><option>Apertura</option><option>Tarde</option><option>Cierre</option></select></div>
+      </div>
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Congeladores (°C)</div>
+      <div id="temp-steppers-neg"></div>
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:14px 0 8px">Neveras (°C)</div>
+      <div id="temp-steppers-pos"></div>
+      <div class="f" style="margin-top:14px">
+        <label>Incidencia (opcional)</label>
+        <textarea id="temp-incidencia" rows="2" placeholder="Describe cualquier anomalía…" style="resize:none;width:100%;font-family:var(--font);font-size:13px;padding:8px;border:.5px solid var(--border);border-radius:4px;background:transparent;color:inherit;box-sizing:border-box"></textarea>
+      </div>
+      <button type="button" id="temp-save-btn" onclick="guardarTemp()" style="width:100%;margin-top:1rem;padding:12px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s">Guardar registro</button>
+    </div>
+    <div id="temp-panel-his" style="display:none;padding:1rem 1.2rem;max-height:72vh;overflow-y:auto">
+      <div class="r2" style="margin-bottom:10px">
+        <div class="f"><label>Mes</label><select id="temp-his-mes" onchange="renderTempHistorial()"></select></div>
+        <div class="f"><label>Año</label><select id="temp-his-año" onchange="renderTempHistorial()"></select></div>
+      </div>
+      <button type="button" onclick="exportTempCSV()" style="margin-bottom:12px;padding:6px 14px;border:.5px solid var(--border);background:transparent;font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:3px">↓ Exportar CSV</button>
+      <div id="temp-historial-list"></div>
+    </div>
   </div>
 </div>
 
