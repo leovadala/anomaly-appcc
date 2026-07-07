@@ -324,19 +324,15 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
       <div class="tc-val" id="tur-temp-val">—</div>
       <div class="tc-sub" id="tur-temp-sub">cargando</div>
     </div>
-    <div id="tur-card-nov" class="tur-card t-pend">
-      <div class="tc-ico">·</div>
+    <div id="tur-card-nov" class="tur-card t-pend" onclick="openNovModal()">
+      <div class="tc-ico">✦</div>
       <div class="tc-lbl">Novedades</div>
       <div class="tc-val" id="tur-nov-val">0</div>
       <div class="tc-sub" id="tur-nov-sub">hoy</div>
     </div>
   </div>
   <button type="button" onclick="openFichaje()" style="width:100%;padding:14px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;margin-bottom:14px;transition:all .18s" onmouseover="this.style.background='var(--black)';this.style.color='var(--bg)'" onmouseout="this.style.background='transparent';this.style.color='var(--black)'">Fichar</button>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-    <span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">Novedades del día</span>
-    <button type="button" class="btn-d" onclick="openNovModal()" style="font-size:9px;padding:3px 10px">+ Agregar</button>
-  </div>
-  <div id="tur-nov-list" style="display:flex;flex-direction:column;gap:5px;margin-bottom:0;min-height:20px"></div>
+
 </div>
 <div style="width:100%;max-width:560px;border-top:.5px solid var(--border);margin-bottom:2rem"></div>
 <label>Responsable del turno</label>
@@ -2030,24 +2026,41 @@ async function loadTurnoNovedades(){
   const{data}=await sb.from('novedades').select('*').gte('created_at',t+'T00:00:00').order('created_at',{ascending:false});
   const list=data||[];
   $('tur-nov-val').textContent=list.length;
-  const el=$('tur-nov-list');
-  if(!list.length){el.innerHTML='<div style="font-size:10px;color:var(--hint);padding:4px 0">Sin novedades hoy</div>';return;}
-  el.innerHTML=list.map(n=>{
-    const d=new Date(n.created_at),hh=String(d.getHours()).padStart(2,'0'),mm=String(d.getMinutes()).padStart(2,'0');
-    return '<div class="nov-item"><div style="flex:1;font-size:10px;color:var(--black);line-height:1.4">'+n.texto+'</div>'
-      +'<div style="text-align:right;flex-shrink:0"><span class="nov-cat cat-'+n.categoria+'">'+n.categoria+'</span>'
-      +'<span style="display:block;font-size:8px;color:var(--hint);margin-top:2px">'+hh+':'+mm+' \u00b7 '+n.usuario+'</span></div></div>';
-  }).join('');
+  $('tur-nov-sub').textContent=list.length?(list.length===1?'1 hoy':list.length+' hoy'):'hoy';
+  $('tur-card-nov').className='tur-card '+(list.length?'t-ok':'t-pend');
+}
+function renderNovModalList(list){
+  const el=$('nov-modal-list');if(!el)return;
+  if(!list||!list.length){el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:14px 0 10px">Sin novedades hoy</div>';return;}
+  el.innerHTML=list.map(n=>{const d=new Date(n.created_at),hh=String(d.getHours()).padStart(2,'0'),mm=String(d.getMinutes()).padStart(2,'0');return`<div style="padding:12px 0;border-bottom:.5px solid var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px"><span class="nov-cat cat-${n.categoria}">${n.categoria}</span><span style="font-size:10px;color:var(--muted);white-space:nowrap">${hh}:${mm} \u00b7 ${n.usuario}</span></div><div style="font-size:13px;line-height:1.5">${n.texto}</div></div>`;}).join('');
 }
 let _novCat='General';
-function openNovModal(){_novCat='General';$('nov-modal-txt').value='';document.querySelectorAll('.nov-cat-btn').forEach(b=>b.classList.remove('on'));$('nov-cat-General').classList.add('on');$('novedad-modal').style.display='flex';setTimeout(()=>$('nov-modal-txt').focus(),50);}
+async function openNovModal(){
+  _novCat='General';$('nov-modal-txt').value='';
+  document.querySelectorAll('.nov-cat-btn').forEach(b=>b.classList.remove('on'));$('nov-cat-General').classList.add('on');
+  const btn=$('nov-save-btn');btn.textContent='Agregar';btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';btn.disabled=false;
+  $('novedad-modal').style.display='flex';
+  const t=new Date().toISOString().slice(0,10);
+  const{data}=await sb.from('novedades').select('*').gte('created_at',t+'T00:00:00').order('created_at',{ascending:false});
+  renderNovModalList(data||[]);
+  setTimeout(()=>$('nov-modal-txt').focus(),80);
+}
 function closeNovModal(){$('novedad-modal').style.display='none';}
 function setNovCat(cat,el){_novCat=cat;document.querySelectorAll('.nov-cat-btn').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
 async function guardarNovedad(){
   const txt=$('nov-modal-txt').value.trim();if(!txt){$('nov-modal-txt').focus();return;}
+  const btn=$('nov-save-btn');btn.textContent='Guardando…';btn.disabled=true;
   const{error}=await sb.from('novedades').insert({texto:txt,categoria:_novCat,usuario:currentUser||$('ob-user').value||'Equipo'});
-  if(error){alert('Error: '+error.message);return;}
-  closeNovModal();loadTurnoNovedades();
+  if(error){btn.textContent='Agregar';btn.disabled=false;alert('Error: '+error.message);return;}
+  $('nov-modal-txt').value='';
+  btn.textContent='✓ Guardado';btn.style.background='#1a7a3d';btn.style.color='#fff';btn.style.borderColor='#1a7a3d';
+  setTimeout(()=>{btn.textContent='Agregar';btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';btn.disabled=false;},1400);
+  const t=new Date().toISOString().slice(0,10);
+  const{data}=await sb.from('novedades').select('*').gte('created_at',t+'T00:00:00').order('created_at',{ascending:false});
+  renderNovModalList(data||[]);
+  $('tur-nov-val').textContent=(data||[]).length;
+  $('tur-nov-sub').textContent=(data||[]).length+' hoy';
+  $('tur-card-nov').className='tur-card t-ok';
 }
 function openCajaModal(){$('caja-modal-monto').value='';$('caja-modal-notas').value='';$('caja-modal-tipo').value='apertura';$('caja-modal').style.display='flex';}
 function closeCajaModal(){$('caja-modal').style.display='none';}
@@ -5566,23 +5579,24 @@ async function fkRegistrar(tipo){
 </script>
 
 <!-- TURNO MODALS -->
-<div class="ocr-modal" id="novedad-modal" style="display:none" onclick="if(event.target===this)closeNovModal()">
-  <div style="background:var(--white,#fff);width:100%;max-width:480px;padding:1.4rem 1.2rem;border-radius:8px 8px 0 0">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
-      <span style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Nueva novedad</span>
+<div class="ocr-modal" id="novedad-modal" style="display:none;align-items:center" onclick="if(event.target===this)closeNovModal()">
+  <div style="background:var(--white,#fff);width:100%;max-width:460px;border-radius:10px;overflow:hidden;max-height:85vh;display:flex;flex-direction:column;margin:1rem">
+    <div style="padding:1rem 1.2rem;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid var(--border);flex-shrink:0">
+      <span style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Novedades del día</span>
       <button type="button" onclick="closeNovModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">&times;</button>
     </div>
-    <div class="f"><label>Detalle</label><textarea id="nov-modal-txt" rows="3" placeholder="Describí lo que pasó o lo que hay que saber…" style="resize:none;width:100%"></textarea></div>
-    <div class="f" style="margin-top:.8rem"><label>Categoría</label>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+    <div id="nov-modal-list" style="overflow-y:auto;padding:0 1.2rem;flex:1;min-height:40px"></div>
+    <div style="border-top:.5px solid var(--border);padding:1rem 1.2rem;flex-shrink:0">
+      <textarea id="nov-modal-txt" rows="2" placeholder="Novedad, incidencia, idea…" style="resize:none;width:100%;font-family:var(--font);font-size:13px;padding:8px 10px;border:.5px solid var(--border);border-radius:4px;background:transparent;color:inherit;box-sizing:border-box;margin-bottom:8px"></textarea>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
         <button type="button" class="nov-cat-btn on" id="nov-cat-General" onclick="setNovCat('General',this)">General</button>
         <button type="button" class="nov-cat-btn" id="nov-cat-Equipo" onclick="setNovCat('Equipo',this)">Equipo</button>
         <button type="button" class="nov-cat-btn" id="nov-cat-Logistica" onclick="setNovCat('Logistica',this)">Logística</button>
         <button type="button" class="nov-cat-btn" id="nov-cat-APPCC" onclick="setNovCat('APPCC',this)">APPCC</button>
         <button type="button" class="nov-cat-btn" id="nov-cat-Incidencia" onclick="setNovCat('Incidencia',this)">Incidencia</button>
       </div>
+      <button type="button" id="nov-save-btn" onclick="guardarNovedad()" style="width:100%;padding:11px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s">Agregar</button>
     </div>
-    <button type="button" class="btn" onclick="guardarNovedad()" style="width:100%;margin-top:1rem">Guardar novedad</button>
   </div>
 </div>
 
