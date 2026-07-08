@@ -663,6 +663,30 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   </div>
 </div>
 
+<!-- Editar Elaboración modal -->
+<div class="ocr-modal" id="elab-edit-modal" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--white,#fff);width:100%;max-width:480px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem;border-radius:12px 12px 0 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4rem">
+      <span style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Editar elaboración</span>
+      <button type="button" onclick="$('elab-edit-modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div class="r2">
+      <div class="f"><label>Fecha</label><input type="date" id="elab-edit-fecha"></div>
+      <div class="f"><label>Producto</label><input id="elab-edit-producto" placeholder="Nombre del sabor"></div>
+    </div>
+    <div class="r2">
+      <div class="f"><label>Lote final</label><input id="elab-edit-lote" placeholder="Ej: MAN080702"></div>
+      <div class="f"><label>Responsable</label><input id="elab-edit-resp" placeholder="Nombre"></div>
+    </div>
+    <div class="r2">
+      <div class="f"><label>Baldes</label><input type="number" id="elab-edit-baldes" step="1" min="0"></div>
+      <div class="f"><label>Kg</label><input type="number" id="elab-edit-kg" step="0.001" min="0"></div>
+    </div>
+    <div class="f"><label>Verificación resultado</label><input id="elab-edit-ver" placeholder="Conforme / No conforme"></div>
+    <button type="button" class="btn" id="elab-edit-save-btn" onclick="saveEditElabModal()" style="width:100%;margin-top:.8rem">Guardar cambios</button>
+  </div>
+</div>
+
 <!-- Nueva Recepción modal -->
 <div class="ocr-modal" id="new-rec-modal" style="display:none" onclick="closeNewRecModal(event)">
   <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:12px 12px 0 0">
@@ -4468,7 +4492,11 @@ function renderAppccList(){
   el.innerHTML=recent.map(r=>`<div class="card">
     <div class="card-top">
       <span class="card-nm">${r.producto}</span>
-      <span style="font-size:11px;color:var(--muted)">${r.fecha}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;color:var(--muted)">${r.fecha}</span>
+        <button type="button" class="btn-d" onclick="openEditElabModal('${r.id}')" style="font-size:9px;padding:3px 8px;letter-spacing:1px">Editar</button>
+        <button type="button" class="btn-d" onclick="deleteElaboracion('${r.id}')" style="font-size:9px;padding:3px 8px;letter-spacing:1px;color:#c0392b;border-color:#c0392b">Eliminar</button>
+      </div>
     </div>
     <div class="card-row">
       <div><div class="card-l">REHE</div><div class="card-v" style="font-family:var(--mono,monospace);font-size:11px">${r.rehe||'—'}</div></div>
@@ -4479,6 +4507,66 @@ function renderAppccList(){
       <div><div class="card-l">Verificación</div><div class="card-v">${r.ver&&r.ver.r||'—'}</div></div>
     </div>
   </div>`).join('');
+}
+
+let _editElabId=null;
+
+function deleteElaboracion(id){
+  requireSupPin(async()=>{
+    if(!confirm('¿Eliminar esta elaboración? Esta acción no se puede deshacer.'))return;
+    const{error}=await sb.from('registros_appcc').delete().eq('id',id);
+    if(error){alert('Error al eliminar: '+error.message);return;}
+    const idx=H.findIndex(r=>r.id===id);
+    if(idx>-1)H.splice(idx,1);
+    renderAppccList();
+  });
+}
+
+function openEditElabModal(id){
+  requireSupPin(()=>{
+    const r=H.find(x=>x.id===id);
+    if(!r){alert('Elaboración no encontrada');return;}
+    _editElabId=id;
+    $('elab-edit-producto').value=r.producto||'';
+    $('elab-edit-fecha').value=r.fecha||'';
+    $('elab-edit-lote').value=r.lote||'';
+    $('elab-edit-baldes').value=r.baldes||'';
+    $('elab-edit-kg').value=r.kg||'';
+    $('elab-edit-resp').value=r.responsable||'';
+    $('elab-edit-ver').value=(r.ver&&r.ver.r)||'';
+    const btn=$('elab-edit-save-btn');
+    btn.textContent='Guardar cambios';btn.style.background='transparent';
+    btn.style.color='var(--black)';btn.disabled=false;
+    $('elab-edit-modal').style.display='flex';
+    setTimeout(()=>$('elab-edit-producto').focus(),80);
+  });
+}
+
+async function saveEditElabModal(){
+  if(!_editElabId)return;
+  const r=H.find(x=>x.id===_editElabId);
+  if(!r)return;
+  const upd={
+    producto:$('elab-edit-producto').value.trim().toUpperCase(),
+    fecha:$('elab-edit-fecha').value,
+    lote_final:$('elab-edit-lote').value.trim().toUpperCase(),
+    baldes:parseFloat($('elab-edit-baldes').value)||null,
+    kg:parseFloat($('elab-edit-kg').value)||null,
+    responsable:$('elab-edit-resp').value.trim(),
+    verificacion_resultado:$('elab-edit-ver').value.trim()
+  };
+  if(!upd.producto||!upd.fecha){alert('Producto y fecha son obligatorios');return;}
+  const btn=$('elab-edit-save-btn');
+  btn.textContent='Guardando…';btn.disabled=true;
+  const{error}=await sb.from('registros_appcc').update(upd).eq('id',_editElabId);
+  if(error){btn.textContent='Guardar cambios';btn.disabled=false;alert('Error: '+error.message);return;}
+  Object.assign(r,{
+    producto:upd.producto,fecha:upd.fecha,lote:upd.lote_final,
+    baldes:upd.baldes,kg:upd.kg,responsable:upd.responsable,
+    ver:{...(r.ver||{}),r:upd.verificacion_resultado}
+  });
+  btn.textContent='✓ Guardado';btn.style.background='#1a7a3d';btn.style.color='#fff';btn.style.border='none';
+  setTimeout(()=>{$('elab-edit-modal').style.display='none';renderAppccList();},1400);
 }
 
 function closeOcrModal(e){
