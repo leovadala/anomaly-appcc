@@ -2383,7 +2383,6 @@ function enterApp(){const v=$('ob-user').value;if(!v){alert('Seleccion\u00e1 un 
 function logout(){currentUser='';_finUnlocked=false;document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));$('main').style.display='none';$('onboard').style.display='flex';$('ob-user').value='';window.scrollTo(0,0)}
 function renderTeamSelect(){$('ob-user').innerHTML='<option value="">Seleccionar...</option>'+team.map(n=>`<option>${n.nombre}</option>`).join('')}
 
-async 
 function cfgTab(tab){
   ['equipo','sabores','local'].forEach(t=>{
     $('cfg-panel-'+t).style.display=t===tab?'block':'none';
