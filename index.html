@@ -5736,7 +5736,7 @@ async function fkRegistrar(tipo){
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--surface);border-radius:6px;border:.5px solid var(--border)">
         <span style="font-size:12px;font-weight:500">Total efectivo</span>
-        <span id="caj-total-efe" style="font-size:20px;font-weight:700;font-family:var(--mono)">&euro;0,00</span>
+        <span id="caj-total-efe" style="font-size:20px;font-weight:700;font-family:var(--font)">&euro;0,00</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div class="f" style="margin:0"><label>Square (&euro;)</label><input type="number" id="caj-square" step="0.01" placeholder="0.00" style="width:100%;padding:9px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:15px;font-weight:500;background:var(--surface)"></div>
@@ -5764,7 +5764,7 @@ async function fkRegistrar(tipo){
         <div class="f" style="margin:0"><label>Referencia / recibo banco</label><input type="text" id="caj-banco-ref" placeholder="N&ordm; recibo…" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;background:var(--surface)"></div>
         <div id="caj-cuadre-box" style="padding:10px 14px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;border:.5px solid var(--border);background:var(--surface)">
           <span style="font-size:12px;font-weight:500">Diferencia</span>
-          <span id="caj-cuadre-val" style="font-size:20px;font-weight:700;font-family:var(--mono)">&mdash;</span>
+          <span id="caj-cuadre-val" style="font-size:20px;font-weight:700;font-family:var(--font)">&mdash;</span>
         </div>
         <div class="f" style="margin:0"><label>Notas del control</label><textarea id="caj-ctrl-notas" rows="2" placeholder="Observaciones del encargado…" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;resize:none;background:var(--surface)"></textarea></div>
         <button type="button" id="caj-ctrl-btn" onclick="guardarControl()" style="padding:11px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s">Guardar control</button>
