@@ -302,6 +302,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .caj-stepper button:active{background:var(--bg)}
 .caj-stepper input{flex:1;text-align:center;border:none;border-left:.5px solid var(--border);border-right:.5px solid var(--border);font-family:var(--font);font-size:16px;font-weight:500;background:var(--white,#fff);min-width:0;padding:0}
 .caj-amt{width:58px;text-align:right;font-size:12px;font-family:var(--font);color:var(--muted);flex-shrink:0}
+.ctrl-grid{display:grid;grid-template-columns:34px 1fr 1fr;gap:5px;align-items:center;padding:3px 0;border-bottom:.5px solid var(--border)}
+.ctrl-hdr{display:grid;grid-template-columns:34px 1fr 1fr;gap:5px;padding:3px 0 5px}
+.ctrl-hdr span{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);text-align:center;font-family:var(--font)}
+.ctrl-hdr span:first-child{text-align:left}
+.ctrl-step{display:flex;align-items:stretch;border:.5px solid var(--border);border-radius:4px;overflow:hidden;height:30px}
+.ctrl-step button{width:24px;border:none;background:var(--surface);font-size:15px;cursor:pointer;font-family:inherit;line-height:1;flex-shrink:0}
+.ctrl-step button:active{background:var(--bg)}
+.ctrl-step input{flex:1;text-align:center;border:none;border-left:.5px solid var(--border);border-right:.5px solid var(--border);font-family:var(--font);font-size:13px;font-weight:500;background:var(--white,#fff);min-width:0;padding:0;width:0}
 </style>
 </head>
 <body>
@@ -2137,33 +2145,49 @@ async function verifCajaPIN(){
   const t=new Date().toISOString().slice(0,10);
   const{data}=await sb.from('cajas').select('*').eq('fecha',t).limit(1);
   _cajRecord=(data||[])[0]||null;
-  const r=_cajRecord,el=$('caj-ctrl-resumen');
+  const r=_cajRecord;
   if(r){
-    const ef=r.total_efectivo||0,sq=r.square||0,dt=r.datafono||0,tot=ef+sq+dt;
-    el.innerHTML=`Efectivo contado: <b>€${ef.toFixed(2)}</b><br>Square: <b>€${sq.toFixed(2)}</b><br>Datáfono: <b>€${dt.toFixed(2)}</b><br><span style="display:block;border-top:.5px solid var(--border);margin-top:5px;padding-top:5px">Total del día: <b style="font-size:14px">€${tot.toFixed(2)}</b></span>`;
-    if(r.ingreso_banco!=null)$('caj-banco').value=r.ingreso_banco;
-    if(r.fondo_apertura!=null)$('caj-fondo').value=r.fondo_apertura;
-    if(r.referencia_banco)$('caj-banco-ref').value=r.referencia_banco;
+    // Pre-cargar columna "Contado" con el cierre del empleado (verificación independiente)
+    cajDenoms.forEach(d=>{
+      const elC=$('caj-ct-cnt-'+d.id);if(elC)elC.value=r[d.col]||0;
+      const elF=$('caj-ct-fdo-'+d.id);if(elF)elF.value=0;
+    });
     if(r.notas_control)$('caj-ctrl-notas').value=r.notas_control;
-    calcCajaControl();
-  }else{el.innerHTML='<span style="color:var(--muted);font-size:12px">Sin cierre registrado hoy.</span>';}
+    calcCtrlTotals();
+  }
   $('caj-ctrl-content').style.display='flex';
 }
-function calcCajaControl(){
-  if(!_cajRecord)return;
-  const ef=_cajRecord.total_efectivo||0;
-  const banco=parseFloat($('caj-banco').value)||0,fondo=parseFloat($('caj-fondo').value)||0;
-  const diff=Math.round((ef-banco-fondo)*100)/100;
-  const el=$('caj-cuadre-val'),box=$('caj-cuadre-box');
-  el.textContent=(diff>=0?'+':'')+'€'+diff.toFixed(2);
-  if(diff===0){box.style.background='#f0faf5';el.style.color='#1a7a3d';}
-  else if(Math.abs(diff)<=5){box.style.background='#fffbf0';el.style.color='#b8860b';}
-  else{box.style.background='#fff5f5';el.style.color='#c0392b';}
+function ctrlStep(col,id,dir){const el=$('caj-ct-'+col+'-'+id);if(!el)return;el.value=Math.max(0,(parseInt(el.value)||0)+dir);calcCtrlTotals();}
+function calcCtrlTotals(){
+  let totCnt=0,totFdo=0;
+  cajDenoms.forEach(d=>{
+    const qC=parseInt($('caj-ct-cnt-'+d.id)?.value||0)||0;
+    const qF=parseInt($('caj-ct-fdo-'+d.id)?.value||0)||0;
+    totCnt=Math.round((totCnt+qC*d.val)*100)/100;
+    totFdo=Math.round((totFdo+qF*d.val)*100)/100;
+  });
+  const toStore=Math.round((totCnt-totFdo)*100)/100;
+  const fmtEur=v=>'€'+(v<0?'-':'')+Math.abs(v).toFixed(2);
+  if($('ctrl-tot-contado'))$('ctrl-tot-contado').textContent=fmtEur(totCnt);
+  if($('ctrl-tot-fondo'))$('ctrl-tot-fondo').textContent=fmtEur(totFdo);
+  if($('ctrl-tot-guardar'))$('ctrl-tot-guardar').textContent=fmtEur(toStore);
+  if(_cajRecord){
+    const empTot=_cajRecord.total_efectivo||0;
+    const diff=Math.round((totCnt-empTot)*100)/100;
+    const el=$('ctrl-diff-val'),box=$('ctrl-diff-box');
+    if(el&&box){
+      if(totCnt===0){el.textContent='—';box.style.background='var(--surface)';el.style.color='var(--muted)';}
+      else if(diff===0){el.textContent='✓ Cuadre exacto';box.style.background='#f0faf5';el.style.color='#1a7a3d';}
+      else{el.textContent=(diff>0?'+':'')+'€'+Math.abs(diff).toFixed(2)+' vs cierre';box.style.background=Math.abs(diff)<=2?'#fffbf0':'#fff5f5';el.style.color=Math.abs(diff)<=2?'#b8860b':'#c0392b';}
+    }
+  }
 }
 async function guardarControl(){
   if(!_cajRecord){alert('Sin cierre registrado hoy');return;}
   const btn=$('caj-ctrl-btn');btn.textContent='Guardando…';btn.disabled=true;
-  const upd={ingreso_banco:parseFloat($('caj-banco').value)||null,fondo_apertura:parseFloat($('caj-fondo').value)||null,referencia_banco:$('caj-banco-ref').value.trim()||null,notas_control:$('caj-ctrl-notas').value.trim()||null,encargado:currentUser||null,controlado_at:new Date().toISOString()};
+  let totFondo=0;
+  cajDenoms.forEach(d=>{const qF=parseInt($('caj-ct-fdo-'+d.id)?.value||0)||0;totFondo=Math.round((totFondo+qF*d.val)*100)/100;});
+  const upd={fondo_apertura:totFondo||null,notas_control:$('caj-ctrl-notas').value.trim()||null,encargado:currentUser||null,controlado_at:new Date().toISOString()};
   const{error}=await sb.from('cajas').update(upd).eq('id',_cajRecord.id);
   if(error){btn.textContent='Guardar control';btn.disabled=false;alert('Error: '+error.message);return;}
   btn.textContent='✓ Control guardado';btn.style.background='#1a7a3d';btn.style.color='#fff';btn.style.borderColor='#1a7a3d';
@@ -5753,20 +5777,50 @@ async function fkRegistrar(tipo){
         <div id="caj-pin-err" style="color:#e74c3c;font-size:10px;margin-top:8px;min-height:14px"></div>
         <button type="button" onclick="verifCajaPIN()" style="margin-top:14px;padding:9px 24px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px">Verificar</button>
       </div>
-      <div id="caj-ctrl-content" style="display:none;flex-direction:column;gap:10px">
-        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">Resumen del cierre</div>
-        <div id="caj-ctrl-resumen" style="background:var(--surface);border-radius:6px;padding:10px 12px;font-size:13px;line-height:2;border:.5px solid var(--border)"></div>
-        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:4px">Destino del efectivo</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div class="f" style="margin:0"><label>Ingreso banco (&euro;)</label><input type="number" id="caj-banco" step="0.01" placeholder="0.00" oninput="calcCajaControl()" style="width:100%;padding:9px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:15px;font-weight:500;background:var(--surface)"></div>
-          <div class="f" style="margin:0"><label>Fondo ma&ntilde;ana (&euro;)</label><input type="number" id="caj-fondo" step="0.01" placeholder="0.00" oninput="calcCajaControl()" style="width:100%;padding:9px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:15px;font-weight:500;background:var(--surface)"></div>
+      <div id="caj-ctrl-content" style="display:none;flex-direction:column;gap:8px">
+        <!-- Encabezado de columnas -->
+        <div class="ctrl-hdr">
+          <span></span>
+          <span>Contado</span>
+          <span>En caja</span>
         </div>
-        <div class="f" style="margin:0"><label>Referencia / recibo banco</label><input type="text" id="caj-banco-ref" placeholder="N&ordm; recibo…" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;background:var(--surface)"></div>
-        <div id="caj-cuadre-box" style="padding:10px 14px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;border:.5px solid var(--border);background:var(--surface)">
-          <span style="font-size:12px;font-weight:500">Diferencia</span>
-          <span id="caj-cuadre-val" style="font-size:20px;font-weight:700;font-family:var(--font)">&mdash;</span>
+        <!-- Billetes -->
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:1px">Billetes</div>
+        <div class="ctrl-grid"><span class="caj-denom">&euro;50</span><div class="ctrl-step"><button type="button" onclick="ctrlStep('cnt','b50',-1)">&minus;</button><input type="number" id="caj-ct-cnt-b50" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('cnt','b50',1)">+</button></div><div class="ctrl-step"><button type="button" onclick="ctrlStep('fdo','b50',-1)">&minus;</button><input type="number" id="caj-ct-fdo-b50" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('fdo','b50',1)">+</button></div></div>
+        <div class="ctrl-grid"><span class="caj-denom">&euro;20</span><div class="ctrl-step"><button type="button" onclick="ctrlStep('cnt','b20',-1)">&minus;</button><input type="number" id="caj-ct-cnt-b20" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('cnt','b20',1)">+</button></div><div class="ctrl-step"><button type="button" onclick="ctrlStep('fdo','b20',-1)">&minus;</button><input type="number" id="caj-ct-fdo-b20" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('fdo','b20',1)">+</button></div></div>
+        <div class="ctrl-grid"><span class="caj-denom">&euro;10</span><div class="ctrl-step"><button type="button" onclick="ctrlStep('cnt','b10',-1)">&minus;</button><input type="number" id="caj-ct-cnt-b10" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('cnt','b10',1)">+</button></div><div class="ctrl-step"><button type="button" onclick="ctrlStep('fdo','b10',-1)">&minus;</button><input type="number" id="caj-ct-fdo-b10" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('fdo','b10',1)">+</button></div></div>
+        <div class="ctrl-grid"><span class="caj-denom">&euro;5</span><div class="ctrl-step"><button type="button" onclick="ctrlStep('cnt','b5',-1)">&minus;</button><input type="number" id="caj-ct-cnt-b5" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('cnt','b5',1)">+</button></div><div class="ctrl-step"><button type="button" onclick="ctrlStep('fdo','b5',-1)">&minus;</button><input type="number" id="caj-ct-fdo-b5" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('fdo','b5',1)">+</button></div></div>
+        <!-- Monedas -->
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:2px;margin-bottom:1px">Monedas</div>
+        <div class="ctrl-grid"><span class="caj-denom">&euro;2</span><div class="ctrl-step"><button type="button" onclick="ctrlStep('cnt','c200',-1)">&minus;</button><input type="number" id="caj-ct-cnt-c200" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('cnt','c200',1)">+</button></div><div class="ctrl-step"><button type="button" onclick="ctrlStep('fdo','c200',-1)">&minus;</button><input type="number" id="caj-ct-fdo-c200" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('fdo','c200',1)">+</button></div></div>
+        <div class="ctrl-grid"><span class="caj-denom">&euro;1</span><div class="ctrl-step"><button type="button" onclick="ctrlStep('cnt','c100',-1)">&minus;</button><input type="number" id="caj-ct-cnt-c100" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('cnt','c100',1)">+</button></div><div class="ctrl-step"><button type="button" onclick="ctrlStep('fdo','c100',-1)">&minus;</button><input type="number" id="caj-ct-fdo-c100" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('fdo','c100',1)">+</button></div></div>
+        <div class="ctrl-grid"><span class="caj-denom">50&cent;</span><div class="ctrl-step"><button type="button" onclick="ctrlStep('cnt','c050',-1)">&minus;</button><input type="number" id="caj-ct-cnt-c050" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('cnt','c050',1)">+</button></div><div class="ctrl-step"><button type="button" onclick="ctrlStep('fdo','c050',-1)">&minus;</button><input type="number" id="caj-ct-fdo-c050" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('fdo','c050',1)">+</button></div></div>
+        <div class="ctrl-grid"><span class="caj-denom">20&cent;</span><div class="ctrl-step"><button type="button" onclick="ctrlStep('cnt','c020',-1)">&minus;</button><input type="number" id="caj-ct-cnt-c020" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('cnt','c020',1)">+</button></div><div class="ctrl-step"><button type="button" onclick="ctrlStep('fdo','c020',-1)">&minus;</button><input type="number" id="caj-ct-fdo-c020" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('fdo','c020',1)">+</button></div></div>
+        <div class="ctrl-grid"><span class="caj-denom">10&cent;</span><div class="ctrl-step"><button type="button" onclick="ctrlStep('cnt','c010',-1)">&minus;</button><input type="number" id="caj-ct-cnt-c010" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('cnt','c010',1)">+</button></div><div class="ctrl-step"><button type="button" onclick="ctrlStep('fdo','c010',-1)">&minus;</button><input type="number" id="caj-ct-fdo-c010" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('fdo','c010',1)">+</button></div></div>
+        <div class="ctrl-grid"><span class="caj-denom">5&cent;</span><div class="ctrl-step"><button type="button" onclick="ctrlStep('cnt','c005',-1)">&minus;</button><input type="number" id="caj-ct-cnt-c005" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('cnt','c005',1)">+</button></div><div class="ctrl-step"><button type="button" onclick="ctrlStep('fdo','c005',-1)">&minus;</button><input type="number" id="caj-ct-fdo-c005" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('fdo','c005',1)">+</button></div></div>
+        <div class="ctrl-grid"><span class="caj-denom">2&cent;</span><div class="ctrl-step"><button type="button" onclick="ctrlStep('cnt','c002',-1)">&minus;</button><input type="number" id="caj-ct-cnt-c002" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('cnt','c002',1)">+</button></div><div class="ctrl-step"><button type="button" onclick="ctrlStep('fdo','c002',-1)">&minus;</button><input type="number" id="caj-ct-fdo-c002" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('fdo','c002',1)">+</button></div></div>
+        <div class="ctrl-grid" style="border-bottom:none"><span class="caj-denom">1&cent;</span><div class="ctrl-step"><button type="button" onclick="ctrlStep('cnt','c001',-1)">&minus;</button><input type="number" id="caj-ct-cnt-c001" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('cnt','c001',1)">+</button></div><div class="ctrl-step"><button type="button" onclick="ctrlStep('fdo','c001',-1)">&minus;</button><input type="number" id="caj-ct-fdo-c001" value="0" min="0" inputmode="numeric" oninput="calcCtrlTotals()"><button type="button" onclick="ctrlStep('fdo','c001',1)">+</button></div></div>
+        <!-- Totales por columna -->
+        <div style="display:grid;grid-template-columns:34px 1fr 1fr;gap:5px;padding:8px 0 4px;border-top:1px solid var(--border);margin-top:2px">
+          <span style="font-size:10px;font-weight:600;font-family:var(--font);align-self:center">Total</span>
+          <span id="ctrl-tot-contado" style="text-align:center;font-size:15px;font-weight:700;font-family:var(--font)">&euro;0,00</span>
+          <span id="ctrl-tot-fondo" style="text-align:center;font-size:15px;font-weight:700;font-family:var(--font)">&euro;0,00</span>
         </div>
-        <div class="f" style="margin:0"><label>Notas del control</label><textarea id="caj-ctrl-notas" rows="2" placeholder="Observaciones del encargado…" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;resize:none;background:var(--surface)"></textarea></div>
+        <!-- Vs empleado -->
+        <div id="ctrl-diff-box" style="padding:8px 12px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;border:.5px solid var(--border);background:var(--surface)">
+          <span style="font-size:11px;color:var(--muted);font-family:var(--font)">Vs. cierre empleado</span>
+          <span id="ctrl-diff-val" style="font-size:13px;font-weight:600;font-family:var(--font)">&mdash;</span>
+        </div>
+        <!-- A caja fuerte -->
+        <div style="padding:10px 14px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;border:.5px solid var(--black);background:var(--surface)">
+          <div>
+            <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-family:var(--font)">A caja fuerte</div>
+            <div style="font-size:10px;color:var(--muted);font-family:var(--font)">Contado &minus; fondo</div>
+          </div>
+          <span id="ctrl-tot-guardar" style="font-size:22px;font-weight:700;font-family:var(--font)">&euro;0,00</span>
+        </div>
+        <!-- Notas -->
+        <div class="f" style="margin:0"><label>Notas del control</label><textarea id="caj-ctrl-notas" rows="2" placeholder="Observaciones…" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;resize:none;background:var(--surface)"></textarea></div>
         <button type="button" id="caj-ctrl-btn" onclick="guardarControl()" style="padding:11px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s">Guardar control</button>
       </div>
     </div>
