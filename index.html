@@ -2107,12 +2107,50 @@ async function openCajaModal(){
 }
 function closeCajaModal(){$('caja-modal').style.display='none';}
 function cajSwitchTab(t){
-  ['cierre','ctrl'].forEach(x=>{
-    $('caja-tab-'+x).style.borderBottomColor=t===x?'var(--black)':'transparent';
-    $('caja-tab-'+x).style.color=t===x?'var(--black)':'var(--muted)';
-    $('caja-panel-'+x).style.display=t===x?'block':'none';
+  ['cierre','ctrl','dep'].forEach(x=>{
+    const tab=$('caja-tab-'+x);if(tab){tab.style.borderBottomColor=t===x?'var(--black)':'transparent';tab.style.color=t===x?'var(--black)':'var(--muted)';}
+    const panel=$('caja-panel-'+x);if(panel)panel.style.display=t===x?'block':'none';
   });
   if(t==='ctrl'){$('caj-pin-gate').style.display='flex';$('caj-ctrl-content').style.display='none';$('caj-pin-input').value='';$('caj-pin-err').textContent='';setTimeout(()=>$('caj-pin-input').focus(),80);}
+  if(t==='dep'){$('dep-pin-gate').style.display='flex';$('dep-content').style.display='none';$('dep-pin-input').value='';$('dep-pin-err').textContent='';setTimeout(()=>$('dep-pin-input').focus(),80);loadCajaFuerteBalance();}
+}
+async function loadCajaFuerteBalance(){
+  // Caja fuerte = suma de (total_efectivo - fondo_apertura) de todos los cierres controlados - suma de depositos
+  const[{data:caj},{data:dep}]=await Promise.all([
+    sb.from('cajas').select('total_efectivo,fondo_apertura').not('controlado_at','is',null),
+    sb.from('depositos_banco').select('monto')
+  ]);
+  let acum=0;
+  (caj||[]).forEach(r=>{ acum+=((r.total_efectivo||0)-(r.fondo_apertura||0)); });
+  (dep||[]).forEach(r=>{ acum-=(r.monto||0); });
+  acum=Math.round(acum*100)/100;
+  const el=$('dep-caja-fuerte-val');
+  if(el)el.textContent='€'+acum.toFixed(2);
+  const el2=$('dep-caja-fuerte-sub');
+  if(el2)el2.textContent=acum<0?'atención: saldo negativo':acum===0?'sin efectivo acumulado':'disponible para depositar';
+}
+async function verifDepPIN(){
+  const pin=$('dep-pin-input').value;
+  if(pin!==pinSupervisor){$('dep-pin-err').textContent='PIN incorrecto';return;}
+  $('dep-pin-gate').style.display='none';
+  $('dep-fecha').value=new Date().toISOString().slice(0,10);
+  $('dep-monto').value='';
+  $('dep-ref').value='';
+  $('dep-notas').value='';
+  const btn=$('dep-save-btn');btn.textContent='Guardar depósito';btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';btn.disabled=false;
+  await loadCajaFuerteBalance();
+  $('dep-content').style.display='flex';
+  setTimeout(()=>$('dep-monto').focus(),80);
+}
+async function guardarDeposito(){
+  const monto=parseFloat($('dep-monto').value)||0;
+  if(monto<=0){alert('Importe inválido');return;}
+  const btn=$('dep-save-btn');btn.textContent='Guardando…';btn.disabled=true;
+  const row={fecha:$('dep-fecha').value,monto,referencia:$('dep-ref').value.trim()||null,notas:$('dep-notas').value.trim()||null,encargado:currentUser||null};
+  const{error}=await sb.from('depositos_banco').insert(row);
+  if(error){btn.textContent='Guardar depósito';btn.disabled=false;alert('Error: '+error.message);return;}
+  btn.textContent='✓ Depósito guardado';btn.style.background='#1a7a3d';btn.style.color='#fff';btn.style.borderColor='#1a7a3d';
+  setTimeout(()=>closeCajaModal(),1800);
 }
 function cajStep(id,dir){const el=$('caj-'+id);if(!el)return;el.value=Math.max(0,(parseInt(el.value)||0)+dir);calcCajaEfectivo();}
 function calcCajaEfectivo(){
@@ -5739,6 +5777,7 @@ async function fkRegistrar(tipo){
     <div style="display:flex;border-bottom:.5px solid var(--border);flex-shrink:0">
       <button type="button" id="caja-tab-cierre" onclick="cajSwitchTab('cierre')" style="flex:1;padding:10px;border:none;background:transparent;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid var(--black);font-family:var(--font);color:var(--black)">Cierre</button>
       <button type="button" id="caja-tab-ctrl" onclick="cajSwitchTab('ctrl')" style="flex:1;padding:10px;border:none;background:transparent;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font);color:var(--muted)">&#128274; Control</button>
+      <button type="button" id="caja-tab-dep" onclick="cajSwitchTab('dep')" style="flex:1;padding:10px;border:none;background:transparent;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font);color:var(--muted)">&#8689; Dep&oacute;sito</button>
     </div>
     <!-- PANEL CIERRE -->
     <div id="caja-panel-cierre" style="overflow-y:auto;padding:1rem 1.2rem;flex:1;display:flex;flex-direction:column;gap:9px">
@@ -5829,6 +5868,34 @@ async function fkRegistrar(tipo){
         <div class="f" style="margin:0"><label>Notas del control</label><textarea id="caj-ctrl-notas" rows="2" placeholder="Observaciones…" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;resize:none;background:var(--surface)"></textarea></div>
         <button type="button" id="caj-ctrl-btn" onclick="guardarControl()" style="padding:11px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s">Guardar control</button>
       </div>
+    <!-- PANEL DEPÓSITO -->
+    <div id="caja-panel-dep" style="display:none;overflow-y:auto;padding:1rem 1.2rem;flex:1">
+      <div id="dep-pin-gate" style="display:flex;flex-direction:column;align-items:center;padding:20px 0">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px;letter-spacing:.5px">PIN de supervisor</div>
+        <input id="dep-pin-input" type="password" inputmode="numeric" maxlength="4" placeholder="&bull;&bull;&bull;&bull;" style="font-size:24px;letter-spacing:10px;text-align:center;width:130px;border:.5px solid var(--border);border-radius:6px;padding:10px;font-family:var(--mono);background:var(--surface)" onkeydown="if(event.key==='Enter')verifDepPIN()">
+        <div id="dep-pin-err" style="color:#e74c3c;font-size:10px;margin-top:8px;min-height:14px"></div>
+        <button type="button" onclick="verifDepPIN()" style="margin-top:14px;padding:9px 24px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px">Verificar</button>
+      </div>
+      <div id="dep-content" style="display:none;flex-direction:column;gap:10px">
+        <!-- Balance caja fuerte -->
+        <div style="padding:12px 14px;border-radius:8px;background:#f0faf5;border:.5px solid #4caf7d;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#1a7a3d;font-family:var(--font);font-weight:600">Caja fuerte</div>
+            <div id="dep-caja-fuerte-sub" style="font-size:10px;color:#1a7a3d;margin-top:2px;font-family:var(--font)">calculando&hellip;</div>
+          </div>
+          <span id="dep-caja-fuerte-val" style="font-size:24px;font-weight:700;font-family:var(--font);color:#1a7a3d">&mdash;</span>
+        </div>
+        <!-- Formulario depósito -->
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:4px">Nuevo dep&oacute;sito bancario</div>
+        <div style="display:grid;grid-template-columns:1fr 140px;gap:8px">
+          <div class="f" style="margin:0"><label>Importe (&euro;)</label><input type="number" id="dep-monto" step="0.01" placeholder="0.00" min="0.01" style="width:100%;padding:9px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:16px;font-weight:600;background:var(--surface)"></div>
+          <div class="f" style="margin:0"><label>Fecha</label><input type="date" id="dep-fecha" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;background:var(--surface)"></div>
+        </div>
+        <div class="f" style="margin:0"><label>Referencia / recibo banco</label><input type="text" id="dep-ref" placeholder="N&ordm; recibo&hellip;" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;background:var(--surface)"></div>
+        <div class="f" style="margin:0"><label>Notas (opcional)</label><textarea id="dep-notas" rows="2" placeholder="Observaciones&hellip;" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;resize:none;background:var(--surface)"></textarea></div>
+        <button type="button" id="dep-save-btn" onclick="guardarDeposito()" style="padding:11px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s">Guardar dep&oacute;sito</button>
+      </div>
+    </div>
     </div>
   </div>
 </div>
