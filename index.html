@@ -3387,7 +3387,7 @@ function expPDF(){const p=document.querySelector('.rp');if(!p)return;const w=win
 
 // ─── EGRESOS RÁPIDOS ──────────────────────────────────────────────────────────
 const EQ_DEFAULT = ['Hielo','Chino','Mercadona'];
-let _eqBtns = JSON.parse(localStorage.getItem('eq_btns')||JSON.stringify(EQ_DEFAULT));
+let _eqBtns;try{_eqBtns=JSON.parse(localStorage.getItem('eq_btns')||JSON.stringify(EQ_DEFAULT));}catch(e){_eqBtns=[...EQ_DEFAULT];localStorage.removeItem('eq_btns');}
 let _eqActive = '';
 
 function renderQuickBtns(){
