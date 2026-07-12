@@ -3259,17 +3259,20 @@ function renderRecCats(){
   const el=$('rpanel-categorias');if(!el)return;
   const cats={};
   S.forEach(i=>{const c=i.categoria||'Sin categoría';if(!cats[c])cats[c]=[];cats[c].push(i);});
-  const sorted=Object.entries(cats).sort(([a],[b])=>a.localeCompare(b,'es'));
+  // Sin categoría always last
+  const sorted=Object.entries(cats).sort(([a],[b])=>a==='Sin categoría'?1:b==='Sin categoría'?-1:a.localeCompare(b,'es'));
   if(!sorted.length){el.innerHTML='<div class="empty">Sin stock activo</div>';return;}
+  const CAT_OPTS=CONTEO_CATS.map(c=>`<option value="${c}">${c}</option>`).join('');
   el.innerHTML=sorted.map(([cat,items])=>{
     const byProd={};items.forEach(i=>{if(!byProd[i.producto])byProd[i.producto]=[];byProd[i.producto].push(i);});
     const prods=Object.entries(byProd).sort(([a],[b])=>a.localeCompare(b,'es'));
     const hasExp=items.some(i=>i.vencimiento&&i.vencimiento<hoy);
     const hasProx=!hasExp&&items.some(i=>{if(!i.vencimiento)return false;const d=Math.round((new Date(i.vencimiento)-new Date(hoy))/864e5);return d>=0&&d<=7;});
     const dotC=hasExp?'#e74c3c':hasProx?'#f39c12':'#27ae60';
-    return`<div style="margin-bottom:16px">
-      <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);font-weight:600;padding:6px 4px 4px;border-bottom:1.5px solid var(--border);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
-        <span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${dotC};display:inline-block"></span>${cat}</span>
+    const sinCat=cat==='Sin categoría';
+    return`<div style="margin-bottom:18px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:${sinCat?'#c0392b':'var(--muted)'};font-weight:600;padding:6px 4px 4px;border-bottom:1.5px solid var(--border);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${sinCat?'#e74c3c':dotC};display:inline-block"></span>${cat}${sinCat?' ⚠️':''}</span>
         <span style="font-weight:400">${items.length} ítem${items.length!==1?'s':''}</span>
       </div>
       ${prods.map(([prod,its])=>{
@@ -3277,19 +3280,40 @@ function renderRecCats(){
         const next=byVenc[0];
         const cad=next.vencimiento&&next.vencimiento<hoy;
         const prx=!cad&&next.vencimiento&&Math.round((new Date(next.vencimiento)-new Date(hoy))/864e5)<=7;
-        return`<div style="display:flex;align-items:center;padding:6px 4px;border-bottom:1px solid var(--border);gap:8px">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${prod}</div>
-            <div style="font-size:10px;color:var(--muted)">${its.map(i=>i.proveedor||'—').filter((v,i,a)=>a.indexOf(v)===i).join(', ')}</div>
+        // Cantidad summary
+        const cants=its.map(i=>i.cantidad).filter(Boolean);
+        const uniqCants=[...new Set(cants)];
+        const cantStr=cants.length===0?'—':uniqCants.length===1?(its.length>1?its.length+'× ':'')+uniqCants[0]:cants.join(' / ');
+        const prodEnc=encodeURIComponent(prod);
+        return`<div style="padding:7px 4px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${prod}</div>
+              <div style="font-size:10px;color:var(--muted)">${its.map(i=>i.proveedor||'—').filter((v,i,a)=>a.indexOf(v)===i).join(', ')}</div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);text-align:right;min-width:64px;flex-shrink:0">${cantStr}</div>
+            <div style="text-align:right;flex-shrink:0;min-width:72px">
+              <div style="font-size:10px;font-weight:500;color:${cad?'#e74c3c':prx?'#e67e22':'var(--text)'}">${next.vencimiento||'—'}</div>
+              <div style="font-size:9px;color:var(--muted)">${its.length}x lote${its.length!==1?'s':''}</div>
+            </div>
           </div>
-          <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:10px;font-weight:500;color:${cad?'#e74c3c':prx?'#e67e22':'var(--text)'}">${next.vencimiento||'—'}</div>
-            <div style="font-size:9px;color:var(--muted)">${its.length}x lote${its.length!==1?'s':''}</div>
-          </div>
+          ${sinCat?`<div style="margin-top:5px"><select onchange="asignarCatLotes(this.value,'${prod.replace(/'/g,"\'")}')" style="font-size:10px;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);cursor:pointer;width:100%"><option value="">— Asignar categoría —</option>${CAT_OPTS}</select></div>`:''}
         </div>`;
       }).join('')}
     </div>`;
   }).join('');
+}
+
+async function asignarCatLotes(cat,prod){
+  if(!cat||!prod)return;
+  const items=S.map((s,i)=>({...s,_idx:i})).filter(s=>s.producto===prod&&(!s.categoria||s.categoria==='Sin categoría'));
+  if(!items.length)return;
+  const ids=items.map(s=>s.id);
+  const{error}=await sb.from('recepciones').update({categoria:cat}).in('id',ids);
+  if(error){alert('Error: '+error.message);return;}
+  items.forEach(s=>{S[s._idx].categoria=cat;});
+  renderRecCats();
+  renderStockCatChips();
 }
 
 function renderStockCatChips(){
