@@ -99,6 +99,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .badge{font-size:9px;font-family:var(--mono);letter-spacing:1px;padding:2px 6px;border:.5px solid var(--border);color:var(--muted);text-transform:uppercase}
 .badge-f{border-color:var(--black);color:var(--black)}
 .empty{text-align:center;padding:2rem;font-size:12px;color:var(--hint);letter-spacing:.5px}
+.rec-tabbar{display:flex;border-bottom:1.5px solid var(--border);margin-bottom:1rem}
+.rec-tab{background:none;border:none;font-size:10px;letter-spacing:1.2px;text-transform:uppercase;padding:8px 14px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1.5px;font-family:var(--font)}
+.rec-tab.on{color:var(--black,#1a1a1a);border-bottom-color:var(--black,#1a1a1a);font-weight:600}
+.cat-chip{font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border:1px solid var(--border);border-radius:20px;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--font);white-space:nowrap}
+.cat-chip.on{background:var(--black,#1a1a1a);color:#fff;border-color:var(--black,#1a1a1a)}
 .ok{padding:.7rem;text-align:center;font-size:12px;color:var(--muted);border:.5px solid var(--border);margin-top:1rem;letter-spacing:.5px}
 
 /* TEMPS */
@@ -399,17 +404,24 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 
 <!-- V1: RECEPCIÓN -->
 <div class="view" id="v1">
-<div style="display:flex;gap:10px;margin-bottom:1.2rem">
+<div style="display:flex;gap:10px;margin-bottom:1rem">
   <button type="button" class="btn" onclick="openNewRecModal()" style="flex:1;font-size:12px">+ Nueva recepción</button>
   <button type="button" class="btn" onclick="openOcrModal()" style="flex:1;font-size:12px">📷 Escanear albarán</button>
 </div>
-<div class="sec"><div class="sec-t">Recepciones recientes</div><div id="rli"></div></div>
-<div class="sec"><div class="sec-t">Historial de recepciones</div><div id="rhist"></div></div>
+<div class="rec-tabbar">
+  <button class="rec-tab on" id="rtab-recientes" onclick="recTab('recientes')">Recientes</button>
+  <button class="rec-tab" id="rtab-categorias" onclick="recTab('categorias')">Por categoría</button>
+  <button class="rec-tab" id="rtab-historial" onclick="recTab('historial')">Historial</button>
+</div>
+<div id="rpanel-recientes"><div id="rli"></div></div>
+<div id="rpanel-categorias" style="display:none"></div>
+<div id="rpanel-historial" style="display:none"><div id="rhist"></div></div>
 </div>
 
 <!-- V2: STOCK -->
 <div class="view" id="v2">
 <div class="sec"><div class="sec-t">Stock activo — FIFO</div>
+<div id="stock-cat-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
 <div class="f"><input id="ss" placeholder="Buscar..." oninput="rS()"></div>
 <div class="note" id="sc"></div><div id="sl"></div></div>
 <div class="sec"><div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">Historial de salidas <span id="sh-count" style="font-size:11px;font-weight:400;color:var(--muted,#999)"></span></div>
@@ -722,6 +734,12 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     </div>
     <div class="f"><label>Producto</label><select id="rpd"><option value="">Primero seleccioná proveedor</option></select><input id="rpdc" placeholder="Especificar" style="display:none;margin-top:4px"></div>
     <div class="r2"><div class="f"><label>Lote proveedor</label><input id="rl" placeholder="Nº lote"></div><div class="f"><label>Nº Albarán</label><input id="ra" placeholder="Nº albarán"></div></div>
+    <div id="rp-albaranes" style="display:none;margin-bottom:8px;background:var(--surface,#f5f3ee);border-radius:6px;padding:8px 10px">
+      <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">Albaranes recientes de este proveedor</div>
+      <select id="ra-select" onchange="onAlbSelectChange()" style="width:100%;border:none;border-bottom:1px solid var(--border);font-size:13px;padding:4px 0;background:transparent;color:var(--text)">
+        <option value="">— vincular a albarán existente (opcional) —</option>
+      </select>
+    </div>
     <div class="f"><label>Cantidad</label><input id="rq" placeholder="Ej: 20 lts"></div>
     <div class="r2"><div class="f"><label>Temp. recibida (°C)</label><input type="number" id="rt" step="0.1" placeholder="°C"></div><div class="f"><label>Vencimiento</label><input type="date" id="rv"></div></div>
     <div class="chk"><input type="checkbox" id="rf"><label for="rf">Requiere frío</label></div>
@@ -2466,8 +2484,8 @@ function go(n){
   $('nav').style.display='none';
   $('app-footer').style.display='none';
   $('btn-back').style.display='inline-block';
-  if(n===1){uSP();initRecDate();renderHistorial()};
-  if(n===2){rS();renderSH()};
+  if(n===1){uSP();initRecDate();rRH();renderHistorial()};
+  if(n===2){renderStockCatChips();rS();renderSH()};
   if(n===3){uIngrSelect();renderSaborSelect();renderAppccList()};
   if(n===5){initHorarios()};
   if(n===7)renderDashboard();
@@ -3226,12 +3244,105 @@ function applyAllOcr(){
 }
 function renderHistorial(){const e=$('rhist');const d7=new Date();d7.setDate(d7.getDate()-7);const d7s=d7.toISOString().split('T')[0];const older=S.filter(s=>s.fecha<d7s);if(!older.length){e.innerHTML='<div class="empty">Sin historial anterior</div>';return}e.innerHTML='<table style="font-size:10px"><tr><th>Fecha</th><th>Producto</th><th>Lote</th><th>Temp</th><th>Venc.</th><th>Prov.</th></tr>'+older.map(s=>`<tr><td>${s.fecha}</td><td>${s.producto}</td><td>${s.lote}</td><td>${s.temp}°C</td><td>${s.vencimiento||'—'}</td><td>${s.proveedor||'—'}</td></tr>`).join('')+'</table>'}
 
+let _stockCatFilter='';
+
+function recTab(tab){
+  ['recientes','categorias','historial'].forEach(t=>{
+    const p=$('rpanel-'+t);if(p)p.style.display=t===tab?'block':'none';
+    const b=$('rtab-'+t);if(b)b.classList.toggle('on',t===tab);
+  });
+  if(tab==='categorias')renderRecCats();
+  if(tab==='historial')renderHistorial();
+}
+
+function renderRecCats(){
+  const el=$('rpanel-categorias');if(!el)return;
+  const cats={};
+  S.forEach(i=>{const c=i.categoria||'Sin categoría';if(!cats[c])cats[c]=[];cats[c].push(i);});
+  const sorted=Object.entries(cats).sort(([a],[b])=>a.localeCompare(b,'es'));
+  if(!sorted.length){el.innerHTML='<div class="empty">Sin stock activo</div>';return;}
+  el.innerHTML=sorted.map(([cat,items])=>{
+    const byProd={};items.forEach(i=>{if(!byProd[i.producto])byProd[i.producto]=[];byProd[i.producto].push(i);});
+    const prods=Object.entries(byProd).sort(([a],[b])=>a.localeCompare(b,'es'));
+    const hasExp=items.some(i=>i.vencimiento&&i.vencimiento<hoy);
+    const hasProx=!hasExp&&items.some(i=>{if(!i.vencimiento)return false;const d=Math.round((new Date(i.vencimiento)-new Date(hoy))/864e5);return d>=0&&d<=7;});
+    const dotC=hasExp?'#e74c3c':hasProx?'#f39c12':'#27ae60';
+    return`<div style="margin-bottom:16px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);font-weight:600;padding:6px 4px 4px;border-bottom:1.5px solid var(--border);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${dotC};display:inline-block"></span>${cat}</span>
+        <span style="font-weight:400">${items.length} ítem${items.length!==1?'s':''}</span>
+      </div>
+      ${prods.map(([prod,its])=>{
+        const byVenc=[...its].sort((a,b)=>(a.vencimiento||'9999').localeCompare(b.vencimiento||'9999'));
+        const next=byVenc[0];
+        const cad=next.vencimiento&&next.vencimiento<hoy;
+        const prx=!cad&&next.vencimiento&&Math.round((new Date(next.vencimiento)-new Date(hoy))/864e5)<=7;
+        return`<div style="display:flex;align-items:center;padding:6px 4px;border-bottom:1px solid var(--border);gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${prod}</div>
+            <div style="font-size:10px;color:var(--muted)">${its.map(i=>i.proveedor||'—').filter((v,i,a)=>a.indexOf(v)===i).join(', ')}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:10px;font-weight:500;color:${cad?'#e74c3c':prx?'#e67e22':'var(--text)'}">${next.vencimiento||'—'}</div>
+            <div style="font-size:9px;color:var(--muted)">${its.length}x lote${its.length!==1?'s':''}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+function renderStockCatChips(){
+  const el=$('stock-cat-chips');if(!el)return;
+  const cats=new Set(S.map(i=>i.categoria||'Sin categoría'));
+  const all=['Todos',...Array.from(cats).sort((a,b)=>a.localeCompare(b,'es'))];
+  el.innerHTML=all.map(c=>{
+    const val=c==='Todos'?'':c;
+    const on=_stockCatFilter===val;
+    return`<button type="button" class="cat-chip${on?' on':''}" onclick="setStockCat('${val}')">${c}</button>`;
+  }).join('');
+}
+function setStockCat(cat){_stockCatFilter=cat;renderStockCatChips();rS();}
+
+function uPD(){
+  const pi=$('rp').value;
+  const sel=$('rpd');if(!sel)return;
+  if(!pi||pi==='__nuevo__'){
+    sel.innerHTML='<option value="">Primero seleccioná proveedor</option>';
+    if($('rpdc'))$('rpdc').style.display='none';
+    const alDiv=$('rp-albaranes');if(alDiv)alDiv.style.display='none';
+    return;
+  }
+  const prov=P[+pi];if(!prov)return;
+  const provProds=PP.filter(x=>x.proveedor_id===prov.id).sort((a,b)=>a.descripcion.localeCompare(b.descripcion,'es'));
+  if(provProds.length){
+    sel.innerHTML='<option value="">Seleccionar producto...</option>'+provProds.map(x=>`<option value="${x.descripcion}">${x.descripcion}</option>`).join('')+'<option value="otro">Otro / nuevo producto</option>';
+  } else {
+    sel.innerHTML='<option value="">Sin catálogo — escribir nombre</option><option value="otro">Especificar producto</option>';
+    sel.value='otro';if($('rpdc'))$('rpdc').style.display='block';
+  }
+  const alDiv=$('rp-albaranes');if(!alDiv)return;
+  const provAlb=AB.filter(x=>x.proveedor_id===prov.id).sort((a,b)=>b.fecha.localeCompare(a.fecha)).slice(0,8);
+  if(provAlb.length){
+    alDiv.style.display='block';
+    const albSel=$('ra-select');
+    if(albSel)albSel.innerHTML='<option value="">— vincular a albarán existente (opcional) —</option>'+provAlb.map(a=>`<option value="${a.num_albaran}">${a.num_albaran} · ${a.fecha}</option>`).join('');
+  } else {
+    alDiv.style.display='none';
+  }
+}
+function onAlbSelectChange(){
+  const v=$('ra-select').value;
+  const inp=$('ra');
+  if(inp&&v)inp.value=v;
+}
+
 function rRH(){const r=[],e=$('rli');const d7=new Date();d7.setDate(d7.getDate()-7);const d7s=d7.toISOString().split('T')[0];S.forEach((s,idx)=>{if(s.fecha>=d7s)r.push({...s,_idx:idx})});r.sort((a,b)=>b.fecha.localeCompare(a.fecha)||((b.hora||'').localeCompare(a.hora||'')));if(!r.length){e.innerHTML='<div class="empty">Sin recepciones recientes</div>';return}e.innerHTML=r.map(i=>`<div class="card"><div class="card-top"><span class="card-nm">${i.producto}</span><div style="display:flex;align-items:center;gap:6px"><span class="card-meta">${i.fecha} ${i.hora||''}</span><span class="badge">${i.frio?'Fr\u00edo':'Amb.'}</span>${i.categoria?`<span class="badge badge-f" style="font-size:9px">${i.categoria}</span>`:''}<button type="button" class="btn-d" onclick="editRec(${i._idx})">Editar</button><button type="button" class="btn-d" onclick="deleteRec(${i._idx})" style="color:#b33">Eliminar</button></div></div><div class="card-row" style="grid-template-columns:repeat(5,1fr)"><div><div class="card-l">Lote</div><div class="card-v">${i.lote}</div></div><div><div class="card-l">Cant.</div><div class="card-v">${i.cantidad||'\u2014'}</div></div><div><div class="card-l">Temp.</div><div class="card-v">${i.temp}\u00b0C</div></div><div><div class="card-l">Venc.</div><div class="card-v">${i.vencimiento||'\u2014'}</div></div><div><div class="card-l">Prov.</div><div class="card-v">${i.proveedor||'\u2014'}</div></div></div></div>`).join('')}
 
 
 function semaforo(venc){if(!venc)return'⚪';const dias=Math.round((new Date(venc).getTime()-new Date(hoy).getTime())/(864e5));if(dias<0)return'🔴';if(dias<7)return'🔴';if(dias<=30)return'🟡';return'🟢'}
 function semaforoStyle(venc){if(!venc)return'background:#aaa';const dias=Math.round((new Date(venc).getTime()-new Date(hoy).getTime())/(864e5));if(dias<0)return'background:#e74c3c';if(dias<7)return'background:#e74c3c';if(dias<=30)return'background:#f39c12';return'background:#27ae60'}
-function rS(){const q=$('ss').value.toLowerCase(),f=[];S.forEach((s,idx)=>{if(s.producto.toLowerCase().includes(q))f.push({...s,_idx:idx})});$('sc').textContent=f.length+' item'+(f.length!==1?'s':'');const e=$('sl');if(!f.length){e.innerHTML='<div class="empty">Stock vacío</div>';return}const g={};f.forEach(i=>{if(!g[i.producto])g[i.producto]=[];g[i.producto].push(i)});Object.values(g).forEach(items=>{items.sort((a,b)=>(a.vencimiento||'9999-12-31').localeCompare(b.vencimiento||'9999-12-31'))});const sortedEntries=Object.entries(g).sort(([a],[b])=>a.localeCompare(b,'es'));e.innerHTML=sortedEntries.map(([,items])=>items.map((i,idx)=>{const cad=i.vencimiento&&i.vencimiento<hoy;return`<div class="card" style="${cad?'border-left:3px solid #e74c3c;':''}"><div class="card-top"><span class="card-nm">${i.producto}</span><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;${semaforoStyle(i.vencimiento)}" title="${i.vencimiento?'Vence: '+i.vencimiento:'Sin vencimiento'}"></span>${i.categoria?`<span class="badge" style="background:var(--surface,#eee);color:var(--text)">${i.categoria}</span>`:''} ${cad?'<span class="badge" style="background:#e74c3c;color:#fff">Vencido</span>':''}<span class="badge">${i.frio?'Frío':'Amb.'}</span><button type="button" class="btn-d" onclick="editRec(${i._idx})">Editar</button><button type="button" class="btn-d" onclick="deleteRec(${i._idx})" style="color:#b33">Eliminar</button><button type="button" class="btn-d" onclick="archiveStock(${i._idx},'consumo')" style="background:#27ae60;color:#fff">Consumido</button><button type="button" class="btn-d" onclick="archiveStock(${i._idx},'caducado')" style="background:#e74c3c;color:#fff">Caducado</button></div></div><div class="card-row"><div><div class="card-l">Lote</div><div class="card-v">${i.lote}</div></div><div><div class="card-l">Temp.</div><div class="card-v">${i.temp}°C</div></div><div><div class="card-l">Venc.</div><div class="card-v" ${cad?'style="color:#e74c3c;font-weight:bold"':''}>${i.vencimiento||'—'}</div></div><div><div class="card-l">Ingreso</div><div class="card-v">${i.fecha_ingreso||i.fecha} ${i.hora}</div></div>${i.albaran?`<div><div class="card-l">Albarán</div><div class="card-v">${i.albaran}</div></div>`:''}</div></div>`}).join('')).join('')}
+function rS(){const q=$('ss').value.toLowerCase(),f=[];S.forEach((s,idx)=>{if(s.producto.toLowerCase().includes(q)&&(!_stockCatFilter||(s.categoria||'Sin categoría')===_stockCatFilter))f.push({...s,_idx:idx})});$('sc').textContent=f.length+' item'+(f.length!==1?'s':'');const e=$('sl');if(!f.length){e.innerHTML='<div class="empty">Stock vacío</div>';return}const g={};f.forEach(i=>{if(!g[i.producto])g[i.producto]=[];g[i.producto].push(i)});Object.values(g).forEach(items=>{items.sort((a,b)=>(a.vencimiento||'9999-12-31').localeCompare(b.vencimiento||'9999-12-31'))});const sortedEntries=Object.entries(g).sort(([a],[b])=>a.localeCompare(b,'es'));e.innerHTML=sortedEntries.map(([,items])=>items.map((i,idx)=>{const cad=i.vencimiento&&i.vencimiento<hoy;return`<div class="card" style="${cad?'border-left:3px solid #e74c3c;':''}"><div class="card-top"><span class="card-nm">${i.producto}</span><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;${semaforoStyle(i.vencimiento)}" title="${i.vencimiento?'Vence: '+i.vencimiento:'Sin vencimiento'}"></span>${i.categoria?`<span class="badge" style="background:var(--surface,#eee);color:var(--text)">${i.categoria}</span>`:''} ${cad?'<span class="badge" style="background:#e74c3c;color:#fff">Vencido</span>':''}<span class="badge">${i.frio?'Frío':'Amb.'}</span><button type="button" class="btn-d" onclick="editRec(${i._idx})">Editar</button><button type="button" class="btn-d" onclick="deleteRec(${i._idx})" style="color:#b33">Eliminar</button><button type="button" class="btn-d" onclick="archiveStock(${i._idx},'consumo')" style="background:#27ae60;color:#fff">Consumido</button><button type="button" class="btn-d" onclick="archiveStock(${i._idx},'caducado')" style="background:#e74c3c;color:#fff">Caducado</button></div></div><div class="card-row"><div><div class="card-l">Lote</div><div class="card-v">${i.lote}</div></div><div><div class="card-l">Temp.</div><div class="card-v">${i.temp}°C</div></div><div><div class="card-l">Venc.</div><div class="card-v" ${cad?'style="color:#e74c3c;font-weight:bold"':''}>${i.vencimiento||'—'}</div></div><div><div class="card-l">Ingreso</div><div class="card-v">${i.fecha_ingreso||i.fecha} ${i.hora}</div></div>${i.albaran?`<div><div class="card-l">Albarán</div><div class="card-v">${i.albaran}</div></div>`:''}</div></div>`}).join('')).join('')}
 function toggleROH1(){const show=$('a2e').checked;$('a2-sec').style.display=show?'block':'none'}
 function setArmarioTemp(){const arm=$('tarm').value;let txt='';if(arm==='1'||arm==='2'||arm==='3'){txt='-18.5°C'}$('ttemp').value=txt}
 function setTempFinal(){const arm=$('atf').value;if(arm==='1'||arm==='2'||arm==='3'){const a1=arm==='1'?-18.5:null,a2=arm==='2'?-18.5:null,a3=arm==='3'?-18.5:null;}}
@@ -3240,7 +3351,7 @@ function toggleROH5(){const show=$('a5e').checked;$('a5-sec').style.display=show
 
 function semDot(venc){if(!venc)return'';const dias=Math.round((new Date(venc).getTime()-new Date(hoy).getTime())/(864e5));if(dias<0)return'<span style="font-size:9px;font-weight:600;color:#c0392b;margin-left:4px">VENC</span>';if(dias<7)return'<span style="font-size:9px;font-weight:600;color:#c0392b;margin-left:4px">'+dias+'d</span>';if(dias<=30)return'<span style="font-size:9px;color:#b7860b;margin-left:4px">'+dias+'d</span>';return''}
 function uIngrSelect(filtro){
-  const byProd={};S.forEach(i=>{if(!byProd[i.producto])byProd[i.producto]=[];byProd[i.producto].push(i)});
+  const byProd={};S.filter(i=>!i.categoria||i.categoria==='Materia prima').forEach(i=>{if(!byProd[i.producto])byProd[i.producto]=[];byProd[i.producto].push(i)});
   Object.values(byProd).forEach(items=>{items.sort((a,b)=>(a.vencimiento||'9999-12-31').localeCompare(b.vencimiento||'9999-12-31'))});
   let entries=Object.entries(byProd).sort(([a],[b])=>a.localeCompare(b,'es'));
   const note=$('aip-filtro-note');
