@@ -2651,9 +2651,9 @@ async function saveEditRecModal(){
   const prod=$('em-prod').value.trim();
   const lote=$('em-lote').value.trim();
   const temp=$('em-temp').value;
-  if(!prod||!lote||!temp){alert('Completa: producto, lote, temperatura');return}
+  if(!prod||!lote){alert('Completa: producto y lote');return}
   const row={
-    producto:prod,lote:lote,temperatura:parseFloat(temp),
+    producto:prod,lote:lote,temperatura:temp?parseFloat(temp):null,
     proveedor:$('em-prov').value.trim()||null,
     vencimiento:$('em-venc').value||null,
     requiere_frio:$('em-frio').checked,
@@ -3427,25 +3427,35 @@ async function saveLotEdit(idx){
   const item=S[idx];if(!item)return;
   const lote=($('pdm-lote')||{}).value?.trim();
   const qty=($('pdm-qty')||{}).value?.trim();
-  const temp=($('pdm-temp')||{}).value;
+  const tempVal=($('pdm-temp')||{}).value;
   const venc=($('pdm-venc')||{}).value;
   const prov=($('pdm-prov')||{}).value?.trim();
   const alb=($('pdm-alb')||{}).value?.trim();
-  const frio=($('pdm-frio')||{}).checked;
+  const frio=!!($('pdm-frio')||{}).checked;
   const prodEdit=($('pdm-prod-edit')||{}).value?.trim();
   const fecha=($('pdm-fecha')||{}).value;
-  const updates={frio};
-  if(lote!==undefined)updates.lote=lote;
-  if(qty!==undefined)updates.cantidad=qty;
-  if(temp!=='')updates.temp=parseFloat(temp);
-  if(venc!==undefined)updates.vencimiento=venc||null;
-  if(prov!==undefined)updates.proveedor=prov;
-  if(alb!==undefined)updates.albaran=alb;
-  if(prodEdit)updates.producto=prodEdit;
-  if(fecha!==undefined)updates.fecha_ingreso=fecha||null;
-  const{error}=await sb.from('recepciones').update(updates).eq('id',item.id);
+  // DB column names differ from S array keys
+  const dbRow={requiere_frio:frio};
+  if(lote!==undefined)dbRow.lote=lote;
+  if(qty!==undefined)dbRow.cantidad=qty;
+  if(tempVal!=='')dbRow.temperatura=parseFloat(tempVal);
+  if(venc!==undefined)dbRow.vencimiento=venc||null;
+  if(prov!==undefined)dbRow.proveedor=prov;
+  if(alb!==undefined)dbRow.nro_albaran=alb;
+  if(prodEdit)dbRow.producto=prodEdit;
+  if(fecha!==undefined)dbRow.fecha_ingreso=fecha||null;
+  const{error}=await sb.from('recepciones').update(dbRow).eq('id',item.id);
   if(error){alert('Error al guardar: '+error.message);return;}
-  Object.assign(S[idx],updates);
+  // Update local S array (uses different key names)
+  if(lote!==undefined)S[idx].lote=lote;
+  if(qty!==undefined)S[idx].cantidad=qty;
+  if(tempVal!=='')S[idx].temp=parseFloat(tempVal);
+  if(venc!==undefined)S[idx].vencimiento=venc||null;
+  if(prov!==undefined)S[idx].proveedor=prov;
+  if(alb!==undefined)S[idx].albaran=alb;
+  if(prodEdit)S[idx].producto=prodEdit;
+  if(fecha!==undefined)S[idx].fecha_ingreso=fecha||null;
+  S[idx].frio=frio;
   if(prodEdit&&prodEdit!==_pdmProd)_pdmProd=prodEdit;
   _pdmEditIdx=null;
   renderProdModal();
