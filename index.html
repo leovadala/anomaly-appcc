@@ -1141,6 +1141,26 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     </div>
   </div>
 </div>
+<div id="prod-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.6);z-index:1800;align-items:flex-end;justify-content:center;box-sizing:border-box">
+  <div style="background:var(--bg,#f8f8f6);width:100%;max-width:520px;max-height:92vh;display:flex;flex-direction:column;border-top:1px solid var(--border)">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;flex-shrink:0">
+      <div>
+        <div id="pdm-prod-name" style="font-size:15px;font-weight:500;letter-spacing:.3px"></div>
+        <div id="pdm-cat-label" style="font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:1px"></div>
+      </div>
+      <button type="button" onclick="closeProdModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0;margin-left:12px">✕</button>
+    </div>
+    <div id="pdm-body" style="overflow-y:auto;flex:1;padding:0 18px"></div>
+    <div style="padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0">
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="pdm-cat-select" style="flex:1;font-size:11px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text)">
+          <option value="">— Asignar categoría a todos los lotes —</option>
+        </select>
+        <button type="button" class="btn" onclick="asignarCatProdModal()" style="font-size:11px;padding:6px 14px;white-space:nowrap">Aplicar</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div id="conteo-start-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.6);z-index:1600;align-items:center;justify-content:center;padding:16px;box-sizing:border-box">
   <div style="background:var(--bg,#f8f8f6);max-width:360px;width:100%;border:1px solid var(--border)">
     <div style="padding:14px 18px;border-bottom:1px solid var(--border)"><span style="font-size:10px;letter-spacing:2px;text-transform:uppercase">Iniciar conteo físico</span></div>
@@ -3293,7 +3313,7 @@ function renderRecCats(){
         const prx=!cad&&next.vencimiento&&Math.round((new Date(next.vencimiento)-new Date(hoy))/864e5)<=7;
         const totalCant=its.reduce((sum,i)=>{const n=parseFloat(i.cantidad);return sum+(isNaN(n)?0:n);},0);
         const cantStr=totalCant>0?(totalCant%1===0?totalCant:totalCant.toFixed(2))+'':its.length+'x';
-        return`<div style="padding:7px 4px;border-bottom:1px solid var(--border)">
+        return`<div style="padding:7px 4px;border-bottom:1px solid var(--border);cursor:pointer;active:opacity:.7" onclick="openProdModal(this.dataset.p)" data-p="${prod.replace(/"/g,'&quot;')}">
           <div style="display:flex;align-items:center;gap:8px">
             <div style="flex:1;min-width:0">
               <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${prod}</div>
@@ -3324,6 +3344,123 @@ async function asignarCatLotes(cat,prod){
   renderRecCats();
   renderStockCatChips();
 }
+
+/* ---- Producto detail modal ---- */
+let _pdmProd='';
+let _pdmEditIdx=null;
+
+function openProdModal(prod){
+  _pdmProd=prod;_pdmEditIdx=null;
+  const el=$('prod-detail-modal');if(!el)return;
+  el.style.display='flex';
+  const CAT_OPTS=CONTEO_CATS.map(c=>`<option value="${c}">${c}</option>`).join('');
+  const sel=$('pdm-cat-select');if(sel)sel.innerHTML='<option value="">— Asignar categoría a todos los lotes —</option>'+CAT_OPTS;
+  renderProdModal();
+}
+function closeProdModal(){
+  const el=$('prod-detail-modal');if(el)el.style.display='none';
+  _pdmProd='';_pdmEditIdx=null;
+}
+function renderProdModal(){
+  const lots=S.map((s,i)=>({...s,_idx:i})).filter(s=>s.producto===_pdmProd);
+  const name=$('pdm-prod-name');if(name)name.textContent=_pdmProd;
+  const catLbl=$('pdm-cat-label');
+  const cat=lots.length?(lots[0].categoria||'Sin categoría'):'';
+  if(catLbl)catLbl.textContent=cat;
+  const body=$('pdm-body');if(!body)return;
+  if(!lots.length){body.innerHTML='<div class="empty" style="padding:24px 0">Sin lotes activos</div>';return;}
+  body.innerHTML=lots.sort((a,b)=>(a.vencimiento||'9999').localeCompare(b.vencimiento||'9999')).map(lot=>{
+    if(_pdmEditIdx===lot._idx)return _pdmLotEditForm(lot);
+    const cad=lot.vencimiento&&lot.vencimiento<hoy;
+    const prx=!cad&&lot.vencimiento&&Math.round((new Date(lot.vencimiento)-new Date(hoy))/864e5)<=7;
+    const dotC=cad?'#e74c3c':prx?'#f39c12':'#27ae60';
+    return`<div style="border-bottom:1px solid var(--border);padding:14px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="width:9px;height:9px;border-radius:50%;background:${dotC};display:inline-block;flex-shrink:0"></span>
+          <span style="font-size:12px;font-weight:500">Lote: ${lot.lote||'—'}</span>
+          ${cad?'<span style="font-size:9px;font-weight:700;color:#e74c3c;letter-spacing:.5px">VENCIDO</span>':prx?'<span style="font-size:9px;font-weight:600;color:#e67e22">PRÓXIMO</span>':''}
+        </div>
+        <button type="button" class="btn-d" onclick="_pdmEditIdx=${lot._idx};renderProdModal()" style="font-size:10px">Editar</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 4px">
+        <div><div style="font-size:8px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)">Cantidad</div><div style="font-size:12px;margin-top:2px">${lot.cantidad||'—'}</div></div>
+        <div><div style="font-size:8px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)">Temperatura</div><div style="font-size:12px;margin-top:2px">${lot.temp!=null?lot.temp+'°C':'—'}</div></div>
+        <div><div style="font-size:8px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)">Vencimiento</div><div style="font-size:12px;margin-top:2px;font-weight:500;color:${cad?'#e74c3c':prx?'#e67e22':'inherit'}">${lot.vencimiento||'—'}</div></div>
+        <div><div style="font-size:8px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)">Proveedor</div><div style="font-size:12px;margin-top:2px">${lot.proveedor||'—'}</div></div>
+        <div><div style="font-size:8px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)">Albarán</div><div style="font-size:12px;margin-top:2px">${lot.albaran||'—'}</div></div>
+        <div><div style="font-size:8px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)">Ingreso</div><div style="font-size:12px;margin-top:2px">${lot.fecha_ingreso||lot.fecha||'—'}</div></div>
+      </div>
+      ${lot.frio?'<div style="font-size:9px;color:var(--muted);margin-top:8px">❄ Requiere frío</div>':''}
+    </div>`;
+  }).join('');
+}
+function _pdmLotEditForm(lot){
+  return`<div style="border-bottom:1px solid var(--border);padding:14px 0">
+    <div style="font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px">Editando · Lote ${lot.lote||''}</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="r2">
+        <div class="f"><label style="font-size:9px">Producto</label><input id="pdm-prod-edit" value="${(lot.producto||'').replace(/"/g,'&quot;')}"></div>
+        <div class="f"><label style="font-size:9px">Lote</label><input id="pdm-lote" value="${(lot.lote||'').replace(/"/g,'&quot;')}"></div>
+      </div>
+      <div class="r2">
+        <div class="f"><label style="font-size:9px">Cantidad</label><input id="pdm-qty" value="${(lot.cantidad||'').toString().replace(/"/g,'&quot;')}" placeholder="Ej: 20 lts"></div>
+        <div class="f"><label style="font-size:9px">Temp (°C)</label><input type="number" step="0.1" id="pdm-temp" value="${lot.temp!=null?lot.temp:''}"></div>
+      </div>
+      <div class="r2">
+        <div class="f"><label style="font-size:9px">Vencimiento</label><input type="date" id="pdm-venc" value="${lot.vencimiento||''}"></div>
+        <div class="f"><label style="font-size:9px">Proveedor</label><input id="pdm-prov" value="${(lot.proveedor||'').replace(/"/g,'&quot;')}"></div>
+      </div>
+      <div class="r2">
+        <div class="f"><label style="font-size:9px">Albarán</label><input id="pdm-alb" value="${(lot.albaran||'').replace(/"/g,'&quot;')}"></div>
+        <div class="f"><label style="font-size:9px">Fecha ingreso</label><input type="date" id="pdm-fecha" value="${lot.fecha_ingreso||lot.fecha||''}"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdm-frio" ${lot.frio?'checked':''}> Requiere frío</label>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button type="button" class="btn" onclick="saveLotEdit(${lot._idx})" style="flex:1;font-size:12px">Guardar cambios</button>
+        <button type="button" class="btn-d" onclick="_pdmEditIdx=null;renderProdModal()">Cancelar</button>
+      </div>
+    </div>
+  </div>`;
+}
+async function saveLotEdit(idx){
+  const item=S[idx];if(!item)return;
+  const lote=($('pdm-lote')||{}).value?.trim();
+  const qty=($('pdm-qty')||{}).value?.trim();
+  const temp=($('pdm-temp')||{}).value;
+  const venc=($('pdm-venc')||{}).value;
+  const prov=($('pdm-prov')||{}).value?.trim();
+  const alb=($('pdm-alb')||{}).value?.trim();
+  const frio=($('pdm-frio')||{}).checked;
+  const prodEdit=($('pdm-prod-edit')||{}).value?.trim();
+  const fecha=($('pdm-fecha')||{}).value;
+  const updates={frio};
+  if(lote!==undefined)updates.lote=lote;
+  if(qty!==undefined)updates.cantidad=qty;
+  if(temp!=='')updates.temp=parseFloat(temp);
+  if(venc!==undefined)updates.vencimiento=venc||null;
+  if(prov!==undefined)updates.proveedor=prov;
+  if(alb!==undefined)updates.albaran=alb;
+  if(prodEdit)updates.producto=prodEdit;
+  if(fecha!==undefined)updates.fecha_ingreso=fecha||null;
+  const{error}=await sb.from('recepciones').update(updates).eq('id',item.id);
+  if(error){alert('Error al guardar: '+error.message);return;}
+  Object.assign(S[idx],updates);
+  if(prodEdit&&prodEdit!==_pdmProd)_pdmProd=prodEdit;
+  _pdmEditIdx=null;
+  renderProdModal();
+  renderRecCats();
+  renderStockCatChips();
+  rS();
+}
+async function asignarCatProdModal(){
+  const cat=($('pdm-cat-select')||{}).value;
+  if(!cat){alert('Seleccioná una categoría');return;}
+  await asignarCatLotes(cat,_pdmProd);
+  const catLbl=$('pdm-cat-label');
+  if(catLbl)catLbl.textContent=cat;
+}
+
 
 function renderStockCatChips(){
   const el=$('stock-cat-chips');if(!el)return;
