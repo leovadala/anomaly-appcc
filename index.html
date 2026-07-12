@@ -421,8 +421,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <!-- V2: STOCK -->
 <div class="view" id="v2">
 <div class="sec"><div class="sec-t">Stock activo — FIFO</div>
-<div id="stock-cat-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+<div style="position:sticky;top:0;background:var(--bg,#f8f8f6);z-index:50;padding-bottom:6px;margin:-4px -2px 0;padding-top:4px">
+<div id="stock-cat-chips" style="display:flex;flex-wrap:nowrap;overflow-x:auto;gap:6px;margin-bottom:8px;scrollbar-width:none;-webkit-overflow-scrolling:touch"></div>
 <div class="f"><input id="ss" placeholder="Buscar..." oninput="rS()"></div>
+</div>
 <div class="note" id="sc"></div><div id="sl"></div></div>
 <div class="sec"><div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">Historial de salidas <span id="sh-count" style="font-size:11px;font-weight:400;color:var(--muted,#999)"></span></div>
 <div class="f"><input id="sh-search" placeholder="Buscar en historial..." oninput="renderSH()"></div>
@@ -3289,10 +3291,10 @@ function renderRecCats(){
   const allCats=Object.keys(cats).sort((a,b)=>a==='Sin categoría'?1:b==='Sin categoría'?-1:a.localeCompare(b,'es'));
   if(!allCats.length){el.innerHTML='<div class="empty">Sin stock activo</div>';return;}
   const CAT_OPTS=CONTEO_CATS.map(c=>`<option value="${c}">${c}</option>`).join('');
-  const btnHtml=`<div style="display:flex;overflow-x:auto;gap:6px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch;scrollbar-width:none">
+  const btnHtml=`<div style="position:sticky;top:0;background:var(--bg,#f8f8f6);z-index:50;padding-top:4px"><div style="display:flex;overflow-x:auto;gap:6px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch;scrollbar-width:none">
     <button type="button" class="cat-chip${_recCatFilter===''?' on':''}" onclick="_recCatFilter='';renderRecCats()">Todos</button>
     ${allCats.map(c=>`<button type="button" class="cat-chip${_recCatFilter===c?' on':''}" onclick="_recCatFilter=this.dataset.cat;renderRecCats()" data-cat="${c}">${c}</button>`).join('')}
-  </div>`;
+  </div></div>`;
   const toShow=_recCatFilter?[[_recCatFilter,cats[_recCatFilter]||[]]]:allCats.map(c=>[c,cats[c]]);
   const bodyHtml=toShow.filter(([,items])=>items&&items.length).map(([cat,items])=>{
     const byProd={};items.forEach(i=>{if(!byProd[i.producto])byProd[i.producto]=[];byProd[i.producto].push(i);});
@@ -3474,12 +3476,13 @@ async function asignarCatProdModal(){
 
 function renderStockCatChips(){
   const el=$('stock-cat-chips');if(!el)return;
-  const cats=new Set(S.map(i=>i.categoria||'Sin categoría'));
-  const all=['Todos',...Array.from(cats).sort((a,b)=>a.localeCompare(b,'es'))];
+  function _nc(c){if(!c)return'Sin categoría';const t=c.trim();const m=CONTEO_CATS.find(x=>x.toLowerCase()===t.toLowerCase());return m||t;}
+  const cats=new Set(S.map(i=>_nc(i.categoria)));
+  const all=['Todos',...Array.from(cats).sort((a,b)=>a==='Sin categoría'?1:b==='Sin categoría'?-1:a.localeCompare(b,'es'))];
   el.innerHTML=all.map(c=>{
     const val=c==='Todos'?'':c;
     const on=_stockCatFilter===val;
-    return`<button type="button" class="cat-chip${on?' on':''}" onclick="setStockCat('${val}')">${c}</button>`;
+    return`<button type="button" class="cat-chip${on?' on':''}" onclick="setStockCat(this.dataset.v)" data-v="${val}">${c}</button>`;
   }).join('');
 }
 function setStockCat(cat){_stockCatFilter=cat;renderStockCatChips();rS();}
@@ -3522,7 +3525,7 @@ function rRH(){const r=[],e=$('rli');const d7=new Date();d7.setDate(d7.getDate()
 
 function semaforo(venc){if(!venc)return'⚪';const dias=Math.round((new Date(venc).getTime()-new Date(hoy).getTime())/(864e5));if(dias<0)return'🔴';if(dias<7)return'🔴';if(dias<=30)return'🟡';return'🟢'}
 function semaforoStyle(venc){if(!venc)return'background:#aaa';const dias=Math.round((new Date(venc).getTime()-new Date(hoy).getTime())/(864e5));if(dias<0)return'background:#e74c3c';if(dias<7)return'background:#e74c3c';if(dias<=30)return'background:#f39c12';return'background:#27ae60'}
-function rS(){const q=$('ss').value.toLowerCase(),f=[];S.forEach((s,idx)=>{if(s.producto.toLowerCase().includes(q)&&(!_stockCatFilter||(s.categoria||'Sin categoría')===_stockCatFilter))f.push({...s,_idx:idx})});$('sc').textContent=f.length+' item'+(f.length!==1?'s':'');const e=$('sl');if(!f.length){e.innerHTML='<div class="empty">Stock vacío</div>';return}const g={};f.forEach(i=>{if(!g[i.producto])g[i.producto]=[];g[i.producto].push(i)});Object.values(g).forEach(items=>{items.sort((a,b)=>(a.vencimiento||'9999-12-31').localeCompare(b.vencimiento||'9999-12-31'))});const sortedEntries=Object.entries(g).sort(([a],[b])=>a.localeCompare(b,'es'));e.innerHTML=sortedEntries.map(([,items])=>items.map((i,idx)=>{const cad=i.vencimiento&&i.vencimiento<hoy;return`<div class="card" style="${cad?'border-left:3px solid #e74c3c;':''}"><div class="card-top"><span class="card-nm">${i.producto}</span><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;${semaforoStyle(i.vencimiento)}" title="${i.vencimiento?'Vence: '+i.vencimiento:'Sin vencimiento'}"></span>${i.categoria?`<span class="badge" style="background:var(--surface,#eee);color:var(--text)">${i.categoria}</span>`:''} ${cad?'<span class="badge" style="background:#e74c3c;color:#fff">Vencido</span>':''}<span class="badge">${i.frio?'Frío':'Amb.'}</span><button type="button" class="btn-d" onclick="editRec(${i._idx})">Editar</button><button type="button" class="btn-d" onclick="deleteRec(${i._idx})" style="color:#b33">Eliminar</button><button type="button" class="btn-d" onclick="archiveStock(${i._idx},'consumo')" style="background:#27ae60;color:#fff">Consumido</button><button type="button" class="btn-d" onclick="archiveStock(${i._idx},'caducado')" style="background:#e74c3c;color:#fff">Caducado</button></div></div><div class="card-row"><div><div class="card-l">Lote</div><div class="card-v">${i.lote}</div></div><div><div class="card-l">Temp.</div><div class="card-v">${i.temp}°C</div></div><div><div class="card-l">Venc.</div><div class="card-v" ${cad?'style="color:#e74c3c;font-weight:bold"':''}>${i.vencimiento||'—'}</div></div><div><div class="card-l">Ingreso</div><div class="card-v">${i.fecha_ingreso||i.fecha} ${i.hora}</div></div>${i.albaran?`<div><div class="card-l">Albarán</div><div class="card-v">${i.albaran}</div></div>`:''}</div></div>`}).join('')).join('')}
+function rS(){const q=$('ss').value.toLowerCase(),f=[];S.forEach((s,idx)=>{if(s.producto.toLowerCase().includes(q)&&(!_stockCatFilter||((c=>{const t=(c||'').trim();return(CONTEO_CATS.find(x=>x.toLowerCase()===t.toLowerCase())||t||'Sin categoría');})(s.categoria))===_stockCatFilter))f.push({...s,_idx:idx})});$('sc').textContent=f.length+' item'+(f.length!==1?'s':'');const e=$('sl');if(!f.length){e.innerHTML='<div class="empty">Stock vacío</div>';return}const g={};f.forEach(i=>{if(!g[i.producto])g[i.producto]=[];g[i.producto].push(i)});Object.values(g).forEach(items=>{items.sort((a,b)=>(a.vencimiento||'9999-12-31').localeCompare(b.vencimiento||'9999-12-31'))});const sortedEntries=Object.entries(g).sort(([a],[b])=>a.localeCompare(b,'es'));e.innerHTML=sortedEntries.map(([,items])=>items.map((i,idx)=>{const cad=i.vencimiento&&i.vencimiento<hoy;return`<div class="card" style="${cad?'border-left:3px solid #e74c3c;':''}"><div class="card-top"><span class="card-nm">${i.producto}</span><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;${semaforoStyle(i.vencimiento)}" title="${i.vencimiento?'Vence: '+i.vencimiento:'Sin vencimiento'}"></span>${i.categoria?`<span class="badge" style="background:var(--surface,#eee);color:var(--text)">${i.categoria}</span>`:''} ${cad?'<span class="badge" style="background:#e74c3c;color:#fff">Vencido</span>':''}<span class="badge">${i.frio?'Frío':'Amb.'}</span><button type="button" class="btn-d" onclick="editRec(${i._idx})">Editar</button><button type="button" class="btn-d" onclick="deleteRec(${i._idx})" style="color:#b33">Eliminar</button><button type="button" class="btn-d" onclick="archiveStock(${i._idx},'consumo')" style="background:#27ae60;color:#fff">Consumido</button><button type="button" class="btn-d" onclick="archiveStock(${i._idx},'caducado')" style="background:#e74c3c;color:#fff">Caducado</button></div></div><div class="card-row"><div><div class="card-l">Lote</div><div class="card-v">${i.lote}</div></div><div><div class="card-l">Temp.</div><div class="card-v">${i.temp}°C</div></div><div><div class="card-l">Venc.</div><div class="card-v" ${cad?'style="color:#e74c3c;font-weight:bold"':''}>${i.vencimiento||'—'}</div></div><div><div class="card-l">Ingreso</div><div class="card-v">${i.fecha_ingreso||i.fecha} ${i.hora}</div></div>${i.albaran?`<div><div class="card-l">Albarán</div><div class="card-v">${i.albaran}</div></div>`:''}</div></div>`}).join('')).join('')}
 function toggleROH1(){const show=$('a2e').checked;$('a2-sec').style.display=show?'block':'none'}
 function setArmarioTemp(){const arm=$('tarm').value;let txt='';if(arm==='1'||arm==='2'||arm==='3'){txt='-18.5°C'}$('ttemp').value=txt}
 function setTempFinal(){const arm=$('atf').value;if(arm==='1'||arm==='2'||arm==='3'){const a1=arm==='1'?-18.5:null,a2=arm==='2'?-18.5:null,a3=arm==='3'?-18.5:null;}}
