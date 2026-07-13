@@ -840,7 +840,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div class="ocr-box" onclick="event.stopPropagation()">
   <div class="ocr-title">Escanear albarán / factura</div>
   <input type="file" id="ocr-input" accept="image/*" capture="environment" style="display:none" onchange="handleOcrImage(event)">
-  <button type="button" class="btn" onclick="$('ocr-input').click()" style="width:100%;margin-bottom:1rem">📷 Seleccionar / Sacar foto</button>
+  <input type="file" id="ocr-input-file" accept="image/*" style="display:none" onchange="handleOcrImage(event)">
+  <div style="display:flex;gap:8px;margin-bottom:1rem">
+    <button type="button" class="btn" onclick="$('ocr-input').click()" style="flex:1">📷 Cámara</button>
+    <button type="button" class="btn-s" onclick="$('ocr-input-file').click()" style="flex:1;padding:10px">📁 Galería / Archivo</button>
+  </div>
   <img id="ocr-preview" class="ocr-preview" alt="preview">
   <div id="ocr-status" class="ocr-status">Procesando imagen...</div>
   <div id="ocr-results" class="ocr-results"></div>
