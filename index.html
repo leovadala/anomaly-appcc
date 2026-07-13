@@ -578,7 +578,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 
 <!-- Nuevo integrante modal -->
 <div class="ocr-modal" id="new-team-modal" style="display:none" onclick="closeTeamModal(event)">
-  <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:12px 12px 0 0">
+  <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:88vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:8px;border:.5px solid var(--border)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4rem">
       <span id="team-modal-title" style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Nuevo integrante</span>
       <button type="button" onclick="closeTeamModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0">✕</button>
@@ -591,7 +591,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 </div>
 
 <!-- Nuevo sabor modal -->
-<div class="ocr-modal" id="new-sabor-modal" style="display:none" onclick="closeSaborModal(event)">
+<div class="ocr-modal" id="new-sabor-modal" style="display:none;align-items:center;padding:16px;box-sizing:border-box" onclick="closeSaborModal(event)">
   <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:12px 12px 0 0">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4rem">
       <span id="sabor-modal-title" style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Nuevo sabor</span>
@@ -3659,8 +3659,9 @@ function renderIngrPicker(){
   el.innerHTML=filtered.map(name=>{
     const sel=_ingrSelected.has(name);
     const already=currentSabIngr.includes(name);
-    return`<div onclick="${already?'':('toggleIngrItem('+JSON.stringify(name)+')')}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:.5px solid var(--border);cursor:${already?'default':'pointer'};background:${sel?'var(--black,#1a1a1a)':already?'var(--surface)':'transparent'};color:${sel?'var(--bg,#f8f8f6)':already?'var(--muted)':'var(--text)'};font-size:12px;transition:background .1s">
-      <span style="font-size:14px;flex-shrink:0">${sel?'✓':already?'·':''}</span>
+    const esc=name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return`<div data-ingr="${esc}" onclick="if(!this.dataset.already)toggleIngrItem(this.dataset.ingr)" ${already?'data-already="1"':''} style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:.5px solid var(--border);cursor:${already?'default':'pointer'};background:${sel?'var(--black,#1a1a1a)':already?'var(--surface)':'transparent'};color:${sel?'var(--bg,#f8f8f6)':already?'var(--muted)':'var(--text)'};font-size:12px;transition:background .1s">
+      <span style="font-size:14px;flex-shrink:0;width:16px">${sel?'✓':already?'·':''}</span>
       <span style="flex:1">${name}</span>
       ${already?'<span style="font-size:9px;opacity:.5">ya está</span>':''}
     </div>`;
