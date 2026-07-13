@@ -3642,8 +3642,8 @@ currentIngr=[];rIngrList();$('apeso-real').value='';const mn=$('merma-note');if(
 let _ingrSelected=new Set();
 
 function _getMasterIngredients(){
-  // Build master list from all products ever received (active + archived)
-  const all=[...S,...SH].map(i=>i.producto).filter(Boolean);
+  // Only products categorized as Materia prima (ever received)
+  const all=[...S,...SH].filter(i=>normalizeCat(i.categoria)==='Materia prima').map(i=>i.producto).filter(Boolean);
   return [...new Set(all)].sort((a,b)=>a.localeCompare(b,'es'));
 }
 
