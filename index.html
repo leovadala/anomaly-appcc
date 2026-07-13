@@ -2806,9 +2806,12 @@ function initRecDate(){const now=new Date();$('rfecha').value=now.toISOString().
 
 // ─── OCR SCANNER ─────────────────────────────────────────────
 function openOcrModal(){
-  $('ocr-modal').style.display='flex';$('ocr-preview').style.display='none';$('ocr-status').style.display='none';$('ocr-results').innerHTML='';$('ocr-input').value='';
+  $('ocr-modal').style.display='flex';$('ocr-preview').style.display='none';$('ocr-status').style.display='none';$('ocr-results').innerHTML='';
+  try{$('ocr-input').value='';}catch(e){}
+  try{$('ocr-input-file').value='';}catch(e){}
   window._ocrMode='recepcion';
   $('ocr-input').onchange=handleOcrImage;
+  $('ocr-input-file').onchange=handleOcrImage;
 }
 
 function handleOcrImage(e){
@@ -5115,15 +5118,17 @@ function openEgrOcr(){
   $('ocr-preview').style.display='none';
   $('ocr-status').style.display='none';
   $('ocr-results').innerHTML='';
-  $('ocr-input').value='';
+  try{$('ocr-input').value='';}catch(e){}
+  try{$('ocr-input-file').value='';}catch(e){}
   window._ocrMode='egresos';
-  // When image is selected, also capture file for egresos
-  $('ocr-input').onchange=function(ev){
+  const _egHandler=function(ev){
     const f=ev.target.files[0];if(!f)return;
     egFotoFile=f;
     $('eg-foto-name').textContent=f.name;
     handleOcrImage(ev);
   };
+  $('ocr-input').onchange=_egHandler;
+  $('ocr-input-file').onchange=_egHandler;
 }
 
 
