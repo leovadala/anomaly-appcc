@@ -6294,21 +6294,25 @@ async function saveAllRecLines(){
   const hRec=$('rhora').value||new Date().toTimeString().slice(0,5);
   const btnSave=$('btn-rec-save');
   if(btnSave){btnSave.disabled=true;btnSave.textContent='Guardando...';}
-  let errors=0;
+  let errors=0;const errMsgs=[];const savedCount=_recLines.length;
   for(const l of _recLines){
     const row={producto:l.prod,lote:l.lote||'-',temperatura:l.temp?parseFloat(l.temp):null,
       proveedor:l.provN||null,vencimiento:l.venc||null,requiere_frio:l.frio,
       cantidad:l.qty||null,observaciones:l.obs||null,nro_albaran:l.alb||null,
       fecha:fRec,hora:hRec,categoria:l.cat||null,fecha_ingreso:fRec,importe:l.importe||null,estado:'activo'};
-    const{data,error}=await sb.from('recepciones').insert(row).select('id').single();
-    if(error){errors++;console.error(error);}
-    else if(data)S.push({id:data.id,producto:l.prod,lote:l.lote||'-',temp:l.temp,proveedor:l.provN||'',
-      vencimiento:l.venc||'',frio:l.frio,cantidad:l.qty||'',obs:l.obs||'',albaran:l.alb||'',
-      fecha:fRec,hora:hRec.slice(0,5),categoria:l.cat||'',fecha_ingreso:fRec,importe:l.importe,estado:'activo'});
+    const{data,error}=await sb.from('recepciones').insert(row).select();
+    if(error){errors++;errMsgs.push(l.prod+': '+error.message);console.error(error);}
+    else{const d=Array.isArray(data)?data[0]:data;
+      S.push({id:d?.id,producto:l.prod,lote:l.lote||'-',temp:l.temp,proveedor:l.provN||'',
+        vencimiento:l.venc||'',frio:l.frio,cantidad:l.qty||'',obs:l.obs||'',albaran:l.alb||'',
+        fecha:fRec,hora:hRec.slice(0,5),categoria:l.cat||'',fecha_ingreso:fRec,importe:l.importe,estado:'activo'});
+    }
   }
   if(btnSave)btnSave.disabled=false;
-  if(errors)alert(`${errors} producto(s) no se pudieron guardar. Revisá los datos.`);
-  else{showToast(`✓ ${_recLines.length} producto${_recLines.length!==1?'s':''} registrado${_recLines.length!==1?'s':''}`);_recLines=[];renderRecLines();closeNewRecModal();rRH();renderRecCats();renderStockCatChips();rS();}
+  // Always refresh UI so successfully saved items appear
+  _recLines=[];renderRecLines();closeNewRecModal();rRH();renderRecCats();renderStockCatChips();rS();
+  if(errors)alert(`${errors} de ${savedCount} producto(s) no se pudieron guardar:\n${errMsgs.join('\n')}`);
+  else showToast(`\u2713 ${savedCount} producto${savedCount!==1?'s':''} registrado${savedCount!==1?'s':''}`);
 }
 </script>
 
