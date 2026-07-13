@@ -839,8 +839,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div class="ocr-modal" id="ocr-modal" style="display:none" onclick="closeOcrModal(event)">
 <div class="ocr-box" onclick="event.stopPropagation()">
   <div class="ocr-title">Escanear albarán / factura</div>
-  <input type="file" id="ocr-input" accept="image/*" capture="environment" style="display:none" onchange="handleOcrImage(event)">
-  <input type="file" id="ocr-input-file" accept="image/*" style="display:none" onchange="handleOcrImage(event)">
+  <input type="file" id="ocr-input" accept="image/*,application/pdf" capture="environment" style="display:none" onchange="handleOcrImage(event)">
+  <input type="file" id="ocr-input-file" accept="image/*,application/pdf" style="display:none" onchange="handleOcrImage(event)">
   <div style="display:flex;gap:8px;margin-bottom:1rem">
     <button type="button" class="btn" onclick="$('ocr-input').click()" style="flex:1">📷 Cámara</button>
     <button type="button" class="btn-s" onclick="$('ocr-input-file').click()" style="flex:1;padding:10px">📁 Galería / Archivo</button>
@@ -1454,6 +1454,19 @@ async function _loadPDFJS(){
   if(window.pdfjsLib)return;
   await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s)});
   window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+// ─── PDF → imagen (para OCR de albaranes) ────────────────────────────────────
+async function _pdfPageToDataUrl(file,pageNum=1){
+  await _loadPDFJS();
+  const ab=await file.arrayBuffer();
+  const pdf=await window.pdfjsLib.getDocument({data:ab}).promise;
+  const page=await pdf.getPage(Math.min(pageNum,pdf.numPages));
+  const vp=page.getViewport({scale:2.5});
+  const canvas=document.createElement('canvas');
+  canvas.width=vp.width;canvas.height=vp.height;
+  await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
+  return{dataUrl:canvas.toDataURL('image/jpeg',0.92),numPages:pdf.numPages};
 }
 
 // Extrae empleados y coste empresa (v9)
@@ -2786,38 +2799,50 @@ function openOcrModal(){
 
 function handleOcrImage(e){
   const file=e.target.files[0];if(!file)return;
+  if(file.type==='application/pdf'){
+    $('ocr-status').style.display='block';$('ocr-status').textContent='Convirtiendo PDF...';
+    $('ocr-results').innerHTML='';$('ocr-preview').style.display='none';
+    _pdfPageToDataUrl(file).then(({dataUrl,numPages})=>{
+      const img=$('ocr-preview');img.src=dataUrl;img.style.display='block';
+      if(numPages>1)$('ocr-status').textContent=`PDF con ${numPages} páginas — procesando página 1...`;
+      _runOcrPipeline(dataUrl,file);
+    }).catch(err=>{$('ocr-status').textContent='Error al leer PDF: '+err.message;});
+    return;
+  }
   const reader=new FileReader();
   reader.onload=ev=>{
     const img=$('ocr-preview');
     img.src=ev.target.result;img.style.display='block';
     $('ocr-status').style.display='block';
     $('ocr-results').innerHTML='';
-    if(window._ocrMode==='egresos'&&egFotoFile===file){
-      const ep=$('eg-foto-preview');ep.src=ev.target.result;ep.style.display='block';
-    }
-    if(window._ocrMode==='egresos'){
-      // Egresos: sigue usando Tesseract (extracción simple)
-      $('ocr-status').textContent='Procesando imagen...';
-      Tesseract.recognize(ev.target.result,'spa+eng',{logger:m=>{if(m.status==='recognizing text'){$('ocr-status').textContent='Reconociendo texto... '+Math.round(m.progress*100)+'%'}}}).then(({data:{text}})=>{
-        $('ocr-status').style.display='none';
-        renderEgOcrResults(text);
-      }).catch(err=>{$('ocr-status').textContent='Error al procesar imagen.';console.error(err)});
-    } else {
-      // Recepciones: GPT-4o Vision
-      $('ocr-status').textContent='Iniciando lectura...';
-      ocrAlbaranConGPT(ev.target.result,file).then(data=>{
-        $('ocr-status').style.display='none';
-        renderOcrResults(data);
-      }).catch(err=>{
-        $('ocr-status').textContent='Error IA: '+err.message+'. Reintentando con OCR local...';
-        Tesseract.recognize(ev.target.result,'spa+eng',{}).then(({data:{text}})=>{
-          $('ocr-status').style.display='none';
-          renderOcrResults(text);
-        }).catch(()=>{$('ocr-status').textContent='Error al procesar imagen.'});
-      });
-    }
+    _runOcrPipeline(ev.target.result,file);
   };
   reader.readAsDataURL(file);
+}
+
+function _runOcrPipeline(dataUrl,file){
+  if(window._ocrMode==='egresos'&&egFotoFile===file){
+    const ep=$('eg-foto-preview');ep.src=dataUrl;ep.style.display='block';
+  }
+  if(window._ocrMode==='egresos'){
+    $('ocr-status').textContent='Procesando imagen...';
+    Tesseract.recognize(dataUrl,'spa+eng',{logger:m=>{if(m.status==='recognizing text'){$('ocr-status').textContent='Reconociendo texto... '+Math.round(m.progress*100)+'%'}}}).then(({data:{text}})=>{
+      $('ocr-status').style.display='none';
+      renderEgOcrResults(text);
+    }).catch(err=>{$('ocr-status').textContent='Error al procesar imagen.';console.error(err)});
+  } else {
+    $('ocr-status').textContent='Iniciando lectura...';
+    ocrAlbaranConGPT(dataUrl,file).then(data=>{
+      $('ocr-status').style.display='none';
+      renderOcrResults(data);
+    }).catch(err=>{
+      $('ocr-status').textContent='Error IA: '+err.message+'. Reintentando con OCR local...';
+      Tesseract.recognize(dataUrl,'spa+eng',{}).then(({data:{text}})=>{
+        $('ocr-status').style.display='none';
+        renderOcrResults(text);
+      }).catch(()=>{$('ocr-status').textContent='Error al procesar imagen.'});
+    });
+  }
 }
 
 async function preprocessImageForGPT(imageDataUrl,originalFile=null){
