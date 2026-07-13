@@ -3818,7 +3818,7 @@ let _eqBtns;try{_eqBtns=_migrateEqBtns(JSON.parse(localStorage.getItem('eq_btns'
 let _eqActive = '';
 
 function renderQuickBtns(){
-  const mkBtn=(item,i)=>`<button type="button" onclick="openQuickModal(${i})" style="padding:10px 18px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .2s" onmouseover="this.style.background='var(--black)';this.style.color='var(--bg)'" onmouseout="this.style.background='var(--surface)';this.style.color='var(--black)'">${item.name}${item.importe?` <span style="font-size:10px;opacity:.6">€${item.importe.toFixed(2)}</span>`:''}</button>`;
+  const mkBtn=(item,i)=>`<button type="button" onclick="openQuickModal(${i})" style="padding:8px 14px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);font-size:10px;font-weight:400;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .18s" onmouseover="this.style.borderColor='var(--black)';this.style.color='var(--black)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">${item.name}${item.importe?` <span style="font-size:9px;opacity:.7">€${item.importe.toFixed(2)}</span>`:''}</button>`;
   const btns=_eqBtns.map((item,i)=>mkBtn(item,i)).join('');
   const el=$('eg-quick-btns');if(el)el.innerHTML=btns;
   const hel=$('home-quick-btns');if(hel)hel.innerHTML=btns||'<span style="font-size:11px;color:var(--muted)">Sin ítems — tocá ⚙ Editar</span>';
