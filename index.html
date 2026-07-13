@@ -3220,6 +3220,21 @@ function renderOcrResults(textOrData){
   html+=`<div class="r2" style="gap:8px"><div class="f"><label style="font-size:9px">Fecha</label><input type="date" id="ocr-fecha" value="${c.fecha||hoy}"></div>`;
   html+=`<div class="f"><label style="font-size:9px">Total €</label><input id="ocr-total" value="${c.total||''}" placeholder="502.53"></div></div>`;
   html+=`<div class="f"><label style="font-size:9px">Forma de pago</label><input id="ocr-pago" value="${(c.forma_pago||'').replace(/"/g,'&quot;')}" placeholder="Domiciliado, transferencia..."></div>`;
+  html+=`<div class="f"><label style="font-size:9px">Tipo de documento</label>
+    <div style="display:flex;gap:0;border:.5px solid var(--border);overflow:hidden;border-radius:4px">
+      <button type="button" id="ocr-tipo-alb" onclick="setOcrTipo('albaran')" style="flex:1;padding:7px;font-size:10px;letter-spacing:1px;text-transform:uppercase;border:none;background:var(--black);color:var(--white,#fff);cursor:pointer;font-family:var(--font)">Albarán</button>
+      <button type="button" id="ocr-tipo-fac" onclick="setOcrTipo('factura')" style="flex:1;padding:7px;font-size:10px;letter-spacing:1px;text-transform:uppercase;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--font)">Factura</button>
+    </div>
+  </div>
+  <div id="ocr-pago-estado-sec" style="display:none">
+    <div class="f"><label style="font-size:9px">Estado de pago</label>
+      <div style="display:flex;gap:0;border:.5px solid var(--border);overflow:hidden;border-radius:4px">
+        <button type="button" id="ocr-ep-pag" onclick="setOcrEstadoPago('pagado')" style="flex:1;padding:7px;font-size:10px;letter-spacing:1px;text-transform:uppercase;border:none;background:var(--black);color:var(--white,#fff);cursor:pointer;font-family:var(--font)">✓ Pagado</button>
+        <button type="button" id="ocr-ep-pen" onclick="setOcrEstadoPago('pendiente')" style="flex:1;padding:7px;font-size:10px;letter-spacing:1px;text-transform:uppercase;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--font)">⏳ Pendiente</button>
+      </div>
+    </div>
+    <div id="ocr-venc-row" style="display:none" class="f"><label style="font-size:9px">Vencimiento de pago</label><input type="date" id="ocr-venc-pago"></div>
+  </div>`;
   html+=`</div>`;
 
   // — TABLA DE LÍNEAS —
@@ -3348,6 +3363,40 @@ function ocrAddLinea(){
   setTimeout(()=>{const el=$('ocr-lineas-tabla');if(!el)return;const inputs=el.querySelectorAll('input');if(inputs.length)inputs[inputs.length-4].focus();},50);
 }
 
+function setOcrTipo(tipo){
+  window._ocrTipo=tipo;
+  const albBtn=$('ocr-tipo-alb');const facBtn=$('ocr-tipo-fac');
+  if(!albBtn||!facBtn)return;
+  if(tipo==='albaran'){
+    albBtn.style.background='var(--black)';albBtn.style.color='var(--white,#fff)';
+    facBtn.style.background='transparent';facBtn.style.color='var(--muted)';
+    const s=$('ocr-pago-estado-sec');if(s)s.style.display='none';
+  } else {
+    facBtn.style.background='var(--black)';facBtn.style.color='var(--white,#fff)';
+    albBtn.style.background='transparent';albBtn.style.color='var(--muted)';
+    const s=$('ocr-pago-estado-sec');if(s)s.style.display='';
+    setOcrEstadoPago(window._ocrEstadoPago||'pagado');
+  }
+  // Update confirm button label
+  const btn=$('ocr-confirm-btn');
+  if(btn)btn.textContent=tipo==='factura'?'✓ Confirmar factura + recepción':'✓ Confirmar recepción';
+}
+
+function setOcrEstadoPago(val){
+  window._ocrEstadoPago=val;
+  const pagBtn=$('ocr-ep-pag');const penBtn=$('ocr-ep-pen');
+  if(!pagBtn||!penBtn)return;
+  if(val==='pagado'){
+    pagBtn.style.background='var(--black)';pagBtn.style.color='var(--white,#fff)';
+    penBtn.style.background='transparent';penBtn.style.color='var(--muted)';
+    const r=$('ocr-venc-row');if(r)r.style.display='none';
+  } else {
+    penBtn.style.background='#e67e22';penBtn.style.color='#fff';
+    pagBtn.style.background='transparent';pagBtn.style.color='var(--muted)';
+    const r=$('ocr-venc-row');if(r)r.style.display='';
+  }
+}
+
 async function saveAlbaranRecepcion(){
   const data=window._ocrAlbaran;if(!data)return;
   // Sync inputs de cabecera al objeto
@@ -3385,9 +3434,31 @@ async function saveAlbaranRecepcion(){
   if(freshRecs)freshRecs.forEach(r=>S.push({id:r.id,producto:r.producto,lote:r.lote,temp:r.temperatura,proveedor:r.proveedor||'',vencimiento:r.vencimiento||'',frio:r.requiere_frio,cantidad:r.cantidad||'',obs:r.observaciones||'',albaran:r.nro_albaran||'',fecha:r.fecha,hora:(r.hora||'').slice(0,5),estado:'activo',fecha_salida:'',motivo_salida:'',precio_unitario:r.precio_unitario||null,importe:r.importe||null,categoria:r.categoria||null}));
   AB.push({id:albId,...albRow});
   if(provId){const{data:ppData}=await sb.from('proveedor_productos').select('*').eq('proveedor_id',provId);if(ppData){PP=PP.filter(p=>p.proveedor_id!==provId);ppData.forEach(p=>PP.push({id:p.id,proveedor_id:p.proveedor_id,ref:p.ref||'',descripcion:p.descripcion,ultimo_precio:p.ultimo_precio,ultima_fecha:p.ultima_fecha}));}}
+  // 5. Si es factura, crear egreso
+  if(window._ocrTipo==='factura'&&data.cabecera.total){
+    const estadoEg=window._ocrEstadoPago||'pagado';
+    const vencPago=$('ocr-venc-pago')?.value||null;
+    const egRow={
+      fecha:data.cabecera.fecha,
+      proveedor:provNombre,
+      concepto:`Factura ${data.cabecera.num_albaran||'s/n'}`,
+      importe:data.cabecera.total,
+      categoria:'Suministros',
+      nro_factura:data.cabecera.num_albaran||null,
+      notas:`Registrada desde recepción OCR`,
+      estado:estadoEg,
+      fecha_pago:estadoEg==='pagado'?data.cabecera.fecha:null,
+      vencimiento_pago:vencPago||null
+    };
+    const{data:egData}=await sb.from('egresos').insert(egRow).select();
+    if(egData&&egData[0])Egresos.unshift(egData[0]);
+  }
   rRH();rS();rPL();
   closeOcrModal();
-  alert(`✓ Albarán ${data.cabecera.num_albaran} registrado — ${data.lineas.length} producto${data.lineas.length!==1?'s':''} añadido${data.lineas.length!==1?'s':''} al stock`);
+  const tipoLabel=window._ocrTipo==='factura'?'Factura':'Albarán';
+  const egMsg=window._ocrTipo==='factura'?` — egreso ${window._ocrEstadoPago==='pendiente'?'pendiente de pago':'registrado'}`:''
+  alert(`✓ ${tipoLabel} ${data.cabecera.num_albaran} registrado — ${data.lineas.length} producto${data.lineas.length!==1?'s':''} añadido${data.lineas.length!==1?'s':''}${egMsg}`);
+  window._ocrTipo=null;window._ocrEstadoPago=null;
 }
 
 // Compatibilidad: applyOcrField y applyAllOcr siguen existiendo para egresos OCR
