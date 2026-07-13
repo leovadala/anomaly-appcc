@@ -683,6 +683,13 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
       <img id="eg-foto-preview" style="display:none;max-height:100px;margin-top:8px;border:.5px solid var(--border)" alt="preview">
     </div>
     <div class="f"><label>Notas</label><input id="eg-notas" placeholder="Observaciones..."></div>
+    <div class="f"><label>Estado de pago</label>
+      <div style="display:flex;gap:0;border:.5px solid var(--border);overflow:hidden;border-radius:4px">
+        <button type="button" id="eg-estado-pagado" onclick="setEgEstado('pagado')" style="flex:1;padding:8px;font-size:10px;letter-spacing:1px;text-transform:uppercase;border:none;background:var(--black);color:var(--white,#fff);cursor:pointer;font-family:var(--font)">✓ Pagado</button>
+        <button type="button" id="eg-estado-pendiente" onclick="setEgEstado('pendiente')" style="flex:1;padding:8px;font-size:10px;letter-spacing:1px;text-transform:uppercase;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--font)">⏳ Pendiente</button>
+      </div>
+    </div>
+    <div class="f" id="eg-venc-pago-row" style="display:none"><label>Vencimiento de pago</label><input type="date" id="eg-venc-pago" placeholder="Fecha límite de pago"></div>
     <button type="button" class="btn" onclick="saveEgreso()" style="width:100%;margin-top:.5rem">Registrar egreso</button>
     <button type="button" class="btn-d" id="btn-eg-cancel" onclick="cancelEgreso()" style="display:none;margin-top:8px;width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
   </div>
@@ -952,7 +959,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   <button type="button" class="btn" onclick="openEgrOcr()" style="flex:1;font-size:12px">📷 Escanear factura</button>
 </div>
 
-<div class="sec"><div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">Egresos <div style="display:flex;gap:6px;align-items:center"><select id="eg-filter-mes" onchange="renderEgresos()" style="font-size:11px;padding:4px 6px;border:.5px solid var(--border);background:transparent"></select><span id="eg-total-mes" style="font-size:11px;font-weight:500"></span></div></div>
+<div class="sec" id="eg-pendientes-sec" style="display:none;border-left:3px solid #e67e22">
+  <div class="sec-t" style="display:flex;justify-content:space-between;align-items:center;color:#e67e22">
+    Facturas pendientes de pago
+    <span id="eg-pendientes-total" style="font-size:11px;font-weight:600"></span>
+  </div>
+  <div id="eg-pendientes-list"></div>
+</div>
+<div class="sec"><div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">Egresos pagados <div style="display:flex;gap:6px;align-items:center"><select id="eg-filter-mes" onchange="renderEgresos()" style="font-size:11px;padding:4px 6px;border:.5px solid var(--border);background:transparent"></select><span id="eg-total-mes" style="font-size:11px;font-weight:500"></span></div></div>
 <div id="eg-list"></div>
 </div>
 
@@ -4775,10 +4789,8 @@ const EG_COLORS=['#3498db','#9b59b6','#e67e22','#e74c3c','#27ae60','#f39c12','#9
 let Egresos=[],editingEgIdx=null,egFotoFile=null;
 
 async function initEgresos(){
-  if(!Egresos.length){
-    const{data}=await sb.from('egresos').select('*').order('fecha',{ascending:false});
-    Egresos=data||[];
-  }
+  const{data}=await sb.from('egresos').select('*').order('fecha',{ascending:false});
+  Egresos=data||[];
   const now=new Date();
   $('eg-fecha').value=now.toISOString().split('T')[0];
   buildEgMesFiltro();
@@ -4799,37 +4811,54 @@ function buildEgMesFiltro(){
   }).join('');
 }
 
-function renderEgresos(){
-  const mes=$('eg-filter-mes').value;
-  const filtered=Egresos.filter(e=>e.fecha.startsWith(mes));
-  const total=filtered.reduce((s,e)=>s+(+e.importe||0),0);
-  $('eg-total-mes').textContent=filtered.length?`Total: ${total.toFixed(2)} €`:'';
-
-  // List
-  const el=$('eg-list');
-  if(!filtered.length){el.innerHTML='<div class="empty">Sin egresos este mes</div>';$('eg-chart').innerHTML='';$('eg-legend').innerHTML='';return}
-  el.innerHTML=filtered.map((e,i)=>{
-    const idx=Egresos.indexOf(e);
-    const color=EG_COLORS[EG_CATS.indexOf(e.categoria)%EG_COLORS.length]||'#95a5a6';
-    return`<div class="card"><div class="card-top">
-      <span class="card-nm">${e.concepto||e.proveedor||'Egreso'}</span>
-      <div style="display:flex;align-items:center;gap:6px">
+function _egCard(e,idx,isPending=false){
+  const color=EG_COLORS[EG_CATS.indexOf(e.categoria)%EG_COLORS.length]||'#95a5a6';
+  const vencBadge=isPending&&e.vencimiento_pago?`<span style="font-size:10px;color:#e67e22;margin-left:4px">Vence: ${e.vencimiento_pago}</span>`:'';
+  return`<div class="card"${isPending?' style="border-left:3px solid #e67e22"':''}>
+    <div class="card-top">
+      <span class="card-nm">${e.concepto||e.proveedor||'Egreso'}${vencBadge}</span>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:14px;font-weight:600">${(+e.importe).toFixed(2)} €</span>
+        ${isPending?`<button type="button" class="btn" onclick="markEgresoPagado(${idx})" style="font-size:9px;padding:4px 8px;margin:0;background:#27ae60;letter-spacing:1px">✓ Marcar pagado</button>`:''}
         <button type="button" class="btn-d" onclick="editEgreso(${idx})">Editar</button>
         <button type="button" class="btn-d" onclick="deleteEgreso(${idx})" style="color:#e74c3c">Borrar</button>
-      </div></div>
-      <div class="card-row">
-        <div><div class="card-l">Fecha</div><div class="card-v">${e.fecha}</div></div>
-        <div><div class="card-l">Proveedor</div><div class="card-v">${e.proveedor||'—'}</div></div>
-        <div><div class="card-l">Categoría</div><div class="card-v"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:3px"></span>${e.categoria}</div></div>
-        <div><div class="card-l">Factura</div><div class="card-v">${e.nro_factura||'—'}</div></div>
       </div>
-      ${e.foto_url?`<div style="margin-top:6px"><a href="${e.foto_url}" target="_blank" style="font-size:10px;color:var(--muted);text-decoration:none">📎 Ver comprobante</a></div>`:''}
-      ${e.notas?`<div style="font-size:11px;color:var(--hint);margin-top:4px">${e.notas}</div>`:''}
-    </div>`;
-  }).join('');
+    </div>
+    <div class="card-row">
+      <div><div class="card-l">Fecha</div><div class="card-v">${e.fecha}</div></div>
+      <div><div class="card-l">Proveedor</div><div class="card-v">${e.proveedor||'—'}</div></div>
+      <div><div class="card-l">Categoría</div><div class="card-v"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:3px"></span>${e.categoria}</div></div>
+      <div><div class="card-l">Factura</div><div class="card-v">${e.nro_factura||'—'}</div></div>
+    </div>
+    ${e.foto_url?`<div style="margin-top:6px"><a href="${e.foto_url}" target="_blank" style="font-size:10px;color:var(--muted);text-decoration:none">📎 Ver comprobante</a></div>`:''}
+    ${e.notas?`<div style="font-size:11px;color:var(--hint);margin-top:4px">${e.notas}</div>`:''}
+  </div>`;
+}
 
-  // Chart
+function renderEgresos(){
+  const mes=$('eg-filter-mes').value;
+
+  // Pending — all, regardless of month
+  const pending=Egresos.filter(e=>e.estado==='pendiente');
+  const pendSec=$('eg-pendientes-sec');
+  if(pendSec){
+    if(pending.length){
+      pendSec.style.display='';
+      const pendTotal=pending.reduce((s,e)=>s+(+e.importe||0),0);
+      $('eg-pendientes-total').textContent=`${pendTotal.toFixed(2)} € por pagar`;
+      $('eg-pendientes-list').innerHTML=pending.map(e=>_egCard(e,Egresos.indexOf(e),true)).join('');
+    } else {
+      pendSec.style.display='none';
+    }
+  }
+
+  // Paid — filtered by month
+  const filtered=Egresos.filter(e=>e.fecha.startsWith(mes)&&e.estado!=='pendiente');
+  const total=filtered.reduce((s,e)=>s+(+e.importe||0),0);
+  $('eg-total-mes').textContent=filtered.length?`Total: ${total.toFixed(2)} €`:'';
+  const el=$('eg-list');
+  if(!filtered.length){el.innerHTML='<div class="empty">Sin egresos pagados este mes</div>';$('eg-chart').innerHTML='';$('eg-legend').innerHTML='';return}
+  el.innerHTML=filtered.map(e=>_egCard(e,Egresos.indexOf(e),false)).join('');
   renderEgChart(filtered);
 }
 
@@ -4895,6 +4924,7 @@ async function saveEgreso(){
   if(!imp||imp<=0){alert('Ingresá un importe válido');return}
   const foto_url=egFotoFile?await uploadEgFoto(egFotoFile):
     (editingEgIdx!==null?Egresos[editingEgIdx].foto_url:null);
+  const _egEstado=window._egEstadoActual||'pagado';
   const row={
     fecha:$('eg-fecha').value||new Date().toISOString().split('T')[0],
     proveedor:$('eg-prov').value||null,
@@ -4903,7 +4933,10 @@ async function saveEgreso(){
     categoria:$('eg-cat').value||'Otros',
     nro_factura:$('eg-nfact').value||null,
     foto_url,
-    notas:$('eg-notas').value||null
+    notas:$('eg-notas').value||null,
+    estado:_egEstado,
+    fecha_pago:_egEstado==='pagado'?($('eg-fecha').value||new Date().toISOString().split('T')[0]):null,
+    vencimiento_pago:$('eg-venc-pago')?.value||null
   };
   if(editingEgIdx!==null){
     const id=Egresos[editingEgIdx].id;
@@ -4927,6 +4960,8 @@ function resetEgForm(){
   $('eg-foto-input').value='';$('eg-foto-name').textContent='Sin foto';
   $('eg-foto-preview').style.display='none';
   egFotoFile=null;
+  setEgEstado('pagado');
+  if($('eg-venc-pago'))$('eg-venc-pago').value='';
   const now=new Date();$('eg-fecha').value=now.toISOString().split('T')[0];
 }
 
@@ -4965,6 +5000,31 @@ async function deleteEgreso(idx){
 }
 
 // Reusar OCR de recepciones para facturas de egresos
+
+function setEgEstado(val){
+  window._egEstadoActual=val;
+  const pagBtn=$('eg-estado-pagado');const penBtn=$('eg-estado-pendiente');
+  if(!pagBtn||!penBtn)return;
+  if(val==='pagado'){
+    pagBtn.style.background='var(--black)';pagBtn.style.color='var(--white,#fff)';
+    penBtn.style.background='transparent';penBtn.style.color='var(--muted)';
+    const r=$('eg-venc-pago-row');if(r)r.style.display='none';
+  } else {
+    penBtn.style.background='#e67e22';penBtn.style.color='#fff';
+    pagBtn.style.background='transparent';pagBtn.style.color='var(--muted)';
+    const r=$('eg-venc-pago-row');if(r)r.style.display='';
+  }
+}
+
+async function markEgresoPagado(idx){
+  const e=Egresos[idx];if(!e)return;
+  const hoy=new Date().toISOString().split('T')[0];
+  const{error}=await sb.from('egresos').update({estado:'pagado',fecha_pago:hoy}).eq('id',e.id);
+  if(error){alert('Error: '+error.message);return}
+  Egresos[idx]={...e,estado:'pagado',fecha_pago:hoy};
+  renderEgresos();
+  showToast('✓ Factura marcada como pagada');
+}
 
 function openNewEgresoModal(title){
   editingEgIdx=null;
