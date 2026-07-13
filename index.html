@@ -600,10 +600,20 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     <div class="r2"><div class="f"><label>Nombre</label><input id="sab-name" placeholder="Ej: Vainilla"></div><div class="f"><label>Código (3 letras)</label><input id="sab-code" maxlength="3" placeholder="VAI" style="text-transform:uppercase;font-family:var(--mono)"></div></div>
     <div class="r2"><div class="f"><label>Peso teórico (kg/batch)</label><input id="sab-peso" type="number" min="0" step="0.1" placeholder="Ej: 5.5"></div></div>
     <div id="sab-ingr-section" style="margin-top:10px;padding:10px;background:var(--surface,#f5f3ee);border-radius:8px">
-      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Ingredientes de la receta</div>
-      <div class="note" style="margin-bottom:8px">Define los productos del stock que se usan en este sabor.</div>
-      <div class="r2"><div class="f"><label>Nombre del producto</label><input id="sab-ingr-input" placeholder="Ej: Azúcar blanquilla 25kg" onkeydown="if(event.key==='Enter'){addSabIngr();event.preventDefault()}"></div><div class="f" style="display:flex;align-items:flex-end"><button type="button" class="btn-s" onclick="addSabIngr()">+ Agregar</button></div></div>
-      <div id="sab-ingr-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:24px"></div>
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Ingredientes de la receta</div>
+      <!-- Search in master list -->
+      <input id="sab-ingr-search" placeholder="Buscar producto..." oninput="renderIngrPicker()" style="width:100%;border:none;border-bottom:.5px solid var(--border);font-size:12px;padding:6px 0;background:transparent;margin-bottom:6px;box-sizing:border-box">
+      <!-- Scrollable picker -->
+      <div id="sab-ingr-picker" style="max-height:150px;overflow-y:auto;border:.5px solid var(--border);border-radius:4px;background:var(--bg,#f8f8f6);margin-bottom:6px"></div>
+      <!-- Add custom not in list -->
+      <div style="display:flex;gap:6px;align-items:center">
+        <input id="sab-ingr-custom" placeholder="Otro (no está en la lista)..." style="flex:1;border:none;border-bottom:.5px solid var(--border);font-size:12px;padding:5px 0;background:transparent" onkeydown="if(event.key==='Enter'){addSabIngrCustom();event.preventDefault()}">
+        <button type="button" class="btn-s" onclick="addSabIngrCustom()" style="white-space:nowrap;flex-shrink:0">+ Otro</button>
+      </div>
+      <!-- Confirm selection -->
+      <button type="button" id="btn-add-selected-ingr" onclick="addSelectedIngredients()" style="display:none;width:100%;margin-top:8px;padding:8px;background:var(--black,#1a1a1a);color:var(--bg,#f8f8f6);border:none;font-size:11px;letter-spacing:1px;text-transform:uppercase;cursor:pointer"></button>
+      <!-- Current ingredients as chips -->
+      <div id="sab-ingr-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;min-height:24px"></div>
     </div>
     <button type="button" class="btn" id="btn-sab" onclick="saveSabor()" style="width:100%;margin-top:1rem">Agregar sabor</button>
     <button type="button" class="btn-d" id="btn-sab-cancel" onclick="cancelEditSabor()" style="display:none;margin-top:8px;width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar edición</button>
@@ -2466,7 +2476,7 @@ function openSaborModal(title){
   $('btn-sab').textContent='Agregar sabor';
   $('btn-sab-cancel').style.display='none';
   $('sab-name').value='';$('sab-code').value='';$('sab-peso').value='';
-  currentSabIngr=[];renderSabIngrList();
+  currentSabIngr=[];_ingrSelected=new Set();renderSabIngrList();if($('sab-ingr-search'))$('sab-ingr-search').value='';setTimeout(renderIngrPicker,50);
   $('new-sabor-modal').style.display='flex';
   setTimeout(()=>$('sab-name').focus(),100);
 }
@@ -3629,9 +3639,75 @@ if(error){alert('Error: '+error.message);return}
 H.push({id:_inserted?.id,fecha:row.fecha,hora:(row.hora||'').slice(0,5),responsable:row.responsable,producto:s,ingredientes:row.ingredientes||'',lote_prov:row.lote_proveedor||'',proveedor:row.proveedor||'',cant:row.cantidad_pesada||'',rehe:row.doc_rehe||'',obs:row.observaciones||'',pcc1:{t:row.pcc1_temp,m:row.pcc1_tiempo},roh1:{t:row.roh1_temp,v:row.roh1_vida_util||'',m:row.roh1_tiempo||''},roh3:{t:row.roh3_temp,m:row.roh3_tiempo||''},lote:row.lote_final||'',baldes:row.baldes,kg:row.kg,roh4:{i:row.roh4_identificacion||'',c:row.roh4_cantidad||''},roh5:{c:row.roh5_camara||'',t:row.roh5_temp,m:row.roh5_tiempo,e:'',s:''},litros:row.litros_final,pac:row.nro_pac||'',temps:{a1:row.temp_armario_1,a2:row.temp_armario_2,a3:row.temp_armario_3,p1:row.temp_pozzetti_1,p2:row.temp_pozzetti_2,p3:row.temp_pozzetti_3},ver:{e:row.verificacion_etapa||'',d:row.verificacion_descripcion||'',r:row.verificacion_resultado||''}});
 currentIngr=[];rIngrList();$('apeso-real').value='';const mn=$('merma-note');if(mn)mn.style.display='none';$('aok').style.display='block';setTimeout(()=>{$('aok').style.display='none';closeAppccModal();},3000)}
 
-function addSabIngr(){const v=$('sab-ingr-input').value.trim();if(!v)return;if(!currentSabIngr.includes(v))currentSabIngr.push(v);renderSabIngrList();$('sab-ingr-input').value='';$('sab-ingr-input').focus()}
-function rmSabIngr(i){currentSabIngr.splice(i,1);renderSabIngrList()}
-function renderSabIngrList(){const e=$('sab-ingr-list');if(!e)return;e.innerHTML=currentSabIngr.length?currentSabIngr.map((n,i)=>`<span class="tg">${n}<span onclick="rmSabIngr(${i})" style="cursor:pointer;margin-left:4px">×</span></span>`).join(''):'<span style="color:var(--muted);font-size:11px">Sin ingredientes definidos</span>'}
+let _ingrSelected=new Set();
+
+function _getMasterIngredients(){
+  // Build master list from all products ever received (active + archived)
+  const all=[...S,...SH].map(i=>i.producto).filter(Boolean);
+  return [...new Set(all)].sort((a,b)=>a.localeCompare(b,'es'));
+}
+
+function renderIngrPicker(){
+  const el=$('sab-ingr-picker');if(!el)return;
+  const q=($('sab-ingr-search')?.value||'').toLowerCase().trim();
+  const master=_getMasterIngredients();
+  const filtered=q?master.filter(n=>n.toLowerCase().includes(q)):master;
+  if(!filtered.length){
+    el.innerHTML='<div style="padding:10px 12px;font-size:11px;color:var(--muted)">'+(q?'Sin resultados — usá "Otro" para agregar':'No hay productos en stock aún')+'</div>';
+    return;
+  }
+  el.innerHTML=filtered.map(name=>{
+    const sel=_ingrSelected.has(name);
+    const already=currentSabIngr.includes(name);
+    return`<div onclick="${already?'':('toggleIngrItem('+JSON.stringify(name)+')')}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:.5px solid var(--border);cursor:${already?'default':'pointer'};background:${sel?'var(--black,#1a1a1a)':already?'var(--surface)':'transparent'};color:${sel?'var(--bg,#f8f8f6)':already?'var(--muted)':'var(--text)'};font-size:12px;transition:background .1s">
+      <span style="font-size:14px;flex-shrink:0">${sel?'✓':already?'·':''}</span>
+      <span style="flex:1">${name}</span>
+      ${already?'<span style="font-size:9px;opacity:.5">ya está</span>':''}
+    </div>`;
+  }).join('');
+  // Update confirm button
+  const btn=$('btn-add-selected-ingr');
+  if(btn){
+    if(_ingrSelected.size>0){
+      btn.style.display='block';
+      btn.textContent=`Agregar ${_ingrSelected.size} ingrediente${_ingrSelected.size!==1?'s':''}`;
+    } else {
+      btn.style.display='none';
+    }
+  }
+}
+
+function toggleIngrItem(name){
+  if(_ingrSelected.has(name))_ingrSelected.delete(name);
+  else _ingrSelected.add(name);
+  renderIngrPicker();
+}
+
+function addSelectedIngredients(){
+  _ingrSelected.forEach(name=>{if(!currentSabIngr.includes(name))currentSabIngr.push(name);});
+  _ingrSelected.clear();
+  renderSabIngrList();
+  renderIngrPicker();
+  if($('sab-ingr-search'))$('sab-ingr-search').value='';
+}
+
+function addSabIngrCustom(){
+  const v=($('sab-ingr-custom')?.value||'').trim();
+  if(!v)return;
+  if(!currentSabIngr.includes(v))currentSabIngr.push(v);
+  renderSabIngrList();
+  renderIngrPicker();
+  if($('sab-ingr-custom'))$('sab-ingr-custom').value='';
+}
+
+function addSabIngr(){addSabIngrCustom();}
+
+function rmSabIngr(i){currentSabIngr.splice(i,1);renderSabIngrList();renderIngrPicker();}
+
+function renderSabIngrList(){
+  const e=$('sab-ingr-list');if(!e)return;
+  e.innerHTML=currentSabIngr.length?currentSabIngr.map((n,i)=>`<span class="tg">${n}<span onclick="rmSabIngr(${i})" style="cursor:pointer;margin-left:4px">×</span></span>`).join(''):'<span style="color:var(--muted);font-size:11px">Sin ingredientes definidos</span>';
+}
 function calcMerma(){const sab=sabores.find(s=>s.nombre===$('ap').value);const pesoR=parseFloat($('apeso-real').value)||0;const note=$('merma-note');if(!note)return;if(sab&&sab.peso_teorico&&pesoR){const merma=sab.peso_teorico-pesoR;const pct=(merma/sab.peso_teorico*100).toFixed(1);note.textContent='Peso teórico: '+sab.peso_teorico+' kg · Real: '+pesoR+' kg · Merma: '+merma.toFixed(2)+' kg ('+pct+'%)';note.style.display='block'}else if(sab&&sab.peso_teorico){note.textContent='Peso teórico del sabor: '+sab.peso_teorico+' kg';note.style.display='block'}else{note.style.display='none'}}
 function renderSaborSelect(){
   const sel=$('ap');
@@ -3668,12 +3744,12 @@ function editSabor(i){
   // ingredientes puede venir como array o como string JSON desde Supabase
   let ingr=s.ingredientes||[];
   if(typeof ingr==='string'){try{ingr=JSON.parse(ingr);}catch(e){ingr=[];}}
-  currentSabIngr=Array.isArray(ingr)?[...ingr]:[];
+  currentSabIngr=Array.isArray(ingr)?[...ingr]:[];_ingrSelected=new Set();if($('sab-ingr-search'))$('sab-ingr-search').value='';
   renderSabIngrList();
   $('btn-sab').textContent='Actualizar sabor';
   $('btn-sab-cancel').style.display='block';
   $('sabor-modal-title').textContent='Editar sabor';
-  $('new-sabor-modal').style.display='flex';
+  $('new-sabor-modal').style.display='flex';setTimeout(renderIngrPicker,80);
   setTimeout(()=>{const el=$('sab-name');if(el)el.focus();},100);
 }
 
