@@ -1115,7 +1115,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     <div style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase;margin-bottom:1.2rem">Editar egresos rápidos</div>
     <div id="eq-edit-list" style="margin-bottom:1rem"></div>
     <div style="display:flex;gap:8px;margin-bottom:1rem">
-      <input type="text" id="eq-new-name" placeholder="Ej: Chino, Hielo..." style="flex:1">
+      <input type="text" id="eq-new-name" placeholder="Nombre..." style="flex:1">
+      <input type="number" id="eq-new-importe" step="0.01" placeholder="€" style="width:60px;border:none;border-bottom:.5px solid var(--border);font-size:12px;padding:6px 4px;background:transparent">
       <button class="btn-s" onclick="addQuickBtn()" style="padding:8px 12px">+ Agregar</button>
     </div>
     <button class="btn-d" onclick="$('eg-quick-edit-modal').style.display='none'" style="width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1.5px;text-transform:uppercase">Cerrar</button>
@@ -3731,26 +3732,30 @@ function expPDF(){const p=document.querySelector('.rp');if(!p)return;const w=win
 
 
 // ─── EGRESOS RÁPIDOS ──────────────────────────────────────────────────────────
-const EQ_DEFAULT = ['Hielo','Chino','Mercadona'];
-let _eqBtns;try{_eqBtns=JSON.parse(localStorage.getItem('eq_btns')||JSON.stringify(EQ_DEFAULT));}catch(e){_eqBtns=[...EQ_DEFAULT];localStorage.removeItem('eq_btns');}
+const EQ_DEFAULT = [{name:'Hielo',importe:3.50},{name:'Chino',importe:null},{name:'Mercadona',importe:null}];
+function _migrateEqBtns(raw){
+  // Migrate string[] → {name,importe}[]
+  return raw.map(x=>typeof x==='string'?{name:x,importe:null}:x);
+}
+let _eqBtns;try{_eqBtns=_migrateEqBtns(JSON.parse(localStorage.getItem('eq_btns')||JSON.stringify(EQ_DEFAULT)));}catch(e){_eqBtns=[...EQ_DEFAULT];localStorage.removeItem('eq_btns');}
 let _eqActive = '';
 
 function renderQuickBtns(){
-  const mkBtn=(name,i)=>`<button type="button" onclick="openQuickModal(${i})" style="padding:10px 18px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .2s" onmouseover="this.style.background='var(--black)';this.style.color='var(--bg)'" onmouseout="this.style.background='var(--surface)';this.style.color='var(--black)'">${name}</button>`;
-  const btns=_eqBtns.map((name,i)=>mkBtn(name,i)).join('');
+  const mkBtn=(item,i)=>`<button type="button" onclick="openQuickModal(${i})" style="padding:10px 18px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .2s" onmouseover="this.style.background='var(--black)';this.style.color='var(--bg)'" onmouseout="this.style.background='var(--surface)';this.style.color='var(--black)'">${item.name}${item.importe?` <span style="font-size:10px;opacity:.6">€${item.importe.toFixed(2)}</span>`:''}</button>`;
+  const btns=_eqBtns.map((item,i)=>mkBtn(item,i)).join('');
   const el=$('eg-quick-btns');if(el)el.innerHTML=btns;
   const hel=$('home-quick-btns');if(hel)hel.innerHTML=btns||'<span style="font-size:11px;color:var(--muted)">Sin ítems — tocá ⚙ Editar</span>';
 }
 
 function openQuickModal(i){
-  const name=_eqBtns[i]||'';
-  _eqActive=name;
-  $('eq-title').textContent=name;
+  const item=_eqBtns[i]||{name:'',importe:null};
+  _eqActive=item.name;
+  $('eq-title').textContent=item.name;
   $('eq-fecha').value=new Date().toISOString().split('T')[0];
-  $('eq-concepto').value=name;
-  $('eq-importe').value='';
+  $('eq-concepto').value=item.name;
+  $('eq-importe').value=item.importe!=null?item.importe:'';
   const m=$('eg-quick-modal');m.style.display='flex';
-  setTimeout(()=>$('eq-importe').focus(),50);
+  setTimeout(()=>{$('eq-importe').focus();$('eq-importe').select();},50);
 }
 
 async function saveEgresoRapido(){
@@ -3774,20 +3779,27 @@ function openQuickEdit(){
 }
 
 function renderQuickEditList(){
-  $('eq-edit-list').innerHTML=_eqBtns.map((name,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <span style="flex:1;font-size:13px">${name}</span>
+  $('eq-edit-list').innerHTML=_eqBtns.map((item,i)=>`
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+      <span style="flex:1;font-size:13px">${item.name}</span>
+      <input type="number" step="0.01" value="${item.importe!=null?item.importe:''}" placeholder="€" style="width:64px;border:none;border-bottom:.5px solid var(--border);font-size:12px;padding:2px 4px;text-align:right;background:transparent" onchange="updateQuickImporte(${i},this.value)">
       <button type="button" onclick="removeQuickBtn(${i})" style="background:none;border:none;color:#b33;cursor:pointer;font-size:14px;padding:2px 6px">✕</button>
     </div>
   `).join('')||'<div class="empty" style="margin:0 0 8px">Sin botones</div>';
+}
+function updateQuickImporte(i,val){
+  _eqBtns[i].importe=val?parseFloat(val):null;
+  localStorage.setItem('eq_btns',JSON.stringify(_eqBtns));
+  renderQuickBtns();
 }
 
 function addQuickBtn(){
   const name=($('eq-new-name').value||'').trim();
   if(!name)return;
-  _eqBtns.push(name);
+  const imp=$('eq-new-importe')?.value;
+  _eqBtns.push({name,importe:imp?parseFloat(imp):null});
   localStorage.setItem('eq_btns',JSON.stringify(_eqBtns));
-  $('eq-new-name').value='';
+  $('eq-new-name').value='';if($('eq-new-importe'))$('eq-new-importe').value='';
   renderQuickBtns();
   renderQuickEditList();
 }
