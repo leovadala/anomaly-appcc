@@ -943,6 +943,15 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div id="eg-quick-btns" style="display:flex;flex-wrap:wrap;gap:8px"></div>
 </div>
 
+<div class="sec" id="eg-fixed-sec">
+<div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">
+  Gastos fijos
+  <button type="button" class="btn-d" onclick="openFixedEdit()" style="font-size:10px;padding:4px 10px;letter-spacing:1px">⚙ Editar</button>
+</div>
+<div class="note" style="margin-bottom:.8rem">Alquiler, servicios y otros gastos recurrentes.</div>
+<div id="eg-fixed-btns" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+</div>
+
 <div style="display:flex;gap:10px;margin-bottom:1.2rem">
   <button type="button" class="btn" onclick="openNewEgresoModal()" style="flex:1;font-size:12px">+ Nuevo egreso</button>
   <button type="button" class="btn" onclick="openEgrOcr()" style="flex:1;font-size:12px">📷 Escanear factura</button>
@@ -1115,7 +1124,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     <div class="f"><label>Importe (€)</label><input type="number" id="eq-importe" step="0.01" placeholder="0.00" inputmode="decimal"></div>
     <div style="display:flex;gap:8px;margin-top:1rem">
       <button class="btn" onclick="saveEgresoRapido()" style="flex:1;margin-top:0">Guardar</button>
-      <button class="btn-s" onclick="$('eg-quick-modal').style.display='none'" style="padding:10px 14px">✕</button>
+      <button class="btn-s" onclick="$('eg-quick-modal').style.display='none';_fbMode=false" style="padding:10px 14px">✕</button>
     </div>
   </div>
 </div>
@@ -1133,6 +1142,22 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
       <button class="btn-s" onclick="addQuickBtn()" style="padding:8px 12px">+ Agregar</button>
     </div>
     <button class="btn-d" onclick="$('eg-quick-edit-modal').style.display='none'" style="width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1.5px;text-transform:uppercase">Cerrar</button>
+  </div>
+</div>
+
+<div id="eg-fixed-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.65);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:.5px solid var(--border);padding:1.5rem;width:300px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase;margin-bottom:1.2rem">Editar gastos fijos</div>
+    <div id="fb-edit-list" style="margin-bottom:1rem"></div>
+    <div style="display:flex;gap:8px;margin-bottom:1rem">
+      <input type="text" id="fb-new-name" placeholder="Nombre (ej: Seguro)" style="flex:1">
+      <div style="display:flex;align-items:center;gap:3px;border-bottom:.5px solid var(--border);padding-bottom:1px">
+        <span style="font-size:11px;color:var(--muted)">€</span>
+        <input type="number" id="fb-new-importe" step="0.01" placeholder="—" style="width:52px;border:none;font-size:12px;padding:4px 0;text-align:right;background:transparent;outline:none">
+      </div>
+      <button class="btn-s" onclick="addFixedBtn()" style="padding:8px 12px">+ Agregar</button>
+    </div>
+    <button class="btn-d" onclick="$('eg-fixed-edit-modal').style.display='none'" style="width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1.5px;text-transform:uppercase">Cerrar</button>
   </div>
 </div>
 
@@ -2021,7 +2046,7 @@ async function loadAll(){
   const cfgData=cfg.data||[];const pinRow=cfgData.find(r=>r.key==='pin_supervisor');if(pinRow)pinSupervisor=pinRow.value;const finRow=cfgData.find(r=>r.key==='pin_finanzas');if(finRow)pinFinanzas=finRow.value;const oaiRow=cfgData.find(r=>r.key==='openai_key');if(oaiRow)OPENAI_KEY=oaiRow.value;const hlRow=cfgData.find(r=>r.key==='horario_local');if(hlRow){try{horLocal=JSON.parse(hlRow.value)||{}}catch(e){horLocal={}}};
   renderTeamSelect();renderTeam();rRH();rPL();renderSabores();renderSaborSelect();
 }
-loadAll().then(()=>{setTimeout(initTurno,200);renderQuickBtns();});
+loadAll().then(()=>{setTimeout(initTurno,200);renderQuickBtns();renderFixedBtns();});
 
 async function renderDashboard(){
   const all=[...S,...SH];
@@ -2523,7 +2548,7 @@ function goHome(){
   $('btn-back').style.display='none';
   $('nav').style.display='';
   $('app-footer').style.display='';
-  const _hqs2=$('home-quick-sec');if(_hqs2)_hqs2.style.display='';renderQuickBtns();
+  const _hqs2=$('home-quick-sec');if(_hqs2)_hqs2.style.display='';renderQuickBtns();renderFixedBtns();
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));
   document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));
   window.scrollTo(0,0);
@@ -2543,7 +2568,7 @@ function go(n){
   if(n===3){uIngrSelect();renderSaborSelect();renderAppccList()};
   if(n===5){initHorarios()};
   if(n===7)renderDashboard();
-  if(n===8)initEgresos();
+  if(n===8)initEgresos();renderFixedBtns();
   if(n===9)renderInventario();
   if(n===10){if(!_finUnlocked){showFinanzasPin();return;}initFinanzas();}
   if(n===11){empSubTab('integrantes');initEmpleados();}
@@ -3840,12 +3865,15 @@ async function saveEgresoRapido(){
   const concepto=$('eq-concepto').value.trim();
   const importe=parseFloat($('eq-importe').value)||0;
   if(!importe){alert('Ingresá el importe');return}
+  const categoria=_fbMode?'Gastos fijos':'Otros';
+  const notas=_fbMode?'Gasto fijo':'Egreso rápido';
   const{error}=await sb.from('egresos').insert({
     fecha,proveedor:_eqActive,concepto,importe,
-    categoria:'Otros',nro_factura:'Ticket',notas:'Egreso rápido'
+    categoria,nro_factura:'Ticket',notas
   });
   if(error){alert('Error: '+error.message);return}
   $('eg-quick-modal').style.display='none';
+  _fbMode=false;
   await initEgresos();
 }
 
@@ -3889,6 +3917,63 @@ function removeQuickBtn(i){
   localStorage.setItem('eq_btns',JSON.stringify(_eqBtns));
   renderQuickBtns();
   renderQuickEditList();
+}
+// ── GASTOS FIJOS ─────────────────────────────────────────────────────────────
+const FB_DEFAULT=[{name:'Alquiler',importe:null},{name:'Energía',importe:null},{name:'Telefonía',importe:null}];
+let _fixedBtns;try{_fixedBtns=JSON.parse(localStorage.getItem('fixed_btns')||JSON.stringify(FB_DEFAULT));}catch(e){_fixedBtns=[...FB_DEFAULT];localStorage.removeItem('fixed_btns');}
+let _fbMode=false;
+
+function renderFixedBtns(){
+  const mkBtn=(item,i)=>`<button type="button" onclick="openFixedModal(${i})" style="padding:8px 14px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);font-size:10px;font-weight:400;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .18s;box-shadow:0 1px 4px rgba(0,0,0,.08);text-align:left" onmouseover="this.style.borderColor='var(--black)';this.style.color='var(--black)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">${item.name}${item.importe!=null?` <span style="font-size:9px;opacity:.7">€${item.importe.toFixed(2)}</span>`:''}</button>`;
+  const el=$('eg-fixed-btns');if(el)el.innerHTML=_fixedBtns.map((item,i)=>mkBtn(item,i)).join('')||'<span style="font-size:11px;color:var(--muted)">Sin ítems — tocá ⚙ Editar</span>';
+}
+
+function openFixedModal(i){
+  const item=_fixedBtns[i]||{name:'',importe:null};
+  _eqActive=item.name;_fbMode=true;
+  $('eq-title').textContent=item.name;
+  $('eq-fecha').value=new Date().toISOString().split('T')[0];
+  $('eq-concepto').value=item.name;
+  $('eq-importe').value=item.importe!=null?item.importe:'';
+  const m=$('eg-quick-modal');m.style.display='flex';
+  setTimeout(()=>{$('eq-importe').focus();$('eq-importe').select();},50);
+}
+
+function openFixedEdit(){
+  renderFixedEditList();
+  $('eg-fixed-edit-modal').style.display='flex';
+  $('fb-new-name').value='';
+}
+
+function renderFixedEditList(){
+  $('fb-edit-list').innerHTML=_fixedBtns.map((item,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:.5px solid var(--border)">
+      <span style="flex:1;font-size:13px">${item.name}</span>
+      <div style="display:flex;align-items:center;gap:3px;border-bottom:.5px solid var(--border);padding-bottom:1px">
+        <span style="font-size:11px;color:var(--muted)">€</span>
+        <input type="number" step="0.01" value="${item.importe!=null?item.importe:''}" placeholder="—" style="width:52px;border:none;font-size:12px;padding:2px 0;text-align:right;background:transparent;outline:none" onchange="updateFixedImporte(${i},this.value)">
+      </div>
+      <button type="button" onclick="removeFixedBtn(${i})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 2px;line-height:1">×</button>
+    </div>
+  `).join('')||'<div class="empty" style="margin:0 0 8px">Sin botones</div>';
+}
+function updateFixedImporte(i,val){
+  _fixedBtns[i].importe=val?parseFloat(val):null;
+  localStorage.setItem('fixed_btns',JSON.stringify(_fixedBtns));
+  renderFixedBtns();
+}
+function addFixedBtn(){
+  const name=($('fb-new-name').value||'').trim();if(!name)return;
+  const imp=$('fb-new-importe')?.value;
+  _fixedBtns.push({name,importe:imp?parseFloat(imp):null});
+  localStorage.setItem('fixed_btns',JSON.stringify(_fixedBtns));
+  $('fb-new-name').value='';if($('fb-new-importe'))$('fb-new-importe').value='';
+  renderFixedBtns();renderFixedEditList();
+}
+function removeFixedBtn(i){
+  _fixedBtns.splice(i,1);
+  localStorage.setItem('fixed_btns',JSON.stringify(_fixedBtns));
+  renderFixedBtns();renderFixedEditList();
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
