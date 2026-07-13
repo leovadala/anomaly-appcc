@@ -746,17 +746,17 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     <div class="f"><label>Coste total (€) <span style="font-size:9px;color:var(--muted)">opcional</span></label><input type="number" step="0.01" id="rimporte" placeholder="0.00"></div>
     <div class="r2"><div class="f"><label>Temp. recibida (°C)</label><input type="number" id="rt" step="0.1" placeholder="°C"></div><div class="f"><label>Vencimiento</label><input type="date" id="rv"></div></div>
     <div class="chk"><input type="checkbox" id="rf"><label for="rf">Requiere frío</label></div>
-    <div class="f"><label>Categoría</label>
-      <select id="rcat" style="width:100%;border:none;border-bottom:1px solid var(--border);font-size:13px;padding:5px 0;background:transparent;color:var(--text)">
-        <option value="">Sin categoría</option>
-        <option>Helado</option><option>Materia prima</option><option>Topping</option><option>Insumos</option>
-        <option>Envases</option><option>Cafetería</option><option>Pastelería</option>
-        <option>Limpieza</option><option>Vajilla y utensilios</option><option>Mermas y Roturas</option>
-      </select>
-    </div>
+    <div class="f"><label>Categoría</label><select id="rcat" style="width:100%;border:none;border-bottom:1px solid var(--border);font-size:13px;padding:5px 0;background:transparent;color:var(--text)"><option value="">Sin categoría</option></select></div>
     <div class="f"><label>Observaciones</label><input id="ro" placeholder="Estado envase, sellos..."></div>
     <div class="note">Fecha y hora se pre-cargan con el momento actual. Podés modificarlas para cargas retroactivas.</div>
-    <button type="button" class="btn" id="btn-rec" onclick="saveRec()" style="width:100%;margin-top:.5rem">Registrar recepción</button>
+    <!-- Líneas pendientes -->
+    <div id="rec-lines-list" style="display:none;margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px;margin-top:.5rem">
+      <button type="button" class="btn" id="btn-rec-add" onclick="addRecLine()" style="flex:1">+ Agregar producto</button>
+      <button type="button" class="btn" id="btn-rec-save" onclick="saveAllRecLines()" style="flex:1;display:none">Guardar todo</button>
+    </div>
+    <button type="button" class="btn" id="btn-rec" onclick="saveRec()" style="width:100%;margin-top:.5rem;display:none">Guardar cambios</button>
+    <button type="button" class="btn-d" id="btn-rec-cancel" onclick="cancelEditRec()" style="width:100%;margin-top:.3rem;display:none">Cancelar edición</button>
   </div>
 </div>
 
@@ -2688,9 +2688,36 @@ async function saveEditRecModal(){
 
 async function deleteRec(idx){if(!confirm('¿Eliminar este registro de recepción? Esta acción no se puede deshacer.'))return;const id=S[idx].id;const{error}=await sb.from('recepciones').delete().eq('id',id);if(error){alert('Error: '+error.message);return}S.splice(idx,1);rRH();rS()}
 
-function cancelEditRec(){editingRecIdx=null;['rl','rt','rq','ro','ra','rimporte'].forEach(x=>$(x).value='');$('rp').value='';$('rpd').value='';$('rpdc').value='';$('rpdc').style.display='none';$('rv').value='';$('rf').checked=false;$('rcat').value='';$('rfingreso').value='';initRecDate();$('btn-rec').textContent='Registrar recepción';$('btn-rec-cancel').style.display='none';document.querySelector('#v1 .sec-t').textContent='Nueva recepción'}
+function cancelEditRec(){editingRecIdx=null;_recLines=[];renderRecLines();['rl','rt','rq','ro','ra','rimporte'].forEach(x=>$(x).value='');$('rp').value='';$('rpd').value='';$('rpdc').value='';$('rpdc').style.display='none';$('rv').value='';$('rf').checked=false;$('rcat').value='';$('rfingreso').value='';initRecDate();$('btn-rec').textContent='Registrar recepción';$('btn-rec-cancel').style.display='none';document.querySelector('#v1 .sec-t').textContent='Nueva recepción'}
 
-async function saveRec(){const pi=$('rp').value;const prod=$('rpd').value==='otro'?$('rpdc').value:$('rpd').value;const l=$('rl').value,t=$('rt').value;if(!prod||!l||!t){alert('Completa: producto, lote, temperatura');return}const provN=pi!==''?P[+pi].nombre:'';const fRec=$('rfecha').value||new Date().toISOString().split('T')[0];const hRec=$('rhora').value||new Date().toTimeString().slice(0,5);if(editingRecIdx!==null){const id=S[editingRecIdx].id;const cat=$('rcat').value.trim()||null;const fIngreso=$('rfingreso').value||null;const rimporte=$('rimporte')?.value;const row={producto:prod,lote:l,temperatura:parseFloat(t),proveedor:provN||null,vencimiento:$('rv').value||null,requiere_frio:$('rf').checked,cantidad:$('rq').value||null,observaciones:$('ro').value||null,nro_albaran:$('ra').value||null,fecha:fRec,hora:hRec,categoria:cat,fecha_ingreso:fIngreso,importe:rimporte?parseFloat(rimporte):null};const{error}=await sb.from('recepciones').update(row).eq('id',id);if(error){alert('Error: '+error.message);return}S[editingRecIdx]={id,producto:prod,lote:l,temp:t,proveedor:provN,vencimiento:$('rv').value,frio:$('rf').checked,cantidad:$('rq').value,obs:$('ro').value,albaran:$('ra').value,fecha:fRec,hora:hRec.slice(0,5)};cancelEditRec();rRH();rS()}else{const cat=$('rcat').value.trim()||null;const fIngreso=$('rfingreso').value||null;const row={producto:prod,lote:l,temperatura:parseFloat(t),proveedor:provN||null,vencimiento:$('rv').value||null,requiere_frio:$('rf').checked,cantidad:$('rq').value||null,observaciones:$('ro').value||null,nro_albaran:$('ra').value||null,fecha:fRec,hora:hRec,categoria:cat,fecha_ingreso:fIngreso||fRec,importe:rimporte?parseFloat(rimporte):null};const{data,error}=await sb.from('recepciones').insert(row).select();if(error){alert('Error al guardar: '+error.message);return;}if(data&&data[0])S.push({id:data[0].id,producto:prod,lote:l,temp:t,proveedor:provN,vencimiento:$('rv').value,frio:$('rf').checked,cantidad:$('rq').value,obs:$('ro').value,albaran:$('ra').value,fecha:fRec,hora:hRec.slice(0,5),categoria:cat||'',fecha_ingreso:fIngreso||fRec,importe:rimporte?parseFloat(rimporte):null});['rl','rt','rq','ro','ra','rimporte'].forEach(x=>$(x).value='');$('rpd').value='';$('rpdc').value='';$('rv').value='';$('rf').checked=false;$('rcat').value='';$('rfingreso').value='';initRecDate();rRH();showToast('\u2713 Recepci\u00f3n registrada');closeNewRecModal()}}
+async function saveRec(){
+  // Only called in EDIT mode (btn-rec is hidden for new mode)
+  if(editingRecIdx===null)return;
+  const pi=$('rp').value;
+  const prod=$('rpd').value==='otro'?$('rpdc').value.trim():$('rpd').value;
+  const l=$('rl').value.trim(),t=$('rt').value;
+  if(!prod||!l){alert('Completa: producto y lote');return}
+  const provN=pi&&pi!=='__nuevo__'?P[+pi].nombre:'';
+  const fRec=$('rfecha').value||new Date().toISOString().split('T')[0];
+  const hRec=$('rhora').value||new Date().toTimeString().slice(0,5);
+  const id=S[editingRecIdx].id;
+  const cat=$('rcat').value.trim()||null;
+  const fIngreso=$('rfingreso').value||null;
+  const rimporte=$('rimporte')?.value;
+  const row={producto:prod,lote:l,temperatura:t?parseFloat(t):null,proveedor:provN||null,
+    vencimiento:$('rv').value||null,requiere_frio:$('rf').checked,cantidad:$('rq').value||null,
+    observaciones:$('ro').value||null,nro_albaran:$('ra').value||null,
+    fecha:fRec,hora:hRec,categoria:cat,fecha_ingreso:fIngreso,
+    importe:rimporte?parseFloat(rimporte):null};
+  const{error}=await sb.from('recepciones').update(row).eq('id',id);
+  if(error){alert('Error: '+error.message);return}
+  S[editingRecIdx]={...S[editingRecIdx],producto:prod,lote:l,temp:t,proveedor:provN,
+    vencimiento:$('rv').value,frio:$('rf').checked,cantidad:$('rq').value,
+    obs:$('ro').value,albaran:$('ra').value,fecha:fRec,hora:hRec.slice(0,5),
+    categoria:cat||'',fecha_ingreso:fIngreso,importe:rimporte?parseFloat(rimporte):null};
+  showToast('\u2713 Recepci\u00f3n actualizada');
+  cancelEditRec();rRH();renderRecCats();rS();
+}
 function initRecDate(){const now=new Date();$('rfecha').value=now.toISOString().split('T')[0];$('rhora').value=now.toTimeString().slice(0,5)}
 
 // ─── OCR SCANNER ─────────────────────────────────────────────
@@ -4756,6 +4783,15 @@ function openNewRecModal(){
   uSP();initRecDate();
   $('new-rec-modal').style.display='flex';
   setTimeout(()=>{const s=$('rp');if(s)s.focus();},100);
+;
+  _recLines=[];renderRecLines();
+  const btnAdd=$('btn-rec-add'),btnSave=$('btn-rec-save'),btnRec=$('btn-rec'),btnCanc=$('btn-rec-cancel');
+  if(btnAdd)btnAdd.style.display='';
+  if(btnSave)btnSave.style.display='none';
+  if(btnRec)btnRec.style.display='none';
+  if(btnCanc)btnCanc.style.display='none';
+  // Populate rcat dynamically
+  const rcatSel=$('rcat');if(rcatSel&&!rcatSel.dataset.loaded){rcatSel.innerHTML='<option value="">Sin categoría</option>'+CONTEO_CATS.map(c=>`<option value="${c}">${c}</option>`).join('');rcatSel.dataset.loaded='1';}
 }
 function showToast(msg,ms=2500){const t=document.createElement('div');t.textContent=msg;t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--black);color:var(--bg);padding:10px 22px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;border-radius:2px;z-index:9999;pointer-events:none;transition:opacity .3s';document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300)},ms);}
 function closeNewRecModal(e){
@@ -6192,6 +6228,87 @@ function renderInventarioFin(){
     ${sinCoste>0?`<div style="margin-top:1rem;padding:10px 12px;background:#fff8e7;border-left:3px solid #f39c12;border-radius:4px;font-size:11px;color:#7d6608">
       <strong>${sinCoste} lote${sinCoste!==1?'s':''} sin precio registrado.</strong> Editá los lotes desde Recepción → Por categoría para completar el valor.
     </div>`:''}`;
+}
+
+let _recLines=[];
+
+function _getRecLineFields(){
+  const pi=$('rp').value;
+  const prod=$('rpd').value==='otro'?$('rpdc').value.trim():$('rpd').value;
+  const lote=$('rl').value.trim();
+  const qty=$('rq').value.trim();
+  const rimporte=$('rimporte')?.value;
+  const temp=$('rt').value;
+  const venc=$('rv').value;
+  const frio=$('rf').checked;
+  const cat=$('rcat').value||'';
+  const obs=$('ro').value.trim();
+  const alb=$('ra').value.trim();
+  const provN=pi&&pi!=='__nuevo__'?P[+pi].nombre:'';
+  return{prod,lote,qty,importe:rimporte?parseFloat(rimporte):null,temp,venc,frio,cat,obs,alb,provN};
+}
+
+function addRecLine(){
+  const f=_getRecLineFields();
+  if(!f.prod){alert('Indicá el producto');return;}
+  _recLines.push({...f,_id:Date.now()});
+  // Clear product fields only
+  $('rpd').value='';$('rpdc').value='';$('rpdc').style.display='none';
+  $('rl').value='';$('rq').value='';if($('rimporte'))$('rimporte').value='';
+  $('rt').value='';$('rv').value='';$('rf').checked=false;$('rcat').value='';$('ro').value='';
+  renderRecLines();
+}
+
+function removeRecLine(id){
+  _recLines=_recLines.filter(l=>l._id!==id);
+  renderRecLines();
+}
+
+function renderRecLines(){
+  const el=$('rec-lines-list');if(!el)return;
+  const btnSave=$('btn-rec-save');
+  if(!_recLines.length){
+    el.style.display='none';
+    if(btnSave)btnSave.style.display='none';
+    if($('btn-rec-add'))$('btn-rec-add').textContent='+ Agregar producto';
+    return;
+  }
+  el.style.display='block';
+  if(btnSave){btnSave.style.display='';btnSave.textContent=`✓ Guardar ${_recLines.length} producto${_recLines.length!==1?'s':''}`;}
+  if($('btn-rec-add'))$('btn-rec-add').textContent='+ Agregar otro';
+  el.innerHTML=`<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">Lista (${_recLines.length})</div>`+
+  _recLines.map(l=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface,#f5f3ee);border-radius:4px;margin-bottom:4px">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.prod}</div>
+      <div style="font-size:10px;color:var(--muted)">${l.cat||'Sin cat.'} · ${l.qty||'—'} · ${l.venc||'Sin venc.'}</div>
+    </div>
+    ${l.importe?`<span style="font-size:11px;font-weight:500">€${l.importe.toFixed(2)}</span>`:''}
+    <button type="button" onclick="removeRecLine(${l._id})" style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--muted);flex-shrink:0">×</button>
+  </div>`).join('');
+}
+
+async function saveAllRecLines(){
+  if(!_recLines.length){alert('Agregá al menos un producto');return;}
+  const pi=$('rp').value;
+  const fRec=$('rfecha').value||new Date().toISOString().split('T')[0];
+  const hRec=$('rhora').value||new Date().toTimeString().slice(0,5);
+  const btnSave=$('btn-rec-save');
+  if(btnSave){btnSave.disabled=true;btnSave.textContent='Guardando...';}
+  let errors=0;
+  for(const l of _recLines){
+    const row={producto:l.prod,lote:l.lote||'-',temperatura:l.temp?parseFloat(l.temp):null,
+      proveedor:l.provN||null,vencimiento:l.venc||null,requiere_frio:l.frio,
+      cantidad:l.qty||null,observaciones:l.obs||null,nro_albaran:l.alb||null,
+      fecha:fRec,hora:hRec,categoria:l.cat||null,fecha_ingreso:fRec,importe:l.importe||null,estado:'activo'};
+    const{data,error}=await sb.from('recepciones').insert(row).select('id').single();
+    if(error){errors++;console.error(error);}
+    else if(data)S.push({id:data.id,producto:l.prod,lote:l.lote||'-',temp:l.temp,proveedor:l.provN||'',
+      vencimiento:l.venc||'',frio:l.frio,cantidad:l.qty||'',obs:l.obs||'',albaran:l.alb||'',
+      fecha:fRec,hora:hRec.slice(0,5),categoria:l.cat||'',fecha_ingreso:fRec,importe:l.importe,estado:'activo'});
+  }
+  if(btnSave)btnSave.disabled=false;
+  if(errors)alert(`${errors} producto(s) no se pudieron guardar. Revisá los datos.`);
+  else{showToast(`✓ ${_recLines.length} producto${_recLines.length!==1?'s':''} registrado${_recLines.length!==1?'s':''}`);_recLines=[];renderRecLines();closeNewRecModal();rRH();renderRecCats();renderStockCatChips();rS();}
 }
 </script>
 
