@@ -5039,10 +5039,12 @@ async function saveEgreso(){
     Egresos[editingEgIdx]={id,...row};
     cancelEgreso();
   } else {
-    const{data}=await sb.from('egresos').insert(row).select();
+    const{data,error}=await sb.from('egresos').insert(row).select();
+    if(error){alert('Error al guardar: '+error.message);return;}
     if(data&&data[0])Egresos.unshift(data[0]);
     resetEgForm();
     $('new-egreso-modal').style.display='none';
+    showToast(_egEstado==='pendiente'?'✓ Factura pendiente registrada':'✓ Egreso registrado');
   }
   buildEgMesFiltro();
   renderEgresos();
