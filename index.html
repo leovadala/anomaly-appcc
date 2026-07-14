@@ -2856,7 +2856,7 @@ function _runOcrPipeline(dataUrl,file){
         const impM=joined2.match(/(?:total|importe|a pagar)[^\d]*(\d+[\.,]\d{2})/i)||joined2.match(/(\d+[\.,]\d{2})\s*€/);
         const facM=joined2.match(/(?:factura|fra\.?|f\.?|nº\.?)\s*:?\s*([A-Z0-9\/\-]{3,20})/i);
         const lines2=text.split('\n').map(l=>l.trim()).filter(l=>l.length>3&&!/^\d/.test(l));
-        const fechM=joined2.match(/(\d{1,2})[\/-\.](\d{1,2})[\/-\.]( \d{2,4})/);
+        const fechM=joined2.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
         let fecha2=null;if(fechM){let[,d,m,y]=fechM;if(+y<100)y=2000+(+y);fecha2=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
         renderEgOcrResultsGPT({
           proveedor:lines2[0]?.substring(0,50)||null,
