@@ -5360,6 +5360,11 @@ function applyEgOcrGPT(){
   const imp=parseFloat($('egocr-importe')?.value)||null;
   const nfact=($('egocr-nfact')?.value||'').trim();
   const concepto=($('egocr-concepto')?.value||'').trim();
+  // Reset form limpio, luego llenar con datos OCR
+  editingEgIdx=null;
+  resetEgForm();
+  if($('eg-modal-title'))$('eg-modal-title').textContent='Nuevo egreso';
+  if($('btn-eg-cancel'))$('btn-eg-cancel').style.display='none';
   if(prov)$('eg-prov').value=prov;
   if(fecha)$('eg-fecha').value=fecha;
   if(imp)$('eg-importe').value=imp;
@@ -5368,6 +5373,7 @@ function applyEgOcrGPT(){
   setEgEstado(window._ocrEgEstado||'pendiente');
   $('ocr-modal').style.display='none';
   window._ocrMode=null;
+  $('new-egreso-modal').style.display='flex';
 }
 
 function renderEgOcrResults(text){
