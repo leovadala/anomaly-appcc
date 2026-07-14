@@ -296,6 +296,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .cat-Logistica,.cat-Log\EDstica{background:#e6f1fb;color:#185FA5}
 .cat-APPCC{background:#eaf3de;color:#3B6D11}
 .cat-Incidencia{background:#fcebeb;color:#A32D2D}
+.cat-Pendiente{background:#fff3e0;color:#b8860b}
+#nov-cat-Pendiente.on{border-color:#b8860b!important;color:#b8860b!important;background:#fff8ec!important}
 .cat-General{background:#f1efe8;color:#5F5E5A}
 .nov-cat-btn{padding:4px 10px;border:.5px solid var(--border);background:transparent;font-size:9px;color:var(--muted);cursor:pointer;font-family:var(--font);border-radius:2px;transition:all .15s}
 .nov-cat-btn.on{border-color:var(--black);color:var(--black)}
@@ -6907,6 +6909,7 @@ async function saveAllRecLines(){
         <button type="button" class="nov-cat-btn" id="nov-cat-Logistica" onclick="setNovCat('Logistica',this)">Logística</button>
         <button type="button" class="nov-cat-btn" id="nov-cat-APPCC" onclick="setNovCat('APPCC',this)">APPCC</button>
         <button type="button" class="nov-cat-btn" id="nov-cat-Incidencia" onclick="setNovCat('Incidencia',this)">Incidencia</button>
+        <button type="button" class="nov-cat-btn" id="nov-cat-Pendiente" onclick="setNovCat('Pendiente',this)" style="border-color:#b8860b;color:#b8860b">Pendiente</button>
       </div>
       <button type="button" id="nov-save-btn" onclick="guardarNovedad()" style="width:100%;padding:11px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s">Agregar</button>
     </div>
