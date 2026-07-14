@@ -5325,6 +5325,7 @@ El importe es el TOTAL a pagar (con IVA).`;
 
 function renderEgOcrResultsGPT(data){
   const hoy=new Date().toISOString().split('T')[0];
+  window._ocrEgEstado='pendiente';
   let html=`<div style="background:var(--card,#fff);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
     <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px">Datos extraídos — editá si hay errores</div>
     <div class="f"><label style="font-size:9px">Proveedor</label><input id="egocr-prov" value="${(data.proveedor||'').replace(/"/g,'&quot;')}" placeholder="Proveedor"></div>
@@ -5336,11 +5337,23 @@ function renderEgOcrResultsGPT(data){
       <div class="f"><label style="font-size:9px">Nº Factura</label><input id="egocr-nfact" value="${(data.nro_factura||'').replace(/"/g,'&quot;')}" placeholder="Nº factura"></div>
       <div class="f"><label style="font-size:9px">Concepto</label><input id="egocr-concepto" value="${(data.concepto||'').replace(/"/g,'&quot;')}" placeholder="Descripción"></div>
     </div>
+    <div style="margin-top:10px"><label style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Estado de pago</label>
+      <div style="display:flex;gap:0;margin-top:6px;border:.5px solid var(--border);border-radius:4px;overflow:hidden">
+        <button type="button" id="egocr-est-pend" onclick="setOcrEgEstado('pendiente')" style="flex:1;padding:8px;font-size:10px;letter-spacing:1px;text-transform:uppercase;border:none;background:#e67e22;color:#fff;cursor:pointer;font-family:var(--font)">⏳ Pendiente</button>
+        <button type="button" id="egocr-est-pag" onclick="setOcrEgEstado('pagado')" style="flex:1;padding:8px;font-size:10px;letter-spacing:1px;text-transform:uppercase;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--font)">✓ Pagado</button>
+      </div>
+    </div>
   </div>
   <button type="button" class="btn" onclick="applyEgOcrGPT()" style="width:100%">✓ Aplicar y cerrar</button>`;
   $('ocr-results').innerHTML=html;
 }
 
+function setOcrEgEstado(val){
+  window._ocrEgEstado=val;
+  const pend=$('egocr-est-pend'),pag=$('egocr-est-pag');if(!pend||!pag)return;
+  if(val==='pendiente'){pend.style.background='#e67e22';pend.style.color='#fff';pag.style.background='transparent';pag.style.color='var(--muted)';}
+  else{pag.style.background='var(--black)';pag.style.color='var(--white,#fff)';pend.style.background='transparent';pend.style.color='var(--muted)';}
+}
 function applyEgOcrGPT(){
   const prov=($('egocr-prov')?.value||'').trim();
   const fecha=$('egocr-fecha')?.value||new Date().toISOString().split('T')[0];
@@ -5352,6 +5365,7 @@ function applyEgOcrGPT(){
   if(imp)$('eg-importe').value=imp;
   if(nfact)$('eg-nfact').value=nfact;
   if(concepto)$('eg-concepto').value=concepto;
+  setEgEstado(window._ocrEgEstado||'pendiente');
   $('ocr-modal').style.display='none';
   window._ocrMode=null;
 }
