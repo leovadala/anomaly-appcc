@@ -2842,11 +2842,18 @@ function _runOcrPipeline(dataUrl,file){
     const ep=$('eg-foto-preview');ep.src=dataUrl;ep.style.display='block';
   }
   if(window._ocrMode==='egresos'){
-    $('ocr-status').textContent='Procesando imagen...';
-    Tesseract.recognize(dataUrl,'spa+eng',{logger:m=>{if(m.status==='recognizing text'){$('ocr-status').textContent='Reconociendo texto... '+Math.round(m.progress*100)+'%'}}}).then(({data:{text}})=>{
+    $('ocr-status').textContent='Leyendo factura...';
+    ocrFacturaConGPT(dataUrl,file).then(data=>{
       $('ocr-status').style.display='none';
-      renderEgOcrResults(text);
-    }).catch(err=>{$('ocr-status').textContent='Error al procesar imagen.';console.error(err)});
+      renderEgOcrResultsGPT(data);
+    }).catch(()=>{
+      // Fallback Tesseract
+      $('ocr-status').textContent='Procesando con OCR local...';
+      Tesseract.recognize(dataUrl,'spa+eng',{logger:m=>{if(m.status==='recognizing text'){$('ocr-status').textContent='OCR... '+Math.round(m.progress*100)+'%'}}}).then(({data:{text}})=>{
+        $('ocr-status').style.display='none';
+        renderEgOcrResults(text);
+      }).catch(err=>{$('ocr-status').textContent='Error al procesar imagen.';});
+    });
   } else {
     $('ocr-status').textContent='Iniciando lectura...';
     ocrAlbaranConGPT(dataUrl,file).then(data=>{
@@ -5270,6 +5277,71 @@ function closeOcrModal(e){
 }
 
 // handleOcrImage handles both recepcion and egresos modes (see function above)
+
+async function ocrFacturaConGPT(imageDataUrl,originalFile=null){
+  if(!OPENAI_KEY){throw new Error('Sin clave OpenAI');}
+  let b64=imageDataUrl;
+  try{b64=await preprocessImageForGPT(imageDataUrl,originalFile);}catch(e){}
+  const prompt=`Eres un asistente que extrae datos de facturas o tickets.
+Devuelve ÚNICAMENTE este JSON (sin markdown ni texto extra):
+{
+  "proveedor": "nombre del emisor/proveedor",
+  "nro_factura": "número de factura o ticket o null",
+  "fecha": "YYYY-MM-DD o null",
+  "importe": número_decimal_total_o_null,
+  "concepto": "descripción breve del tipo de gasto o null"
+}
+REGLAS: separador decimal es punto. Si no ves el dato claramente, pon null.
+El importe es el TOTAL a pagar (con IVA).`;
+  const resp=await fetch('https://api.openai.com/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
+    body:JSON.stringify({
+      model:'gpt-4o',max_tokens:400,temperature:0,
+      messages:[{role:'user',content:[
+        {type:'text',text:prompt},
+        {type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64,detail:'high'}}
+      ]}]
+    })
+  });
+  if(!resp.ok)throw new Error('GPT error '+resp.status);
+  const j=await resp.json();
+  const raw=j.choices[0].message.content.trim().replace(/^```json?/,'').replace(/```$/,'').trim();
+  return JSON.parse(raw);
+}
+
+function renderEgOcrResultsGPT(data){
+  const hoy=new Date().toISOString().split('T')[0];
+  let html=`<div style="background:var(--card,#fff);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px">Datos extraídos — editá si hay errores</div>
+    <div class="f"><label style="font-size:9px">Proveedor</label><input id="egocr-prov" value="${(data.proveedor||'').replace(/"/g,'&quot;')}" placeholder="Proveedor"></div>
+    <div class="r2" style="gap:8px">
+      <div class="f"><label style="font-size:9px">Fecha</label><input type="date" id="egocr-fecha" value="${data.fecha||hoy}"></div>
+      <div class="f"><label style="font-size:9px">Importe (€)</label><input type="number" step="0.01" id="egocr-importe" value="${data.importe!=null?data.importe:''}" placeholder="0.00"></div>
+    </div>
+    <div class="r2" style="gap:8px">
+      <div class="f"><label style="font-size:9px">Nº Factura</label><input id="egocr-nfact" value="${(data.nro_factura||'').replace(/"/g,'&quot;')}" placeholder="Nº factura"></div>
+      <div class="f"><label style="font-size:9px">Concepto</label><input id="egocr-concepto" value="${(data.concepto||'').replace(/"/g,'&quot;')}" placeholder="Descripción"></div>
+    </div>
+  </div>
+  <button type="button" class="btn" onclick="applyEgOcrGPT()" style="width:100%">✓ Aplicar y cerrar</button>`;
+  $('ocr-results').innerHTML=html;
+}
+
+function applyEgOcrGPT(){
+  const prov=($('egocr-prov')?.value||'').trim();
+  const fecha=$('egocr-fecha')?.value||new Date().toISOString().split('T')[0];
+  const imp=parseFloat($('egocr-importe')?.value)||null;
+  const nfact=($('egocr-nfact')?.value||'').trim();
+  const concepto=($('egocr-concepto')?.value||'').trim();
+  if(prov)$('eg-prov').value=prov;
+  if(fecha)$('eg-fecha').value=fecha;
+  if(imp)$('eg-importe').value=imp;
+  if(nfact)$('eg-nfact').value=nfact;
+  if(concepto)$('eg-concepto').value=concepto;
+  $('ocr-modal').style.display='none';
+  window._ocrMode=null;
+}
 
 function renderEgOcrResults(text){
   const joined=text.split('\n').map(l=>l.trim()).filter(Boolean).join(' ');
