@@ -669,7 +669,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
       <span id="eg-modal-title" style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Nuevo egreso</span>
       <button type="button" onclick="closeNewEgresoModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0">✕</button>
     </div>
-    <div class="r2"><div class="f"><label>Fecha</label><input type="date" id="eg-fecha"></div><div class="f"><label>Importe (€)</label><input type="number" id="eg-importe" step="0.01" min="0" placeholder="0.00"></div></div>
+    <div class="r2"><div class="f"><label>Fecha factura</label><input type="date" id="eg-fecha"></div><div class="f"><label>Importe (€)</label><input type="number" id="eg-importe" step="0.01" min="0" placeholder="0.00"></div></div>
+    <div class="f" id="eg-fecha-pago-row"><label>Fecha de pago</label><input type="date" id="eg-fecha-pago"></div>
     <div class="f"><label>Proveedor / emisor</label><input id="eg-prov" placeholder="Ej: Mercadona, Telefónica..."></div>
     <div class="f"><label>Concepto</label><input id="eg-concepto" placeholder="Descripción del gasto"></div>
     <div class="r2">
@@ -3607,7 +3608,7 @@ async function saveAlbaranRecepcion(){
       nro_factura:data.cabecera.num_albaran||null,
       notas:`Registrada desde recepción OCR`,
       estado:estadoEg,
-      fecha_pago:estadoEg==='pagado'?data.cabecera.fecha:null,
+      fecha_pago:estadoEg==='pagado'?(data.cabecera.fecha_pago||data.cabecera.fecha):null,
       vencimiento_pago:vencPago||null
     };
     const{data:egData}=await sb.from('egresos').insert(egRow).select();
@@ -5211,7 +5212,7 @@ async function saveEgreso(){
     foto_url,
     notas:$('eg-notas').value||null,
     estado:_egEstado,
-    fecha_pago:_egEstado==='pagado'?($('eg-fecha').value||new Date().toISOString().split('T')[0]):null,
+    fecha_pago:_egEstado==='pagado'?($('eg-fecha-pago').value||$('eg-fecha').value||new Date().toISOString().split('T')[0]):null,
     vencimiento_pago:$('eg-venc-pago')?.value||null
   };
   if(editingEgIdx!==null){
@@ -5241,6 +5242,7 @@ function resetEgForm(){
   setEgEstado('pagado');
   if($('eg-venc-pago'))$('eg-venc-pago').value='';
   const now=new Date();$('eg-fecha').value=now.toISOString().split('T')[0];
+  if($('eg-fecha-pago'))$('eg-fecha-pago').value=now.toISOString().split('T')[0];
 }
 
 function editEgreso(idx){
@@ -5253,6 +5255,7 @@ function editEgreso(idx){
   $('eg-cat').value=e.categoria||'Otros';
   $('eg-nfact').value=e.nro_factura||'';
   $('eg-notas').value=e.notas||'';
+  if($('eg-fecha-pago'))$('eg-fecha-pago').value=e.fecha_pago||'';
   $('eg-foto-name').textContent=e.foto_url?'Foto guardada':'Sin foto';
   if(e.foto_url){$('eg-foto-preview').src=e.foto_url;$('eg-foto-preview').style.display='block'}
   egFotoFile=null;
@@ -5287,10 +5290,13 @@ function setEgEstado(val){
     pagBtn.style.background='var(--black)';pagBtn.style.color='var(--white,#fff)';
     penBtn.style.background='transparent';penBtn.style.color='var(--muted)';
     const r=$('eg-venc-pago-row');if(r)r.style.display='none';
+    const fp=$('eg-fecha-pago-row');if(fp)fp.style.display='';
+    if($('eg-fecha-pago')&&!$('eg-fecha-pago').value)$('eg-fecha-pago').value=new Date().toISOString().split('T')[0];
   } else {
     penBtn.style.background='#e67e22';penBtn.style.color='#fff';
     pagBtn.style.background='transparent';pagBtn.style.color='var(--muted)';
     const r=$('eg-venc-pago-row');if(r)r.style.display='';
+    const fp=$('eg-fecha-pago-row');if(fp)fp.style.display='none';
   }
 }
 
