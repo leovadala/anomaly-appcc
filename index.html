@@ -2278,12 +2278,81 @@ async function openCajaModal(){
 }
 function closeCajaModal(){$('caja-modal').style.display='none';}
 function cajSwitchTab(t){
-  ['cierre','ctrl','dep'].forEach(x=>{
+  ['cierre','ctrl','dep','hist'].forEach(x=>{
     const tab=$('caja-tab-'+x);if(tab){tab.style.borderBottomColor=t===x?'var(--black)':'transparent';tab.style.color=t===x?'var(--black)':'var(--muted)';}
-    const panel=$('caja-panel-'+x);if(panel)panel.style.display=t===x?'block':'none';
+    const panel=$('caja-panel-'+x);if(panel)panel.style.display=t===x?(x==='hist'?'flex':'block'):'none';
   });
   if(t==='ctrl'){$('caj-pin-gate').style.display='flex';$('caj-ctrl-content').style.display='none';$('caj-pin-input').value='';$('caj-pin-err').textContent='';setTimeout(()=>$('caj-pin-input').focus(),80);}
   if(t==='dep'){$('dep-pin-gate').style.display='flex';$('dep-content').style.display='none';$('dep-pin-input').value='';$('dep-pin-err').textContent='';setTimeout(()=>$('dep-pin-input').focus(),80);loadCajaFuerteBalance();}
+  if(t==='hist'){loadCajaHistorial();}
+}
+async function loadCajaHistorial(){
+  const days=parseInt($('hist-filter')?.value||30);
+  const since=new Date();since.setDate(since.getDate()-days);
+  const sinceStr=since.toISOString().split('T')[0];
+  const el=$('hist-list');if(el)el.innerHTML='<div style="color:var(--hint);font-size:11px;text-align:center;padding:2rem">Cargando…</div>';
+  const{data,error}=await sb.from('cajas').select('*').gte('fecha',sinceStr).order('fecha',{ascending:false});
+  if(error||!data||!data.length){
+    if(el)el.innerHTML='<div style="color:var(--hint);font-size:11px;text-align:center;padding:2rem">Sin registros en este período</div>';
+    if($('hist-summary'))$('hist-summary').textContent='';
+    return;
+  }
+  // Summary
+  const totalEfe=data.reduce((s,r)=>s+(r.total_efectivo||0),0);
+  const totalSq=data.reduce((s,r)=>s+(r.square||0),0);
+  const totalDat=data.reduce((s,r)=>s+(r.datafono||0),0);
+  const grandTotal=Math.round((totalEfe+totalSq+totalDat)*100)/100;
+  if($('hist-summary'))$('hist-summary').textContent=data.length+' cierres · €'+grandTotal.toFixed(2);
+  if(!el)return;
+  // Monthly grouping
+  const byMonth={};
+  data.forEach(r=>{
+    const m=r.fecha.slice(0,7);
+    if(!byMonth[m])byMonth[m]=[];
+    byMonth[m].push(r);
+  });
+  const monthNames=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  let html='';
+  Object.keys(byMonth).sort((a,b)=>b.localeCompare(a)).forEach(m=>{
+    const rows=byMonth[m];
+    const mTotEfe=rows.reduce((s,r)=>s+(r.total_efectivo||0),0);
+    const mTotSq=rows.reduce((s,r)=>s+(r.square||0),0);
+    const mTotDat=rows.reduce((s,r)=>s+(r.datafono||0),0);
+    const mGrand=Math.round((mTotEfe+mTotSq+mTotDat)*100)/100;
+    const [yr,mo]=m.split('-');
+    html+=`<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+        <span style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:600">${monthNames[parseInt(mo)-1]} ${yr}</span>
+        <span style="font-size:11px;font-weight:600;color:var(--black)">€${mGrand.toFixed(2)}</span>
+      </div>`;
+    rows.forEach(r=>{
+      const efe=r.total_efectivo||0;
+      const sq=r.square||0;
+      const dat=r.datafono||0;
+      const tot=Math.round((efe+sq+dat)*100)/100;
+      const ctrl=r.controlado_at;
+      const d=new Date(r.fecha+'T12:00:00');
+      const dayStr=d.toLocaleDateString('es-ES',{weekday:'short',day:'2-digit',month:'2-digit'});
+      html+=`<div style="display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;padding:8px 10px;background:var(--surface);border:.5px solid var(--border);border-radius:5px;margin-bottom:5px">
+        <div>
+          <div style="font-size:11px;font-weight:500;color:var(--black)">${dayStr}</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:1px">${r.responsable_cierre||'—'}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;padding:0 4px">
+          <span style="font-size:9px;color:var(--muted)">Efe <strong style="color:var(--black)">€${efe.toFixed(2)}</strong></span>
+          ${sq?`<span style="font-size:9px;color:var(--muted)">Sq <strong style="color:var(--black)">€${sq.toFixed(2)}</strong></span>`:''}
+          ${dat?`<span style="font-size:9px;color:var(--muted)">Dat <strong style="color:var(--black)">€${dat.toFixed(2)}</strong></span>`:''}
+          ${r.notas_cierre?`<span style="font-size:9px;color:var(--muted);font-style:italic;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.notas_cierre.replace(/"/g,"&quot;")}">"${r.notas_cierre}"</span>`:''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:13px;font-weight:700;color:var(--black)">€${tot.toFixed(2)}</div>
+          <div style="font-size:8px;margin-top:2px;color:${ctrl?'#1a7a3d':'var(--hint)'};">${ctrl?'✓ ctrl':'—'}</div>
+        </div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  el.innerHTML=html;
 }
 async function loadCajaFuerteBalance(){
   // Caja fuerte = suma de (total_efectivo - fondo_apertura) de todos los cierres controlados - suma de depositos
@@ -6854,6 +6923,7 @@ async function saveAllRecLines(){
       <button type="button" id="caja-tab-cierre" onclick="cajSwitchTab('cierre')" style="flex:1;padding:10px;border:none;background:transparent;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid var(--black);font-family:var(--font);color:var(--black)">Cierre</button>
       <button type="button" id="caja-tab-ctrl" onclick="cajSwitchTab('ctrl')" style="flex:1;padding:10px;border:none;background:transparent;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font);color:var(--muted)">&#128274; Control</button>
       <button type="button" id="caja-tab-dep" onclick="cajSwitchTab('dep')" style="flex:1;padding:10px;border:none;background:transparent;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font);color:var(--muted)">&#8689; Dep&oacute;sito</button>
+      <button type="button" id="caja-tab-hist" onclick="cajSwitchTab('hist')" style="flex:1;padding:10px;border:none;background:transparent;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font);color:var(--muted)">&#128203; Historial</button>
     </div>
     <!-- PANEL CIERRE -->
     <div id="caja-panel-cierre" style="overflow-y:auto;padding:1rem 1.2rem;flex:1;display:flex;flex-direction:column;gap:9px">
@@ -6889,6 +6959,19 @@ async function saveAllRecLines(){
       </div>
       <div class="f" style="margin:0"><label>Notas (opcional)</label><textarea id="caj-notas" rows="2" placeholder="Incidencias…" style="width:100%;padding:8px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;resize:none;background:var(--surface)"></textarea></div>
       <button type="button" id="caj-save-btn" onclick="guardarCierre()" style="padding:11px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s">Guardar cierre</button>
+    </div>
+    <!-- PANEL HISTORIAL -->
+    <div id="caja-panel-hist" style="display:none;overflow-y:auto;padding:1rem 1.2rem;flex:1;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+        <select id="hist-filter" onchange="loadCajaHistorial()" style="font-size:11px;padding:6px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);font-family:var(--font);color:var(--black)">
+          <option value="30">Últimos 30 días</option>
+          <option value="90">Últimos 3 meses</option>
+          <option value="180">Últimos 6 meses</option>
+          <option value="365">Este año</option>
+        </select>
+        <div id="hist-summary" style="font-size:11px;color:var(--muted);margin-left:auto"></div>
+      </div>
+      <div id="hist-list"><div style="color:var(--hint);font-size:11px;text-align:center;padding:2rem">Cargando…</div></div>
     </div>
     <!-- PANEL CONTROL (PIN encargado) -->
     <div id="caja-panel-ctrl" style="display:none;overflow-y:auto;padding:1rem 1.2rem;flex:1">
