@@ -6280,7 +6280,8 @@ async function saveEmpDatos(nombre){
   if(btn){
     if(error){btn.textContent='Error al guardar';btn.style.background='#c0392b';btn.disabled=false;}
     else{btn.textContent='✓ Guardado';btn.style.background='#27ae60';btn.disabled=false;
-      setTimeout(()=>{btn.textContent='Guardar datos';btn.style.background='';},2000);}
+      setTimeout(()=>{btn.textContent='Guardar datos';btn.style.background='';},2000);
+      renderEmpIntegrantes();}
   }
 }
 
