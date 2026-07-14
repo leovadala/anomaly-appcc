@@ -456,10 +456,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <!-- Tab bar -->
 <div class="hor-tabbar">
   <button class="hor-maintab on" id="hmtab-grilla"   onclick="horMainTab('grilla')">Grilla</button>
-  <button class="hor-maintab"    id="hmtab-empleados" onclick="horMainTab('empleados')">Empleados</button>
-  <button class="hor-maintab"    id="hmtab-resumen"   onclick="horMainTab('resumen')">Resumen</button>
-  <button class="hor-maintab"    id="hmtab-vacaciones" onclick="horMainTab('vacaciones')">Vacaciones</button>
-  <button class="hor-maintab"    id="hmtab-liquidar"  onclick="horMainTab('liquidar')">Liquidación</button>
+  <button class="hor-maintab"    id="hmtab-empleados" onclick="horMainTab('empleados')" style="display:none">Empleados</button>
+  <button class="hor-maintab"    id="hmtab-resumen"   onclick="horMainTab('resumen')" style="display:none">Resumen</button>
+  <button class="hor-maintab"    id="hmtab-vacaciones" onclick="horMainTab('vacaciones')" style="display:none">Vacaciones</button>
+  <button class="hor-maintab"    id="hmtab-liquidar"  onclick="horMainTab('liquidar')" style="display:none">Liquidación</button>
 </div>
 
 <!-- ── GRILLA ── -->
@@ -474,6 +474,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
       <button class="btn-s" onclick="sendWhatsApp()">↓ WhatsApp</button>
       <button class="btn-s" onclick="exportHorPNG()">↓ PNG</button>
       <button class="btn-s" onclick="printHor()">🖨 Imprimir</button>
+      <button class="btn-s" onclick="horMainTab('empleados')" title="Gestionar plantel">⚙ Plantel</button>
     </div>
   </div>
   <div class="hor-summary" id="hor-summary"></div>
@@ -2043,7 +2044,7 @@ let editingTeamIdx=null;
 let _aipItems=[];
 let currentSabIngr=[];
 let currentIngr=[];
-let pinSupervisor='0000',pinFinanzas=null,_finUnlocked=false,_empSupUnlocked=false;
+let pinSupervisor='0000',pinFinanzas=null,_finUnlocked=false,_empSupUnlocked=false,_fichaEmpNombre='';
 let horLocal={};  // {dayIdx:{a:'12:00',c:'00:00'}}
 // ─── Horarios module globals ───
 const FESTIVOS_ES={'01-01':true,'01-06':true,'04-18':true,'05-01':true,'08-15':true,'10-12':true,'11-01':true,'12-06':true,'12-08':true,'12-25':true};
@@ -6220,6 +6221,7 @@ function requireSupPin(cb){
 }
 async function openEmpFicha(nombre){
   if(!_empSupUnlocked){requireSupPin(()=>openEmpFicha(nombre));return;}
+  _fichaEmpNombre=nombre;
   const emp=horEmpleados.find(e=>(e.nombre||e.name)===nombre);
   if(!emp)return;
   // Show modal
@@ -6260,6 +6262,9 @@ async function openEmpFicha(nombre){
       <button class="emp-ficha-tab" onclick="empFichaTab(this,'ft-horas')">Horas</button>
       <button class="emp-ficha-tab" onclick="empFichaTab(this,'ft-ausencias')">Asistencia</button>
       <button class="emp-ficha-tab" onclick="empFichaTab(this,'ft-eval')">Evaluaciones</button>
+      <button class="emp-ficha-tab" onclick="empFichaTab(this,'ft-resumen')">Resumen</button>
+      <button class="emp-ficha-tab" onclick="empFichaTab(this,'ft-vacaciones')">Vacaciones</button>
+      <button class="emp-ficha-tab" onclick="empFichaTab(this,'ft-liquidacion')">Liquidación</button>
     </div>
     <!-- DATOS -->
     <div id="ft-datos">
@@ -6357,6 +6362,34 @@ async function openEmpFicha(nombre){
         </div>`;
       }).join(''):'<div style="color:var(--hint);padding:.5rem">Sin evaluaciones registradas</div>'}
     </div>
+    <!-- RESUMEN -->
+    <div id="ft-resumen" style="display:none">
+      <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <select id="ficha-res-mes" onchange="loadFichaResumen('${nombre}')" style="font-size:11px;border:.5px solid var(--border);border-radius:6px;padding:5px 8px;background:var(--surface);color:var(--text);font-family:var(--font)"></select>
+      </div>
+      <div id="ficha-res-content" style="font-size:11px;color:var(--hint);padding:.5rem">Seleccioná un mes</div>
+    </div>
+    <!-- VACACIONES -->
+    <div id="ft-vacaciones" style="display:none">
+      <div id="ficha-vac-balance" style="margin-bottom:1rem"></div>
+      <div style="padding:10px;border:.5px solid var(--border);border-radius:8px;margin-bottom:1rem">
+        <div style="font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Nuevo período</div>
+        <div class="r2">
+          <div class="f"><label>Desde</label><input type="date" id="ficha-vac-inicio"></div>
+          <div class="f"><label>Hasta</label><input type="date" id="ficha-vac-fin"></div>
+        </div>
+        <div class="f"><label>Nota (opcional)</label><input id="ficha-vac-nota" placeholder=""></div>
+        <button type="button" class="btn-d" onclick="saveFichaVacacion('${nombre}')" style="margin-top:8px;width:100%">+ Registrar período</button>
+      </div>
+      <div id="ficha-vac-list"></div>
+    </div>
+    <!-- LIQUIDACIÓN -->
+    <div id="ft-liquidacion" style="display:none">
+      <div style="margin-bottom:12px">
+        <select id="ficha-liq-mes" onchange="loadFichaLiquidacion('${nombre}')" style="font-size:11px;border:.5px solid var(--border);border-radius:6px;padding:5px 8px;background:var(--surface);color:var(--text);font-family:var(--font)"></select>
+      </div>
+      <div id="ficha-liq-content" style="font-size:11px;color:var(--hint)">Seleccioná un mes</div>
+    </div>
   `;
 }
 
@@ -6438,9 +6471,181 @@ function renderEmpIntegrantes(){
 function empFichaTab(btn,panelId){
   (btn.closest('#emp-ficha-modal')||btn.closest('.view')).querySelectorAll('.emp-ficha-tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  ['ft-datos','ft-horas','ft-ausencias','ft-eval'].forEach(id=>{
+  ['ft-datos','ft-horas','ft-ausencias','ft-eval','ft-resumen','ft-vacaciones','ft-liquidacion'].forEach(id=>{
     const el=$(id);if(el)el.style.display=id===panelId?'block':'none';
   });
+  if(panelId==='ft-resumen')initFichaResumen();
+  if(panelId==='ft-vacaciones')initFichaVacaciones();
+  if(panelId==='ft-liquidacion')initFichaLiquidacion();
+}
+// ─── FICHA PER-EMPLOYEE TABS ──────────────────────────────────────────────────
+function initFichaResumen(){
+  const nombre=_fichaEmpNombre;
+  const sel=$('ficha-res-mes');if(!sel)return;
+  if(!sel.options.length){
+    const mo=['Enero','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const now=new Date();let opts='';
+    for(let i=0;i<6;i++){
+      const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+      const val=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      opts+=`<option value="${val}">${mo[d.getMonth()]} ${d.getFullYear()}</option>`;
+    }
+    sel.innerHTML=opts;
+  }
+  loadFichaResumen(nombre);
+}
+function loadFichaResumen(nombre){
+  const sel=$('ficha-res-mes');const el=$('ficha-res-content');
+  if(!sel||!el)return;
+  const val=sel.value;if(!val)return;
+  const[yr,mo]=val.split('-').map(Number);
+  const emp=horEmpleados.find(e=>e.nombre===nombre);if(!emp)return;
+  const moNom=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const daysInMo=new Date(yr,mo,0).getDate();
+  let totalH=0,totalNoct=0,totalFest=0;
+  for(let d=1;d<=daysInMo;d++){
+    const date=new Date(yr,mo-1,d);
+    if(date.getDay()===0||date.getDay()===6)continue;
+    const wk=weekKey(Math.round((date-new Date())/604800000));
+    const sch=horSchedules[wk]||{};
+    const empSch=sch[nombre]||{};
+    const dow=date.getDay()===0?6:date.getDay()-1;
+    const s=empSch[dow]||'';
+    totalH+=parseShiftHours(s);totalNoct+=nocturnasHoras(s);
+    if(esFestivo(date)&&s&&s!=='OFF')totalFest++;
+  }
+  el.innerHTML=`
+    <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">${moNom[mo-1]} ${yr}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <tr style="border-bottom:.5px solid var(--border)"><td style="padding:7px 4px;color:var(--muted)">Horas en grilla</td><td style="text-align:right;padding:7px 4px;font-weight:600">${totalH}h</td></tr>
+      <tr style="border-bottom:.5px solid var(--border)"><td style="padding:7px 4px;color:var(--muted)">Horas nocturnas</td><td style="text-align:right;padding:7px 4px;color:#4a3a99">${totalNoct}h</td></tr>
+      <tr><td style="padding:7px 4px;color:var(--muted)">Festivos con turno</td><td style="text-align:right;padding:7px 4px;color:#b8860b">${totalFest}</td></tr>
+    </table>
+    <div style="font-size:9px;color:var(--hint);margin-top:10px">⚠ Muestra solo semanas cargadas en la grilla</div>`;
+}
+async function initFichaVacaciones(){
+  const nombre=_fichaEmpNombre;
+  const emp=horEmpleados.find(e=>e.nombre===nombre);if(!emp)return;
+  await loadVacaciones();
+  loadFichaVacaciones(nombre,emp);
+}
+function loadFichaVacaciones(nombre,emp){
+  if(!emp)emp=horEmpleados.find(e=>e.nombre===nombre);if(!emp)return;
+  const usados=getVacDiasUsados(nombre);
+  const total=emp.dias_vacaciones||22;
+  const restantes=Math.max(0,total-usados);
+  const pct=Math.min(100,Math.round(usados/total*100));
+  const bal=$('ficha-vac-balance');
+  if(bal)bal.innerHTML=`<div class="liq-card" style="margin-bottom:0">
+    <div class="liq-row"><span class="liq-label">Días asignados / año</span><span class="liq-val">${total}</span></div>
+    <div class="liq-row"><span class="liq-label">Días usados</span><span class="liq-val" style="color:${usados>total?'#e74c3c':'#27ae60'}">${usados}</span></div>
+    <div class="liq-row"><span class="liq-label">Días restantes</span><span class="liq-val">${restantes}</span></div>
+    <div style="margin-top:6px;height:4px;background:var(--border);border-radius:2px"><div style="height:4px;border-radius:2px;background:${usados>total?'#e74c3c':'#27ae60'};width:${pct}%"></div></div>
+  </div>`;
+  const list=$('ficha-vac-list');if(!list)return;
+  const vacEmp=horVacaciones.filter(v=>v.empleado===nombre);
+  if(!vacEmp.length){list.innerHTML='<div style="font-size:11px;color:var(--hint);margin-top:8px">Sin períodos registrados</div>';return;}
+  list.innerHTML=`<div style="font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;margin-top:4px">Períodos registrados</div>`+
+    vacEmp.map(v=>{
+      const dias=countWorkingDays(v.fecha_inicio,v.fecha_fin);
+      return`<div class="hemp-item">
+        <div>
+          <div style="font-size:11px;font-weight:500">${v.fecha_inicio} → ${v.fecha_fin}</div>
+          <div class="hemp-meta"><span>${dias} día${dias!==1?'s':''} hábiles</span>${v.nota?'<span>'+v.nota+'</span>':''}</div>
+        </div>
+        <button type="button" class="btn-d" onclick="deleteFichaVacacion('${v.id}')">✕</button>
+      </div>`;
+    }).join('');
+}
+async function saveFichaVacacion(nombre){
+  const inicio=$('ficha-vac-inicio').value;const fin=$('ficha-vac-fin').value;
+  if(!inicio||!fin){alert('Completá las fechas');return;}
+  if(fin<inicio){alert('La fecha fin debe ser posterior al inicio');return;}
+  const nota=($('ficha-vac-nota').value||'').trim();
+  const{data,error}=await sb.from('hor_vacaciones').insert({empleado:nombre,fecha_inicio:inicio,fecha_fin:fin,nota:nota||null}).select();
+  if(error){alert('Error: '+error.message);return;}
+  if(data&&data[0])horVacaciones.push(data[0]);
+  $('ficha-vac-inicio').value='';$('ficha-vac-fin').value='';$('ficha-vac-nota').value='';
+  const emp=horEmpleados.find(e=>e.nombre===nombre);
+  loadFichaVacaciones(nombre,emp);
+  renderHorGrilla();
+}
+async function deleteFichaVacacion(id){
+  if(!confirm('¿Eliminar este período?'))return;
+  await sb.from('hor_vacaciones').delete().eq('id',id);
+  const idx=horVacaciones.findIndex(v=>v.id===id);
+  if(idx!==-1)horVacaciones.splice(idx,1);
+  const emp=horEmpleados.find(e=>e.nombre===_fichaEmpNombre);
+  loadFichaVacaciones(_fichaEmpNombre,emp);
+  renderHorGrilla();
+}
+async function initFichaLiquidacion(){
+  const nombre=_fichaEmpNombre;
+  const sel=$('ficha-liq-mes');if(!sel)return;
+  if(!sel.options.length){
+    const mo=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const now=new Date();let opts='';
+    for(let i=0;i<6;i++){
+      const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+      const val=d.getFullYear()+'-'+String(d.getMonth()).padStart(2,'0');
+      opts+=`<option value="${val}"${i===0?' selected':''}>${mo[d.getMonth()]} ${d.getFullYear()}</option>`;
+    }
+    sel.innerHTML=opts;
+  }
+  loadFichaLiquidacion(nombre);
+}
+async function loadFichaLiquidacion(nombre){
+  const sel=$('ficha-liq-mes');const el=$('ficha-liq-content');
+  if(!sel||!el)return;
+  const selVal=sel.value;if(!selVal)return;
+  const emp=horEmpleados.find(e=>e.nombre===nombre);if(!emp)return;
+  el.innerHTML='<div style="font-size:11px;color:var(--hint)">Calculando…</div>';
+  const[yr,moIdx]=selVal.split('-').map(Number);
+  const weeksInMonth=getAllWeeksForMonth(yr,moIdx);
+  await Promise.all(weeksInMonth.map(wk=>loadHorariosSemana(wk)));
+  await loadExtrasmes(selVal);
+  await loadVacaciones();
+  let totalH=0,totalNoct=0,totalFest=0;
+  weeksInMonth.forEach(wk=>{
+    const sch=(horSchedules[wk]||{})[nombre]||{};
+    Object.entries(sch).forEach(([,s])=>{if(!s||s==='OFF')return;totalH+=parseShiftHours(s);totalNoct+=nocturnasHoras(s);});
+  });
+  weeksInMonth.forEach(wk=>{
+    const wkDays=getWeekDaysFromKey(wk);
+    const sch=(horSchedules[wk]||{})[nombre]||{};
+    wkDays.forEach((d,i)=>{if(sch[i]&&sch[i]!=='OFF'&&esFestivo(d))totalFest++;});
+  });
+  const mesInicio=new Date(yr,moIdx,1);const mesFin=new Date(yr,moIdx+1,0);
+  let vacDiasMes=0;
+  horVacaciones.filter(v=>v.empleado===nombre).forEach(v=>{
+    const vi=new Date(v.fecha_inicio)>mesInicio?new Date(v.fecha_inicio):mesInicio;
+    const vf=new Date(v.fecha_fin)<mesFin?new Date(v.fecha_fin):mesFin;
+    if(vi<=vf)vacDiasMes+=countWorkingDays(vi.toISOString().split('T')[0],vf.toISOString().split('T')[0]);
+  });
+  const vacTotal=getVacDiasUsados(nombre);
+  const contratoMes=(emp.horas_contrato||0)*weeksInMonth.length;
+  const comp=Math.max(0,totalH-contratoMes);
+  const extraKey=selVal+'-'+nombre;
+  const extras=horExtras[extraKey]||0;
+  const sh=emp.salario_hora||0;
+  const baseH=Math.min(totalH,contratoMes);
+  const noctExtra=sh*(emp.noct_pct||25)/100;
+  const festExtra=sh*(emp.fest_pct||75)/100;
+  const baseImporte=baseH*sh;const compImporte=comp*sh;const extrasImporte=extras*sh;
+  const noctImporte=totalNoct*noctExtra;const festImporte=totalFest*festExtra;
+  const total=baseImporte+compImporte+extrasImporte+noctImporte+festImporte;
+  el.innerHTML=`<div class="liq-card">
+    <div class="liq-name">${nombre} <span style="font-size:10px;font-weight:400;color:var(--hint)">${emp.horas_contrato||0}h/sem · ${emp.tipo_contrato||'parcial'}</span></div>
+    <div class="liq-row"><span class="liq-label">Horas trabajadas</span><span class="liq-val">${totalH}h</span></div>
+    <div class="liq-row"><span class="liq-label">Horas contrato</span><span class="liq-val">${contratoMes}h</span></div>
+    ${comp>0?`<div class="liq-row"><span class="liq-label">Complementarias</span><span class="liq-val" style="color:#8a1a4a">${comp}h</span></div>`:''}
+    ${extras>0?`<div class="liq-row"><span class="liq-label">Horas extra</span><span class="liq-val">${extras}h</span></div>`:''}
+    <div class="liq-row"><span class="liq-label">Nocturnas</span><span class="liq-val" style="color:#4a3a99">${totalNoct}h</span></div>
+    <div class="liq-row"><span class="liq-label">Festivos trabajados</span><span class="liq-val" style="color:#b8860b">${totalFest}</span></div>
+    <div class="liq-row" style="border-top:.5px solid var(--border);margin-top:4px;padding-top:6px"><span class="liq-label">Vacaciones este mes</span><span class="liq-val" style="color:#27ae60">${vacDiasMes} día${vacDiasMes!==1?'s':''}</span></div>
+    <div class="liq-row"><span class="liq-label">Vacaciones (total año)</span><span class="liq-val">${vacTotal} / ${emp.dias_vacaciones||22} días</span></div>
+    ${sh>0?`<div style="margin-top:8px;font-size:10px;color:var(--hint)">Base ${baseImporte.toFixed(2)}€ + comp ${compImporte.toFixed(2)}€ + extras ${extrasImporte.toFixed(2)}€ + noct ${noctImporte.toFixed(2)}€ + fest ${festImporte.toFixed(2)}€ = <strong>${total.toFixed(2)} €</strong></div>`:'<div style="font-size:10px;color:var(--hint);margin-top:8px">Configurá salario/hora para ver importes estimados</div>'}
+  </div>`;
 }
 
 async function saveEmpField(nombre,field,value){
