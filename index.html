@@ -5293,8 +5293,8 @@ function closeOcrModal(e){
 
 async function ocrFacturaConGPT(imageDataUrl,originalFile=null){
   if(!OPENAI_KEY){throw new Error('Sin clave OpenAI');}
-  let b64=imageDataUrl;
-  try{b64=await preprocessImageForGPT(imageDataUrl,originalFile);}catch(e){}
+  let b64=imageDataUrl.split(',')[1]||imageDataUrl;
+  try{const proc=await preprocessImageForGPT(imageDataUrl,originalFile);b64=proc.split(',')[1]||proc;}catch(e){}
   const prompt=`Eres un asistente que extrae datos de facturas o tickets.
 Devuelve ÚNICAMENTE este JSON (sin markdown ni texto extra):
 {
