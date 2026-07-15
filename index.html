@@ -2555,18 +2555,18 @@ async function guardarControl(){
 }
 // --- Módulo Control de Temperaturas ---
 const tempSensors=[
-  {id:'pozzetti_1',label:'Pozzetti 1',default:-14.5,neg:true,min:-20,max:-8},
-  {id:'pozzetti_2',label:'Pozzetti 2',default:-15.0,neg:true,min:-20,max:-8},
-  {id:'pozzetti_3',label:'Pozzetti 3',default:-13.5,neg:true,min:-20,max:-8},
-  {id:'armario_2', label:'Armario 2', default:-17.0,neg:true,min:-25,max:-10},
-  {id:'nev_pasteleria',label:'Nev. Pasteleria',default:4.0,neg:false,min:0,max:8},
-  {id:'nev_cafeteria', label:'Nev. Cafeteria', default:3.5,neg:false,min:0,max:8},
-  {id:'nev_obrador_1', label:'Nev. Obrador 1', default:3.0,neg:false,min:0,max:8},
-  {id:'nev_obrador_2', label:'Nev. Obrador 2', default:4.0,neg:false,min:0,max:8},
+  {id:'pozzetti_1',label:'Pozzetti 1',default:-14.5,neg:true,min:-20,max:-8,enabled:true},
+  {id:'pozzetti_2',label:'Pozzetti 2',default:-15.0,neg:true,min:-20,max:-8,enabled:true},
+  {id:'pozzetti_3',label:'Pozzetti 3',default:-13.5,neg:true,min:-20,max:-8,enabled:true},
+  {id:'armario_2', label:'Armario 2', default:-17.0,neg:true,min:-25,max:-10,enabled:true},
+  {id:'nev_pasteleria',label:'Nev. Pasteleria',default:4.0,neg:false,min:0,max:8,enabled:true},
+  {id:'nev_cafeteria', label:'Nev. Cafeteria', default:3.5,neg:false,min:0,max:8,enabled:true},
+  {id:'nev_obrador_1', label:'Nev. Obrador 1', default:3.0,neg:false,min:0,max:8,enabled:true},
+  {id:'nev_obrador_2', label:'Nev. Obrador 2', default:4.0,neg:false,min:0,max:8,enabled:true},
 ];
 let tempVals={};
 function buildTempSteppers(){
-  const neg=tempSensors.filter(s=>s.neg),pos=tempSensors.filter(s=>!s.neg);
+  const neg=tempSensors.filter(s=>s.neg&&s.enabled!==false),pos=tempSensors.filter(s=>!s.neg&&s.enabled!==false);
   const makeRow=s=>{const v=tempVals[s.id];const out=v<s.min||v>s.max;const disp=(v<0?'−':'+')+Math.abs(v).toFixed(1)+'°';const col=out?'#c0392b':s.neg?'#2266bb':'#1a7a3d';return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:9px 10px;border:.5px solid ${out?'#c0392b':'var(--border)'};border-radius:4px;background:${out?'#fff5f5':'transparent'}"><span style="flex:1;font-size:13px">${s.label}</span><button type="button" onclick="adjTemp('${s.id}',-0.5)" style="width:28px;height:28px;border:.5px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;font-size:18px;line-height:1;font-family:var(--font)">−</button><span id="tv-${s.id}" style="font-size:14px;font-weight:500;min-width:52px;text-align:center;color:${col}">${disp}</span><button type="button" onclick="adjTemp('${s.id}',0.5)" style="width:28px;height:28px;border:.5px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;font-size:18px;line-height:1;font-family:var(--font)">+</button>${out?'<span style="font-size:9px;color:#c0392b;font-weight:700">ALERTA</span>':''}</div>`;};
   $('temp-steppers-neg').innerHTML=neg.map(makeRow).join('');
   $('temp-steppers-pos').innerHTML=pos.map(makeRow).join('');
@@ -2593,6 +2593,7 @@ async function openTempModal(){
   const match=empPool.find(e=>e.nombre===currentUser||e.nombre.toLowerCase()===currentUser.toLowerCase());
   if(match)rsel.value=match.nombre;else if(empPool.length)rsel.value=empPool[0].nombre;
   const h=now.getHours();$('temp-turno').value=h<12?'Apertura':h<17?'Tarde':'Cierre';
+  await loadTempSensorsConfig();
   const{data}=await sb.from('registros_temperatura').select('pozzetti_1,pozzetti_2,pozzetti_3,armario_2,nev_pasteleria,nev_cafeteria,nev_obrador_1,nev_obrador_2').order('created_at',{ascending:false}).limit(1);
   const last=data&&data[0];
   tempSensors.forEach(s=>{tempVals[s.id]=last&&last[s.id]!=null?last[s.id]:s.default;});
@@ -2641,15 +2642,17 @@ async function renderTempHistorial(){
   if(!(data&&data.length)){el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:.5rem 0">Sin registros para este período.</div>';return;}
   window._tempHisData=data;
   el.innerHTML=data.map(r=>{
-    const alerts=tempSensors.filter(s=>r[s.id]!=null&&(r[s.id]<s.min||r[s.id]>s.max));
-    const grid=tempSensors.map(s=>{const v=r[s.id];const out=v!=null&&(v<s.min||v>s.max);return`<div><div style="color:var(--muted);font-size:9px;margin-bottom:2px">${s.label}</div><div style="font-weight:500;font-size:11px;color:${out?'#c0392b':s.neg?'#2266bb':'#1a7a3d'}">${v!=null?((v<0?'−':'+')+Math.abs(v).toFixed(1)+'°'):'—'}</div></div>`;}).join('');
+    const activeSensors=tempSensors.filter(s=>s.enabled!==false);
+    const alerts=activeSensors.filter(s=>r[s.id]!=null&&(r[s.id]<s.min||r[s.id]>s.max));
+    const grid=activeSensors.map(s=>{const v=r[s.id];const out=v!=null&&(v<s.min||v>s.max);return`<div><div style="color:var(--muted);font-size:9px;margin-bottom:2px">${s.label}</div><div style="font-weight:500;font-size:11px;color:${out?'#c0392b':s.neg?'#2266bb':'#1a7a3d'}">${v!=null?((v<0?'−':'+')+Math.abs(v).toFixed(1)+'°'):'—'}</div></div>`;}).join('');
     return`<div style="border:.5px solid ${alerts.length?'#c0392b':'var(--border)'};border-radius:4px;padding:10px 12px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:8px"><span style="font-size:12px;font-weight:500">${r.fecha} · ${(r.hora||'').slice(0,5)}</span><span style="font-size:10px;color:var(--muted)">${r.turno} · ${r.responsable}</span>${alerts.length?'<span style="font-size:9px;color:#c0392b;font-weight:700">⚠ ALERTA</span>':''}</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${grid}</div>${r.incidencia?`<div style="margin-top:8px;font-size:11px;color:var(--muted);border-top:.5px solid var(--border);padding-top:6px">Incidencia: ${r.incidencia}</div>`:''}</div>`;
   }).join('');
 }
 function exportTempCSV(){
   const data=window._tempHisData;if(!data||!data.length){alert('Sin datos para exportar');return;}
-  const cols=['fecha','hora','turno','responsable','pozzetti_1','pozzetti_2','pozzetti_3','armario_2','nev_pasteleria','nev_cafeteria','nev_obrador_1','nev_obrador_2','incidencia'];
-  const hdr=['Fecha','Hora','Turno','Responsable','Pozzetti 1','Pozzetti 2','Pozzetti 3','Armario 2','Nev.Pasteleria','Nev.Cafeteria','Nev.Obrador 1','Nev.Obrador 2','Incidencia'];
+  const activeSensors=tempSensors.filter(s=>s.enabled!==false);
+  const cols=['fecha','hora','turno','responsable',...activeSensors.map(s=>s.id),'incidencia'];
+  const hdr=['Fecha','Hora','Turno','Responsable',...activeSensors.map(s=>s.label),'Incidencia'];
   let csv=hdr.join(',')+'\n';
   data.forEach(r=>{csv+=cols.map(c=>r[c]!=null?String(r[c]).replace(/,/g,';'):'').join(',')+'\n';});
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
@@ -7506,6 +7509,52 @@ async function deleteRecordatorio(id){
   else run();
 })();
 
+// --- Temp Sensors Config ---
+let _tempCfgUnlocked=false;
+async function loadTempSensorsConfig(){
+  try{
+    const{data}=await sb.from('config').select('value').eq('key','temp_sensors_config').maybeSingle();
+    if(!data||!data.value)return;
+    const cfg=JSON.parse(data.value);
+    cfg.forEach(c=>{const s=tempSensors.find(x=>x.id===c.id);if(s){if(c.label!=null)s.label=c.label;if(c.enabled!=null)s.enabled=c.enabled;if(c.default!=null)s.default=c.default;if(c.min!=null)s.min=c.min;if(c.max!=null)s.max=c.max;}});
+  }catch(e){}
+}
+function openTempCfgOverlay(){
+  _tempCfgUnlocked=false;
+  $('temp-cfg-pin-input').value='';$('temp-cfg-pin-err').textContent='';
+  $('temp-cfg-pin-wrap').style.display='block';$('temp-cfg-content').style.display='none';
+  $('temp-cfg-overlay').style.display='flex';
+  setTimeout(()=>$('temp-cfg-pin-input').focus(),80);
+}
+function closeTempCfgOverlay(){$('temp-cfg-overlay').style.display='none';}
+function verifyTempCfgPin(){
+  const pin=$('temp-cfg-pin-input').value;
+  if(pin!==pinSupervisor){$('temp-cfg-pin-err').textContent='PIN incorrecto';$('temp-cfg-pin-input').value='';$('temp-cfg-pin-input').focus();return;}
+  _tempCfgUnlocked=true;
+  $('temp-cfg-pin-wrap').style.display='none';$('temp-cfg-content').style.display='block';
+  renderTempCfgList();
+}
+function renderTempCfgList(){
+  const el=$('temp-cfg-list');
+  el.innerHTML=tempSensors.map(s=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:.5px solid var(--border)"><div style="padding-top:12px"><input type="checkbox" id="tcfg-en-${s.id}" ${s.enabled!==false?'checked':''}></div><div style="flex:1;min-width:0"><input type="text" id="tcfg-lbl-${s.id}" value="${s.label}" placeholder="Nombre del sensor" style="width:100%;border:.5px solid var(--border);border-radius:3px;padding:6px 8px;font-family:var(--font);font-size:13px;background:transparent;color:inherit;box-sizing:border-box;margin-bottom:5px"><div style="display:flex;gap:6px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:3px"><span style="font-size:10px;color:var(--muted)">Min</span><input type="number" id="tcfg-min-${s.id}" value="${s.min}" step="0.5" style="width:55px;border:.5px solid var(--border);border-radius:3px;padding:4px 5px;font-family:var(--font);font-size:11px;background:transparent;color:inherit"></div><div style="display:flex;align-items:center;gap:3px"><span style="font-size:10px;color:var(--muted)">Max</span><input type="number" id="tcfg-max-${s.id}" value="${s.max}" step="0.5" style="width:55px;border:.5px solid var(--border);border-radius:3px;padding:4px 5px;font-family:var(--font);font-size:11px;background:transparent;color:inherit"></div><div style="display:flex;align-items:center;gap:3px"><span style="font-size:10px;color:var(--muted)">Default</span><input type="number" id="tcfg-def-${s.id}" value="${s.default}" step="0.5" style="width:55px;border:.5px solid var(--border);border-radius:3px;padding:4px 5px;font-family:var(--font);font-size:11px;background:transparent;color:inherit"></div></div></div></div>`).join('');
+}
+async function saveTempCfg(){
+  const cfg=tempSensors.map(s=>{
+    const lbl=($('tcfg-lbl-'+s.id)||{value:s.label}).value.trim()||s.label;
+    const en=($('tcfg-en-'+s.id)||{checked:s.enabled}).checked;
+    const minV=parseFloat(($('tcfg-min-'+s.id)||{value:s.min}).value);
+    const maxV=parseFloat(($('tcfg-max-'+s.id)||{value:s.max}).value);
+    const defV=parseFloat(($('tcfg-def-'+s.id)||{value:s.default}).value);
+    return{id:s.id,label:lbl,enabled:en,neg:s.neg,min:isNaN(minV)?s.min:minV,max:isNaN(maxV)?s.max:maxV,default:isNaN(defV)?s.default:defV};
+  });
+  const{error}=await sb.from('config').upsert({key:'temp_sensors_config',value:JSON.stringify(cfg)});
+  if(error){alert('Error al guardar: '+error.message);return;}
+  cfg.forEach(c=>{const s=tempSensors.find(x=>x.id===c.id);if(s)Object.assign(s,c);});
+  const btn=$('temp-cfg-save-btn');
+  btn.textContent='✓ Guardado';btn.style.background='#1a7a3d';btn.style.color='#fff';btn.style.borderColor='#1a7a3d';
+  setTimeout(()=>{btn.textContent='Guardar configuración';btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';},2000);
+}
+
 </script>
 
 <!-- TURNO MODALS -->
@@ -7734,10 +7783,13 @@ async function deleteRecordatorio(id){
 </div>
 
 <div class="ocr-modal" id="temp-modal" style="display:none;align-items:center" onclick="if(event.target===this)closeTempModal()">
-  <div style="background:var(--white,#fff);width:100%;max-width:460px;border-radius:10px;overflow:hidden;max-height:88vh;display:flex;flex-direction:column;margin:1rem">
+  <div style="background:var(--white,#fff);width:100%;max-width:460px;border-radius:10px;overflow:hidden;max-height:88vh;display:flex;flex-direction:column;margin:1rem;position:relative">
     <div style="padding:1rem 1.2rem;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid var(--border)">
       <span style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Control de Temperaturas</span>
-      <button type="button" onclick="closeTempModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">&times;</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button type="button" onclick="openTempCfgOverlay()" title="Configurar sensores" style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--muted);padding:2px 4px">&#9881;</button>
+        <button type="button" onclick="closeTempModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">&times;</button>
+      </div>
     </div>
     <div style="display:flex;border-bottom:.5px solid var(--border)">
       <button type="button" id="temp-tab-reg" onclick="tempTab('reg')" style="flex:1;padding:10px;border:none;background:transparent;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid var(--black);font-family:var(--font);color:var(--black)">Registrar</button>
@@ -7769,6 +7821,36 @@ async function deleteRecordatorio(id){
       </div>
       <button type="button" onclick="exportTempCSV()" style="margin-bottom:12px;padding:6px 14px;border:.5px solid var(--border);background:transparent;font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:3px">↓ Exportar CSV</button>
       <div id="temp-historial-list"></div>
+    </div>
+    <!-- Config overlay -->
+    <div id="temp-cfg-overlay" style="display:none;position:absolute;inset:0;background:var(--white,#fff);border-radius:10px;flex-direction:column;z-index:10">
+      <div style="padding:.9rem 1.2rem;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid var(--border);flex-shrink:0">
+        <span style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Configurar Sensores</span>
+        <button type="button" onclick="closeTempCfgOverlay()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">&times;</button>
+      </div>
+      <!-- PIN prompt -->
+      <div id="temp-cfg-pin-wrap" style="padding:1.5rem 1.2rem;display:flex;flex-direction:column;align-items:center;gap:12px;flex:1;justify-content:center">
+        <div style="font-size:12px;color:var(--muted);text-align:center;letter-spacing:.5px">Ingresá el PIN de supervisor<br>para editar la configuración</div>
+        <input type="password" id="temp-cfg-pin-input" maxlength="4" inputmode="numeric" placeholder="••••"
+          style="text-align:center;font-size:22px;letter-spacing:8px;width:120px;border:.5px solid var(--border);border-radius:4px;padding:10px;font-family:var(--font);background:transparent;color:inherit"
+          onkeydown="if(event.key==='Enter')verifyTempCfgPin()">
+        <div id="temp-cfg-pin-err" style="font-size:11px;color:#c0392b;min-height:16px"></div>
+        <button type="button" onclick="verifyTempCfgPin()"
+          style="padding:10px 28px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px">
+          Confirmar
+        </button>
+      </div>
+      <!-- Config content -->
+      <div id="temp-cfg-content" style="display:none;flex:1;overflow-y:auto;padding:1rem 1.2rem;flex-direction:column">
+        <div style="font-size:10px;color:var(--muted);letter-spacing:.5px;margin-bottom:10px">
+          Activá/desactivá sensores y editá sus nombres y rangos de alerta. Los cambios se guardan en la nube.
+        </div>
+        <div id="temp-cfg-list"></div>
+        <button type="button" id="temp-cfg-save-btn" onclick="saveTempCfg()"
+          style="width:100%;margin-top:1rem;padding:12px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;flex-shrink:0">
+          Guardar configuración
+        </button>
+      </div>
     </div>
   </div>
 </div>
