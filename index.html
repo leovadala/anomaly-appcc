@@ -361,6 +361,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     </div>
   </div>
   <button type="button" onclick="openFichaje()" style="width:100%;padding:14px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;margin-bottom:14px;transition:all .18s" onmouseover="this.style.background='var(--black)';this.style.color='var(--bg)'" onmouseout="this.style.background='transparent';this.style.color='var(--black)'">Fichar</button>
+  <div style="width:100%;border-top:.5px solid var(--border);margin:2px 0 12px;display:flex;align-items:center;gap:10px">
+    <span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);white-space:nowrap">Egreso rápido</span>
+    <div style="flex:1;border-top:.5px solid var(--border)"></div>
+  </div>
+  <div id="tur-quick-btns" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:5px;width:100%;margin-bottom:16px"></div>
 
 </div>
 <div style="width:100%;max-width:560px;border-top:.5px solid var(--border);margin-bottom:2rem"></div>
@@ -1146,9 +1151,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     <div class="f"><label>Fecha</label><input type="date" id="eq-fecha"></div>
     <div class="f"><label>Concepto</label><input type="text" id="eq-concepto"></div>
     <div class="f"><label>Importe (€)</label><input type="number" id="eq-importe" step="0.01" placeholder="0.00" inputmode="decimal"></div>
+    <div id="eq-resp-wrap" class="f" style="display:none"><label>Responsable</label><select id="eq-resp" style="width:100%;padding:8px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);font-size:13px;color:var(--black)"><option value="">Seleccionar...</option></select></div>
     <div style="display:flex;gap:8px;margin-top:1rem">
       <button class="btn" onclick="saveEgresoRapido()" style="flex:1;margin-top:0">Guardar</button>
-      <button class="btn-s" onclick="$('eg-quick-modal').style.display='none'" style="padding:10px 14px">✕</button>
+      <button class="btn-s" onclick="$('eg-quick-modal').style.display='none';_eqFromTurno=false;$('eq-resp-wrap').style.display='none'" style="padding:10px 14px">✕</button>
     </div>
   </div>
 </div>
@@ -4182,12 +4188,16 @@ let _eqActive = '';
 
 function renderQuickBtns(){
   const mkBtn=(item,i)=>`<button type="button" onclick="openQuickModal(${i})" style="padding:8px 14px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);font-size:10px;font-weight:400;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .18s;box-shadow:0 1px 4px rgba(0,0,0,.08);text-align:left" onmouseover="this.style.borderColor='var(--black)';this.style.color='var(--black)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">${item.name}${item.importe?` <span style="font-size:9px;opacity:.7">€${item.importe.toFixed(2)}</span>`:''}</button>`;
+  const mkTurBtn=(item,i)=>`<button type="button" onclick="openTurQuickModal(${i})" class="tur-card" style="text-align:left;padding:9px 11px"><div class="tc-ico" style="font-size:10px">€</div><div class="tc-lbl">${item.name}</div><div class="tc-val">${item.importe!=null?'€'+item.importe.toFixed(2):'—'}</div></button>`;
   const btns=_eqBtns.map((item,i)=>mkBtn(item,i)).join('');
   const el=$('eg-quick-btns');if(el)el.innerHTML=btns;
   const hel=$('home-quick-btns');if(hel)hel.innerHTML=btns||'<span style="font-size:11px;color:var(--muted)">Sin ítems — tocá ⚙ Editar</span>';
+  const tel=$('tur-quick-btns');if(tel)tel.innerHTML=_eqBtns.length?_eqBtns.map((item,i)=>mkTurBtn(item,i)).join(''):'<span style="font-size:11px;color:var(--muted)">Sin egresos rápidos configurados</span>';
 }
 
 function openQuickModal(i){
+  _eqFromTurno=false;
+  if($('eq-resp-wrap'))$('eq-resp-wrap').style.display='none';
   const item=_eqBtns[i]||{name:'',importe:null};
   _eqActive=item.name;
   $('eq-title').textContent=item.name;
@@ -4197,19 +4207,42 @@ function openQuickModal(i){
   const m=$('eg-quick-modal');m.style.display='flex';
   setTimeout(()=>{$('eq-importe').focus();$('eq-importe').select();},50);
 }
+function openTurQuickModal(i){
+  _eqFromTurno=true;
+  const item=_eqBtns[i]||{name:'',importe:null};
+  _eqActive=item.name;
+  $('eq-title').textContent=item.name;
+  $('eq-fecha').value=new Date().toISOString().split('T')[0];
+  $('eq-concepto').value=item.name;
+  $('eq-importe').value=item.importe!=null?item.importe:'';
+  const sel=$('eq-resp');
+  sel.innerHTML='<option value="">Seleccionar...</option>'+(team||[]).map(m=>`<option value="${m.nombre}">${m.nombre}</option>`).join('');
+  $('eq-resp-wrap').style.display='';
+  const mod=$('eg-quick-modal');mod.style.display='flex';
+  setTimeout(()=>{$('eq-resp').focus();},50);
+}
 
+let _eqFromTurno=false;
 async function saveEgresoRapido(){
   const fecha=$('eq-fecha').value;
   const concepto=$('eq-concepto').value.trim();
   const importe=parseFloat($('eq-importe').value)||0;
   if(!importe){alert('Ingresá el importe');return}
+  let responsable=currentUser||'';
+  if(_eqFromTurno){
+    responsable=($('eq-resp').value||'').trim();
+    if(!responsable){alert('Seleccioná un responsable');return;}
+  }
+  const notas='Egreso rápido'+(responsable?' — '+responsable:'');
   const{error}=await sb.from('egresos').insert({
     fecha,proveedor:_eqActive,concepto,importe,
-    categoria:'Otros',nro_factura:'Ticket',notas:'Egreso rápido'
+    categoria:'Otros',nro_factura:'Ticket',notas
   });
   if(error){alert('Error: '+error.message);return}
   $('eg-quick-modal').style.display='none';
-  await initEgresos();
+  _eqFromTurno=false;
+  if($('eq-resp-wrap'))$('eq-resp-wrap').style.display='none';
+  try{await initEgresos();}catch(e){}
 }
 
 function openQuickEdit(){
