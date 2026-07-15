@@ -2588,17 +2588,18 @@ const tempSensors=[
 let tempVals={};let tempConfirmed={};
 function buildTempSteppers(){
   const neg=tempSensors.filter(s=>s.neg&&s.enabled!==false),pos=tempSensors.filter(s=>!s.neg&&s.enabled!==false);
-  const makeRow=s=>{const v=tempVals[s.id];const conf=tempConfirmed[s.id];const out=conf&&(v<s.min||v>s.max);const bdrCol=conf?(out?'#c0392b':'#1a7a3d'):'var(--border)';const bgCol=conf?(out?'#fff5f5':'#f4fdf6'):'transparent';const btnCol=conf?(out?'#c0392b':'#1a7a3d'):'#ccc';return`<div id="row-${s.id}" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:9px 10px;border:.5px solid ${bdrCol};border-radius:4px;background:${bgCol}"><span style="flex:1;font-size:13px">${s.label}</span><input id="ti-${s.id}" type="number" step="0.1" value="${v.toFixed(1)}" style="width:70px;height:28px;border:.5px solid var(--border);border-radius:4px;font-size:14px;font-weight:500;text-align:center;font-family:var(--font);padding:0 4px" onkeydown="if(event.key==='Enter')confirmTemp('${s.id}')"><button id="tb-${s.id}" type="button" onclick="confirmTemp('${s.id}')" style="width:28px;height:28px;border:.5px solid ${conf?btnCol:'#ccc'};background:${conf?btnCol:'transparent'};border-radius:4px;cursor:pointer;font-size:16px;line-height:1;font-family:var(--font);color:${conf?'#fff':'#999'}">&#10003;</button>${conf&&out?'<span style="font-size:9px;color:#c0392b;font-weight:700">ALERTA</span>':''}</div>`;};
+  const makeRow=s=>{const v=tempVals[s.id];const conf=tempConfirmed[s.id];const out=conf&&(v<s.min||v>s.max);const bdrCol=conf?(out?'#c0392b':'#1a7a3d'):'var(--border)';const bgCol=conf?(out?'#fff5f5':'#f4fdf6'):'transparent';const btnCol=conf?(out?'#c0392b':'#1a7a3d'):'#ccc';const dispVal=s.neg?Math.abs(v).toFixed(1):v.toFixed(1);return`<div id="row-${s.id}" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:9px 10px;border:.5px solid ${bdrCol};border-radius:4px;background:${bgCol}"><span style="flex:1;font-size:13px">${s.label}</span>${s.neg?'<span style="font-size:15px;font-weight:700;color:#555">&#8722;</span>':''}<input id="ti-${s.id}" type="number" step="0.1" min="0" value="${dispVal}" style="width:65px;height:28px;border:.5px solid var(--border);border-radius:4px;font-size:14px;font-weight:500;text-align:center;font-family:var(--font);padding:0 4px" onkeydown="if(event.key==='Enter')confirmTemp('${s.id}')"><button id="tb-${s.id}" type="button" onclick="confirmTemp('${s.id}')" style="width:28px;height:28px;border:.5px solid ${conf?btnCol:'#ccc'};background:${conf?btnCol:'transparent'};border-radius:4px;cursor:pointer;font-size:16px;line-height:1;font-family:var(--font);color:${conf?'#fff':'#999'}">&#10003;</button>${conf&&out?'<span style="font-size:9px;color:#c0392b;font-weight:700">ALERTA</span>':''}</div>`;};
   $('temp-steppers-neg').innerHTML=neg.map(makeRow).join('');
   $('temp-steppers-pos').innerHTML=pos.map(makeRow).join('');
 }
 function confirmTemp(id){
   const inp=document.getElementById('ti-'+id);if(!inp)return;
   const val=parseFloat(inp.value);if(isNaN(val)){inp.focus();inp.select();return;}
-  tempVals[id]=Math.round(val*10)/10;
-  inp.value=tempVals[id].toFixed(1);
-  tempConfirmed[id]=true;
   const s=tempSensors.find(x=>x.id===id);
+  const absVal=Math.round(Math.abs(val)*10)/10;
+  tempVals[id]=s.neg?-absVal:absVal;
+  inp.value=absVal.toFixed(1);
+  tempConfirmed[id]=true;
   const out=tempVals[id]<s.min||tempVals[id]>s.max;
   const bdr=out?'#c0392b':'#1a7a3d';
   const row=document.getElementById('row-'+id);
