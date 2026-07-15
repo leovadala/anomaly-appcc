@@ -7534,19 +7534,78 @@ function verifyTempCfgPin(){
   $('temp-cfg-pin-wrap').style.display='none';$('temp-cfg-content').style.display='block';
   renderTempCfgList();
 }
+function _tempSaveCurrentFormVals(){
+  // Persist current form values back to tempSensors before re-rendering
+  tempSensors.forEach(s=>{
+    if(s.enabled===false)return;
+    const lbl=($('tcfg-lbl-'+s.id)||{value:null}).value;
+    const minV=parseFloat(($('tcfg-min-'+s.id)||{value:''}).value);
+    const maxV=parseFloat(($('tcfg-max-'+s.id)||{value:''}).value);
+    const defV=parseFloat(($('tcfg-def-'+s.id)||{value:''}).value);
+    if(lbl!=null&&lbl.trim())s.label=lbl.trim();
+    if(!isNaN(minV))s.min=minV;
+    if(!isNaN(maxV))s.max=maxV;
+    if(!isNaN(defV))s.default=defV;
+  });
+}
+function deleteTempSensor(id){
+  _tempSaveCurrentFormVals();
+  const s=tempSensors.find(x=>x.id===id);if(!s)return;
+  s.enabled=false;
+  renderTempCfgList();
+}
+function enableTempSensor(id){
+  _tempSaveCurrentFormVals();
+  const s=tempSensors.find(x=>x.id===id);if(!s)return;
+  // Prompt for name
+  const name=prompt('Nombre para este sensor:',s.label);
+  if(!name||!name.trim())return;
+  s.label=name.trim();s.enabled=true;
+  renderTempCfgList();
+}
 function renderTempCfgList(){
   const el=$('temp-cfg-list');
-  el.innerHTML=tempSensors.map(s=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:.5px solid var(--border)"><div style="padding-top:12px"><input type="checkbox" id="tcfg-en-${s.id}" ${s.enabled!==false?'checked':''}></div><div style="flex:1;min-width:0"><input type="text" id="tcfg-lbl-${s.id}" value="${s.label}" placeholder="Nombre del sensor" style="width:100%;border:.5px solid var(--border);border-radius:3px;padding:6px 8px;font-family:var(--font);font-size:13px;background:transparent;color:inherit;box-sizing:border-box;margin-bottom:5px"><div style="display:flex;gap:6px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:3px"><span style="font-size:10px;color:var(--muted)">Min</span><input type="number" id="tcfg-min-${s.id}" value="${s.min}" step="0.5" style="width:55px;border:.5px solid var(--border);border-radius:3px;padding:4px 5px;font-family:var(--font);font-size:11px;background:transparent;color:inherit"></div><div style="display:flex;align-items:center;gap:3px"><span style="font-size:10px;color:var(--muted)">Max</span><input type="number" id="tcfg-max-${s.id}" value="${s.max}" step="0.5" style="width:55px;border:.5px solid var(--border);border-radius:3px;padding:4px 5px;font-family:var(--font);font-size:11px;background:transparent;color:inherit"></div><div style="display:flex;align-items:center;gap:3px"><span style="font-size:10px;color:var(--muted)">Default</span><input type="number" id="tcfg-def-${s.id}" value="${s.default}" step="0.5" style="width:55px;border:.5px solid var(--border);border-radius:3px;padding:4px 5px;font-family:var(--font);font-size:11px;background:transparent;color:inherit"></div></div></div></div>`).join('');
+  const active=tempSensors.filter(s=>s.enabled!==false);
+  const avail=tempSensors.filter(s=>s.enabled===false);
+  const inp=(s,field,val,step,w)=>`<input type="number" id="tcfg-${field}-${s.id}" value="${val}" step="${step}" style="width:${w}px;border:.5px solid var(--border);border-radius:3px;padding:4px 5px;font-family:var(--font);font-size:11px;background:transparent;color:inherit">`;
+  let html='';
+  if(active.length){
+    html+=`<div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Activos</div>`;
+    html+=active.map(s=>`<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 0;border-bottom:.5px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <input type="text" id="tcfg-lbl-${s.id}" value="${s.label}" placeholder="Nombre del sensor"
+          style="width:100%;border:.5px solid var(--border);border-radius:3px;padding:6px 8px;font-family:var(--font);font-size:13px;background:transparent;color:inherit;box-sizing:border-box;margin-bottom:5px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:9px;color:var(--muted)">Min</span>${inp(s,'min',s.min,0.5,50)}
+          <span style="font-size:9px;color:var(--muted)">Max</span>${inp(s,'max',s.max,0.5,50)}
+          <span style="font-size:9px;color:var(--muted)">Def.</span>${inp(s,'def',s.default,0.5,50)}
+          <span style="font-size:9px;color:var(--muted);padding-left:2px">${s.neg?'❄':'🌡'}</span>
+        </div>
+      </div>
+      <button type="button" onclick="deleteTempSensor('${s.id}')" title="Eliminar sensor"
+        style="padding:4px 8px;border:.5px solid #c0392b;color:#c0392b;background:transparent;border-radius:3px;cursor:pointer;font-size:13px;flex-shrink:0;margin-top:2px">🗑</button>
+    </div>`).join('');
+  }else{
+    html+=`<div style="font-size:12px;color:var(--muted);padding:8px 0 12px">No hay sensores activos.</div>`;
+  }
+  if(avail.length){
+    html+=`<div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-top:14px;margin-bottom:6px">Disponibles para agregar</div>`;
+    html+=avail.map(s=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:.5px solid var(--border)">
+      <span style="flex:1;font-size:12px;color:var(--muted)">${s.label} <span style="font-size:10px">${s.neg?'(congelador)':'(nevera)'}</span></span>
+      <button type="button" onclick="enableTempSensor('${s.id}')"
+        style="padding:5px 12px;border:.5px solid var(--black);background:transparent;color:var(--black);border-radius:3px;cursor:pointer;font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase">
+        + Agregar
+      </button>
+    </div>`).join('');
+  }
+  if(!avail.length&&active.length===tempSensors.length){
+    html+=`<div style="font-size:11px;color:var(--muted);padding:8px 0;margin-top:8px">Todos los sensores están activos.</div>`;
+  }
+  el.innerHTML=html;
 }
 async function saveTempCfg(){
-  const cfg=tempSensors.map(s=>{
-    const lbl=($('tcfg-lbl-'+s.id)||{value:s.label}).value.trim()||s.label;
-    const en=($('tcfg-en-'+s.id)||{checked:s.enabled}).checked;
-    const minV=parseFloat(($('tcfg-min-'+s.id)||{value:s.min}).value);
-    const maxV=parseFloat(($('tcfg-max-'+s.id)||{value:s.max}).value);
-    const defV=parseFloat(($('tcfg-def-'+s.id)||{value:s.default}).value);
-    return{id:s.id,label:lbl,enabled:en,neg:s.neg,min:isNaN(minV)?s.min:minV,max:isNaN(maxV)?s.max:maxV,default:isNaN(defV)?s.default:defV};
-  });
+  _tempSaveCurrentFormVals();
+  const cfg=tempSensors.map(s=>({id:s.id,label:s.label,enabled:s.enabled!==false,neg:s.neg,min:s.min,max:s.max,default:s.default}));
   const{error}=await sb.from('config').upsert({key:'temp_sensors_config',value:JSON.stringify(cfg)});
   if(error){alert('Error al guardar: '+error.message);return;}
   cfg.forEach(c=>{const s=tempSensors.find(x=>x.id===c.id);if(s)Object.assign(s,c);});
