@@ -7421,20 +7421,62 @@ async function renderAltasPanel(){
   const listHtml=_altasList.length?_altasList.map(cardHtml).join(''):'<div style="font-size:11px;color:var(--hint);padding:.5rem 0">Sin altas registradas.</div>';
   el.innerHTML=
     '<div class="sec-t" style="margin-bottom:1.2rem">Nueva alta</div>'
-    +'<div style="display:grid;gap:10px;padding:14px;border:.5px solid var(--border);border-radius:8px;margin-bottom:1.5rem">'
+    +'<div style="display:grid;gap:14px;padding:14px;border:.5px solid var(--border);border-radius:8px;margin-bottom:1.5rem">'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-        +'<div class="f" style="margin:0"><label>Puesto *</label><input id="alt-puesto" placeholder="Ej: Barista, Cocinero..."></div>'
-        +'<div class="f" style="margin:0"><label>Tipo de contrato *</label><input id="alt-contrato" placeholder="Ej: Indefinido, Temporal..."></div>'
+        +'<div class="f" style="margin:0"><label>Puesto *</label>'
+          +'<select id="alt-puesto" onchange="altPuestoChange()">'
+            +'<option value="">Seleccionar...</option>'
+            +'<option>Camarero/a</option>'
+            +'<option>Ayudante de camarero/a</option>'
+            +'<option value="_otro">Otro...</option>'
+          +'</select>'
+          +'<input id="alt-puesto-otro" style="display:none;margin-top:6px" placeholder="Especificar puesto...">'
+        +'</div>'
+        +'<div class="f" style="margin:0"><label>Tipo de contrato *</label>'
+          +'<select id="alt-contrato">'
+            +'<option value="">Seleccionar...</option>'
+            +'<option>Indefinido</option>'
+            +'<option>Indefinido a tiempo parcial</option>'
+            +'<option>Temporal por circunstancias de la producción</option>'
+            +'<option>Temporal de sustitución</option>'
+            +'<option>Fijo discontinuo</option>'
+            +'<option>Formación en alternancia</option>'
+            +'<option>En prácticas</option>'
+          +'</select>'
+        +'</div>'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-        +'<div class="f" style="margin:0"><label>Tipo de jornada *</label><input id="alt-jornada" placeholder="Ej: Completa, Parcial..."></div>'
+        +'<div class="f" style="margin:0"><label>Tipo de jornada *</label>'
+          +'<select id="alt-jornada">'
+            +'<option value="">Seleccionar...</option>'
+            +'<option>Jornada completa</option>'
+            +'<option>Jornada parcial</option>'
+          +'</select>'
+        +'</div>'
         +'<div class="f" style="margin:0"><label>Fecha de alta</label><input id="alt-fecha-alta" type="date"></div>'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
         +'<div class="f" style="margin:0"><label>Fecha de baja</label><input id="alt-fecha-baja" type="date"></div>'
         +'<div></div>'
       +'</div>'
-      +'<div class="f" style="margin:0"><label>Horario</label><input id="alt-horario" placeholder="Ej: L-V 9:00-17:00..."></div>'
+      +'<div class="f" style="margin:0"><label>Horario</label>'
+        +'<div style="display:flex;gap:5px;margin:6px 0 8px">'
+          +'<button type="button" class="alt-day-btn" data-day="L" onclick="altDayToggle(this)" style="width:30px;height:30px;border-radius:4px;border:.5px solid #d0cdc8;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">L</button>'
+          +'<button type="button" class="alt-day-btn" data-day="M" onclick="altDayToggle(this)" style="width:30px;height:30px;border-radius:4px;border:.5px solid #d0cdc8;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">M</button>'
+          +'<button type="button" class="alt-day-btn" data-day="X" onclick="altDayToggle(this)" style="width:30px;height:30px;border-radius:4px;border:.5px solid #d0cdc8;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">X</button>'
+          +'<button type="button" class="alt-day-btn" data-day="J" onclick="altDayToggle(this)" style="width:30px;height:30px;border-radius:4px;border:.5px solid #d0cdc8;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">J</button>'
+          +'<button type="button" class="alt-day-btn" data-day="V" onclick="altDayToggle(this)" style="width:30px;height:30px;border-radius:4px;border:.5px solid #d0cdc8;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">V</button>'
+          +'<button type="button" class="alt-day-btn" data-day="S" onclick="altDayToggle(this)" style="width:30px;height:30px;border-radius:4px;border:.5px solid #d0cdc8;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">S</button>'
+          +'<button type="button" class="alt-day-btn" data-day="D" onclick="altDayToggle(this)" style="width:30px;height:30px;border-radius:4px;border:.5px solid #d0cdc8;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">D</button>'
+        +'</div>'
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+          +'<input id="alt-h-entrada" type="time" value="09:00" oninput="altUpdateHorario()" style="padding:4px 6px;border:none;border-bottom:.5px solid var(--border);background:transparent;font-size:13px;font-family:inherit;outline:none;color:var(--black)">'
+          +'<span style="color:var(--hint);font-size:10px;letter-spacing:.5px">HASTA</span>'
+          +'<input id="alt-h-salida" type="time" value="17:00" oninput="altUpdateHorario()" style="padding:4px 6px;border:none;border-bottom:.5px solid var(--border);background:transparent;font-size:13px;font-family:inherit;outline:none;color:var(--black)">'
+        +'</div>'
+        +'<div style="font-size:10px;color:var(--hint);letter-spacing:.3px">&#8594; <span id="alt-horario-preview" style="color:var(--muted)">Seleccioná días y horario</span></div>'
+        +'<input type="hidden" id="alt-horario">'
+      +'</div>'
       +'<div class="f" style="margin:0"><label>Observaciones</label><input id="alt-obs" placeholder="Notas adicionales..."></div>'
       +'<button type="button" class="btn-d" onclick="saveNuevaAlta()" style="align-self:start;margin-top:4px">+ Crear alta y generar link</button>'
     +'</div>'
@@ -7442,9 +7484,40 @@ async function renderAltasPanel(){
     +'<div id="altas-list">'+listHtml+'</div>';
 }
 
+function altPuestoChange(){
+  var sel=$('alt-puesto'),otro=$('alt-puesto-otro');
+  if(!sel||!otro)return;
+  otro.style.display=sel.value==='_otro'?'block':'none';
+  if(sel.value!=='_otro')otro.value='';
+}
+function altDayToggle(btn){
+  var active=btn.classList.toggle('active');
+  btn.style.background=active?'var(--black)':'transparent';
+  btn.style.color=active?'#fff':'var(--muted)';
+  btn.style.borderColor=active?'var(--black)':'#d0cdc8';
+  altUpdateHorario();
+}
+function altUpdateHorario(){
+  var order=['L','M','X','J','V','S','D'];
+  var sel=order.filter(function(d){var b=document.querySelector('.alt-day-btn[data-day="'+d+'"]');return b&&b.classList.contains('active');});
+  var entrada=($('alt-h-entrada')||{}).value||'';
+  var salida=($('alt-h-salida')||{}).value||'';
+  var str='';
+  if(sel.length){
+    // Compact consecutive days: L,M,X,J,V → L-V
+    var idx=sel.map(function(d){return order.indexOf(d);}).sort(function(a,b){return a-b;});
+    var consecutive=idx.every(function(_,i){return i===0||idx[i]===idx[i-1]+1;});
+    str=(consecutive&&sel.length>=3)?order[idx[0]]+'-'+order[idx[idx.length-1]]:sel.join(', ');
+    if(entrada&&salida)str+=' '+entrada+'-'+salida;
+    else if(entrada)str+=' desde '+entrada;
+  }
+  var h=$('alt-horario');if(h)h.value=str;
+  var p=$('alt-horario-preview');if(p)p.textContent=str||'Seleccioná días y horario';
+}
 async function saveNuevaAlta(){
   const v=function(id){var el=$('alt-'+id);return el?el.value.trim():'';};
-  const puesto=v('puesto'),contrato=v('contrato'),jornada=v('jornada');
+  const puestoSel=v('puesto'),contrato=v('contrato'),jornada=v('jornada');
+  const puesto=puestoSel==='_otro'?v('puesto-otro'):puestoSel;
   if(!puesto||!contrato||!jornada){alert('Completá puesto, contrato y jornada');return;}
   const token=genToken();
   const row={token,empresa:'WORDCREAM SL',puesto,tipo_contrato:contrato,tipo_jornada:jornada,
