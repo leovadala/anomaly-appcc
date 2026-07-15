@@ -1123,6 +1123,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     <button class="emp-subtab on" id="empstab-integrantes" onclick="empSubTab('integrantes')">Integrantes</button>
     <button class="emp-subtab" id="empstab-fichaje" onclick="empSubTab('fichaje')">Fichaje</button>
     <button class="emp-subtab" id="empstab-planificacion" onclick="empSubTab('planificacion')">Planificación</button>
+    <button class="emp-subtab" id="empstab-altas" onclick="empSubTab('altas')">Altas</button>
   </div>
   <!-- Dashboard panel -->
   <div id="emp-panel-dash" style="display:none">
@@ -1153,6 +1154,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   <div id="emp-panel-integrantes" style="display:none"><div style="color:var(--hint);font-size:11px;padding:1rem 0">Cargando...</div></div>
   <!-- Planificación vacaciones panel -->
   <div id="emp-panel-planificacion" style="display:none"></div>
+  <div id="emp-panel-altas" style="display:none"></div>
   <!-- Ficha individual -->
   <div id="emp-ficha-panel" style="display:none"></div>
 </div>
@@ -6014,7 +6016,7 @@ var _fkAmbientInterval=null;
 
 // ── Sub-tab navigation ──────────────────────────────────────────────
 function empSubTab(tab){
-  ['dash','integrantes','fichaje','planificacion'].forEach(t=>{
+  ['dash','integrantes','fichaje','planificacion','altas'].forEach(t=>{
     const p=$('emp-panel-'+t);if(p)p.style.display=t===tab?'block':'none';
     const b=$('empstab-'+t);if(b)b.classList.toggle('on',t===tab);
   });
@@ -6022,6 +6024,7 @@ function empSubTab(tab){
   if(tab==='fichaje'){renderEmpHoy();const u=$('emp-fichaje-url');if(u)u.textContent=window.location.origin+'?fichaje=1';}
   if(tab==='integrantes')renderEmpIntegrantes();
   if(tab==='planificacion')renderVacPlanificacion();
+  if(tab==='altas')renderAltasPanel();
 }
 
 // ─── PLANIFICACIÓN DE VACACIONES ──────────────────────────────────────────────
@@ -7377,6 +7380,197 @@ async function fkRegistrar(tipo){
   setTimeout(fkReset,3000);
 }
 
+// ── ALTAS DE PERSONAL ────────────────────────────────────────────────────────
+let _altasList=[];
+let _altaPublicToken=null;
+
+async function loadAltas(){
+  const{data}=await sb.from('hor_altas').select('*').order('created_at',{ascending:false});
+  _altasList=data||[];
+}
+
+function genToken(){
+  if(typeof crypto!=='undefined'&&crypto.randomUUID)return crypto.randomUUID();
+  return Date.now().toString(36)+Math.random().toString(36).slice(2);
+}
+
+async function renderAltasPanel(){
+  const el=$('emp-panel-altas');if(!el)return;
+  await loadAltas();
+  const SC={pendiente:'#e67e22',completo:'#27ae60',enviado:'#3498db'};
+  function cardHtml(a){
+    const sc=SC[a.status]||'#888';
+    const fecha=a.created_at?new Date(a.created_at).toLocaleDateString('es-ES'):'';
+    const nombreLine=a.nombre_trabajador?'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">&#128100; '+a.nombre_trabajador+'</div>':'';
+    const envBtn=a.status==='completo'?'<button type="button" class="btn-d" onclick="sendAltaAsesor(\''+a.id+'\')" style="font-size:10px;padding:5px 10px;background:var(--black);color:#fff;border-color:var(--black)">&#9993; Enviar al asesor</button>':'';
+    return '<div style="background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:14px;margin-bottom:8px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">'
+        +'<div><span style="font-size:12px;font-weight:500">'+(a.puesto||'Sin puesto')+'</span>'
+        +'<span style="font-size:10px;color:var(--muted);margin-left:8px">'+(a.tipo_contrato||'')+' &middot; '+(a.tipo_jornada||'')+'</span></div>'
+        +'<span style="font-size:9px;padding:2px 9px;border-radius:12px;background:'+sc+'22;color:'+sc+';border:.5px solid '+sc+'55;letter-spacing:1px;text-transform:uppercase">'+a.status+'</span>'
+      +'</div>'
+      +nombreLine
+      +'<div style="font-size:10px;color:var(--hint);margin-bottom:10px">'+fecha+'</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
+        +'<button type="button" class="btn-d" onclick="copyAltaLink(\''+a.token+'\')" style="font-size:10px;padding:5px 10px">&#128203; Copiar link</button>'
+        +envBtn
+        +'<button type="button" class="btn-d" onclick="deleteAlta(\''+a.id+'\')" style="font-size:10px;padding:5px 10px;margin-left:auto">&times;</button>'
+      +'</div>'
+    +'</div>';
+  }
+  const listHtml=_altasList.length?_altasList.map(cardHtml).join(''):'<div style="font-size:11px;color:var(--hint);padding:.5rem 0">Sin altas registradas.</div>';
+  el.innerHTML=
+    '<div class="sec-t" style="margin-bottom:1.2rem">Nueva alta</div>'
+    +'<div style="display:grid;gap:10px;padding:14px;border:.5px solid var(--border);border-radius:8px;margin-bottom:1.5rem">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        +'<div class="f" style="margin:0"><label>Puesto *</label><input id="alt-puesto" placeholder="Ej: Barista, Cocinero..."></div>'
+        +'<div class="f" style="margin:0"><label>Tipo de contrato *</label><input id="alt-contrato" placeholder="Ej: Indefinido, Temporal..."></div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        +'<div class="f" style="margin:0"><label>Tipo de jornada *</label><input id="alt-jornada" placeholder="Ej: Completa, Parcial..."></div>'
+        +'<div class="f" style="margin:0"><label>Fecha de alta</label><input id="alt-fecha-alta" type="date"></div>'
+      +'</div>'
+      +'<div class="f" style="margin:0"><label>Horario</label><input id="alt-horario" placeholder="Ej: L-V 9:00-17:00..."></div>'
+      +'<div class="f" style="margin:0"><label>Observaciones</label><input id="alt-obs" placeholder="Notas adicionales..."></div>'
+      +'<button type="button" class="btn-d" onclick="saveNuevaAlta()" style="align-self:start;margin-top:4px">+ Crear alta y generar link</button>'
+    +'</div>'
+    +'<div class="sec-t" style="margin-bottom:.75rem">Altas registradas</div>'
+    +'<div id="altas-list">'+listHtml+'</div>';
+}
+
+async function saveNuevaAlta(){
+  const v=function(id){var el=$('alt-'+id);return el?el.value.trim():'';};
+  const puesto=v('puesto'),contrato=v('contrato'),jornada=v('jornada');
+  if(!puesto||!contrato||!jornada){alert('Completá puesto, contrato y jornada');return;}
+  const token=genToken();
+  const row={token,empresa:'WORDCREAM SL',puesto,tipo_contrato:contrato,tipo_jornada:jornada,
+    horario:v('horario')||null,
+    fecha_alta:v('fecha-alta')||null,
+    observaciones_empresa:v('obs')||null,
+    status:'pendiente'};
+  const{error}=await sb.from('hor_altas').insert(row);
+  if(error){alert('Error: '+error.message);return;}
+  ['puesto','contrato','jornada','horario','fecha-alta','obs'].forEach(function(id){var el=$('alt-'+id);if(el)el.value='';});
+  await loadAltas();
+  renderAltasPanel();
+  copyAltaLink(token,true);
+}
+
+function copyAltaLink(token,justCreated){
+  const url=window.location.origin+'?alta='+token;
+  navigator.clipboard.writeText(url).then(function(){
+    alert((justCreated?'Alta creada. ':'')+'Link copiado:\n'+url);
+  }).catch(function(){prompt('Copiá este link:',url);});
+}
+
+function sendAltaAsesor(id){
+  const a=_altasList.find(function(x){return x.id===id;});if(!a)return;
+  const f=function(v){return v||'—';};
+  const subj=encodeURIComponent('Alta nuevo trabajador — '+f(a.nombre_trabajador)+' — WORDCREAM SL');
+  const lines=[
+    'Buenos días,','',
+    'Se adjuntan los datos para el alta del nuevo trabajador en WORDCREAM SL.','',
+    '── DATOS DE LA EMPRESA ─────────────────────────',
+    'Empresa: '+f(a.empresa),
+    'Puesto: '+f(a.puesto),
+    'Tipo de contrato: '+f(a.tipo_contrato),
+    'Tipo de jornada: '+f(a.tipo_jornada),
+    'Horario: '+f(a.horario),
+    'Fecha de alta: '+f(a.fecha_alta)
+  ];
+  if(a.fecha_baja)lines.push('Fecha de baja: '+a.fecha_baja);
+  if(a.observaciones_empresa)lines.push('Observaciones: '+a.observaciones_empresa);
+  lines.push('','── DATOS DEL TRABAJADOR ──────────────────',
+    'Nombre: '+f(a.nombre_trabajador),
+    'Fecha de nacimiento: '+f(a.fecha_nacimiento),
+    'DNI/NIE: '+f(a.dni_nie),
+    'Número SS: '+f(a.num_ss),
+    'Nacionalidad: '+f(a.nacionalidad),
+    'Domicilio: '+f(a.domicilio),
+    'Nivel de estudios: '+f(a.nivel_estudios)
+  );
+  if(a.cuenta_bancaria)lines.push('Cuenta bancaria: '+a.cuenta_bancaria);
+  lines.push('','Saludos,','ANOMALY Coffee & Cream Specialty House');
+  window.location.href='mailto:angelas@grupovilanova.es?subject='+subj+'&body='+encodeURIComponent(lines.join('\n'));
+  sb.from('hor_altas').update({status:'enviado'}).eq('id',id).then(function(){
+    const idx=_altasList.findIndex(function(x){return x.id===id;});
+    if(idx!==-1){_altasList[idx].status='enviado';renderAltasPanel();}
+  });
+}
+
+async function deleteAlta(id){
+  if(!confirm('¿Eliminar este registro?'))return;
+  await sb.from('hor_altas').delete().eq('id',id);
+  _altasList=_altasList.filter(function(x){return x.id!==id;});
+  renderAltasPanel();
+}
+
+(function(){
+  const params=new URLSearchParams(window.location.search);
+  const token=params.get('alta');
+  if(!token)return;
+  _altaPublicToken=token;
+  document.addEventListener('DOMContentLoaded',async function(){
+    const wrap=document.getElementById('alta-public');if(!wrap)return;
+    document.querySelectorAll('.app > *').forEach(function(el){
+      if(el.id!=='alta-public')el.style.display='none';
+    });
+    wrap.style.display='block';
+    const res=await sb.from('hor_altas').select('*').eq('token',token).single();
+    const data=res.data,err=res.error;
+    if(err||!data){
+      const errEl=document.getElementById('alta-public-error');
+      if(errEl){errEl.textContent='Link no válido o expirado.';errEl.style.display='block';}
+      const bodyEl=document.getElementById('alta-public-body');if(bodyEl)bodyEl.style.display='none';
+      return;
+    }
+    if(data.status==='completo'||data.status==='enviado'){
+      document.getElementById('alta-public-body').style.display='none';
+      const ok=document.getElementById('alta-public-ok');ok.style.display='block';
+      ok.innerHTML='<div style="font-size:32px;margin-bottom:12px">&#10003;</div><div style="font-size:16px;font-weight:500">Formulario ya completado</div><div style="font-size:12px;color:#888;margin-top:8px">Tus datos ya fueron enviados. Gracias.</div>';
+      return;
+    }
+    const efEl=document.getElementById('alta-empresa-fields');
+    if(efEl){
+      const rows=[
+        ['Empresa',data.empresa||'WORDCREAM SL'],
+        ['Puesto',data.puesto],
+        ['Tipo de contrato',data.tipo_contrato],
+        ['Tipo de jornada',data.tipo_jornada],
+        ['Horario',data.horario],
+        ['Fecha de incorporación',data.fecha_alta],
+        ['Observaciones',data.observaciones_empresa]
+      ].filter(function(r){return r[1];});
+      efEl.innerHTML=rows.map(function(r){
+        return '<div style="display:flex;gap:12px;align-items:baseline">'
+          +'<span style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#aaa;min-width:140px;flex-shrink:0">'+r[0]+'</span>'
+          +'<span style="font-size:13px;color:#1a1a1a">'+r[1]+'</span></div>';
+      }).join('');
+    }
+  });
+})();
+
+async function submitAltaPublic(){
+  const g=function(id){var el=document.getElementById(id);return el?el.value.trim():'';};
+  const nombre=g('ap-nombre'),nacimiento=g('ap-nacimiento'),dni=g('ap-dni'),ss=g('ap-ss'),nac=g('ap-nac'),dom=g('ap-dom');
+  if(!nombre||!nacimiento||!dni||!ss||!nac||!dom){alert('Por favor completá los campos obligatorios (*)');return;}
+  const btn=document.querySelector('#alta-public button[onclick="submitAltaPublic()"]');
+  if(btn){btn.disabled=true;btn.textContent='Enviando...';}
+  const res=await sb.from('hor_altas').update({
+    nombre_trabajador:nombre,fecha_nacimiento:nacimiento,dni_nie:dni,num_ss:ss,
+    nacionalidad:nac,domicilio:dom,
+    nivel_estudios:g('ap-estudios')||null,
+    cuenta_bancaria:g('ap-banco')||null,
+    status:'completo'
+  }).eq('token',_altaPublicToken);
+  if(res.error){
+    if(btn){btn.disabled=false;btn.textContent='Enviar datos';}
+    alert('Error al enviar: '+res.error.message);return;
+  }
+  document.getElementById('alta-public-body').style.display='none';
+  document.getElementById('alta-public-ok').style.display='block';
+}
+
 // Auto-open kiosk if URL param ?fichaje=1
 (function(){
   if(window.location.search.includes('fichaje=1')||window.location.hash==='#fichaje'){
@@ -8231,6 +8425,47 @@ function _setupTempTouchDrag(){
   <div style="background:var(--bg);max-width:600px;margin:2rem auto 3rem;padding:1.5rem;position:relative">
     <button onclick="closeEmpFicha()" style="position:absolute;top:1rem;right:1rem;background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0">✕</button>
     <div id="emp-ficha-content"></div>
+  </div>
+</div>
+<div id="alta-public" style="display:none;position:fixed;inset:0;z-index:9999;overflow-y:auto;background:#f5f4f0;font-family:'DM Sans',system-ui,sans-serif">
+  <div style="background:#1a1a1a;padding:20px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;align-items:center;gap:14px">
+      <img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iQ2FwYV8xIiBkYXRhLW5hbWU9IkNhcGEgMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgNTk1LjI4IDQwNi40NyI+CiAgPGRlZnM+CiAgICA8c3R5bGU+CiAgICAgIC5jbHMtMSB7CiAgICAgICAgZmlsbDogIzAxMDEwMTsKICAgICAgfQogICAgPC9zdHlsZT4KICA8L2RlZnM+CiAgPHBhdGggY2xhc3M9ImNscy0xIiBkPSJNNDUyLjQxLDI5OC44OGMtOS4wMiwwLTE0LjI1LDYuMzItMTQuMjUsMTQuMTNzNS4yMywxNC4xMywxNC4yNSwxNC4xMywxNC4xOS02LjMyLDE0LjE5LTE0LjEzLTUuMjMtMTQuMTMtMTQuMTktMTQuMTNaTTQ1Mi40MSwzMjQuNWMtNy4zLDAtMTEuMjYtNS4yOS0xMS4yNi0xMS40OXMzLjk2LTExLjQ5LDExLjI2LTExLjQ5LDExLjIsNS4yOCwxMS4yLDExLjQ5LTMuOTYsMTEuNDktMTEuMiwxMS40OVoiLz4KICA8cGF0aCBjbGFzcz0iY2xzLTEiIGQ9Ik00NTkuMDgsMzA5Ljk3YzAtMy41LTMuNjgtNC4wMi02Ljk1LTQuMDJoLTUuODZ2MTMuOTZoMy4wNHYtNC40OGg2LjcydjQuNDhoMy4wNHYtNC43N2MwLTEuMDMtLjYzLTEuNzItMS44NC0xLjcyaC0uMzRjMS4yMS0uNDYsMi4xOC0xLjYxLDIuMTgtMy40NVpNNDUyLjY0LDMxMi42MWgtMy4zM3YtMy45MWgzLjMzYzIuMywwLDMuMzkuMzQsMy4zOSwxLjk1cy0xLjA5LDEuOTUtMy4zOSwxLjk1WiIvPgogIDxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTQwMy4zMyw5My4wNGMtMTIuMjUtMTAuNjUtMjguNjEtMTUuNDQtNDQuODctMTMuMTUtMjcuMywzLjg0LTQ3Ljg5LDI4LTQ3Ljg5LDU2LjJ2MTU0LjQ1YzAsMi42Mi0xLjg1LDQuMDItMy40Myw0LjQzLTEuNTguNDEtMy44OC4wOC01LjE1LTIuMmwtMTEyLjkyLTIwMi42NS0uNDctLjg1aC0zNi42NnYyMzcuNzloMzUuMzR2LTE1OC45YzAtMi4xMiwxLjQ0LTMuMjYsMi43OS0zLjYxLDEuMzUtLjM1LDMuMTYtLjA2LDQuMTksMS43OWw3OC42MiwxNDEuMDhjNi43NSwxMi4xMSwxOS41NSwxOS42NCwzMy40MiwxOS42NCwyMS4wOSwwLDM4LjI2LTE3LjE2LDM4LjI2LTM4LjI2di0xNTIuOThjMC0xMC42Niw4LjYzLTIwLjg4LDE4Ljg0LTIyLjMxLDYuNS0uOTIsMTIuNzguOTIsMTcuNjgsNS4xNyw0LjgzLDQuMTksNy42LDEwLjI3LDcuNiwxNi42NXYxOTEuNzJoMzMuOTd2LTE5MS43MmMwLTE2LjIzLTcuMDMtMzEuNjUtMTkuMjktNDIuM1oiLz4KPC9zdmc+" style="height:34px;filter:invert(1) brightness(2)" alt="ANOMALY">
+      <div>
+        <div style="color:#fff;font-size:14px;font-weight:600;letter-spacing:3px;text-transform:uppercase">ANOMALY</div>
+        <div style="color:#888;font-size:8px;letter-spacing:2px;text-transform:uppercase">COFFEE &amp; CREAM &middot; SPECIALTY HOUSE</div>
+      </div>
+    </div>
+    <div style="color:#666;font-size:9px;letter-spacing:2px;text-transform:uppercase">Formulario de Incorporaci&oacute;n</div>
+  </div>
+  <div style="max-width:580px;margin:0 auto;padding:28px 20px 60px">
+    <div id="alta-public-error" style="display:none;background:#fff3f3;border:.5px solid #f09595;border-radius:6px;padding:14px;margin-bottom:20px;font-size:12px;color:#a32d2d"></div>
+    <div id="alta-public-ok" style="display:none;text-align:center;padding:60px 20px">
+      <div style="font-size:32px;margin-bottom:12px">&#10003;</div>
+      <div style="font-size:16px;font-weight:500;letter-spacing:1px">Datos enviados</div>
+      <div style="font-size:12px;color:#888;margin-top:8px">Gracias. Nos pondremos en contacto contigo pronto.</div>
+    </div>
+    <div id="alta-public-body">
+      <div style="background:#fff;border:.5px solid #e0ddd6;border-radius:8px;padding:22px;margin-bottom:16px">
+        <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:#aaa;margin-bottom:16px;padding-bottom:10px;border-bottom:.5px solid #f0ede8">Datos de la empresa</div>
+        <div id="alta-empresa-fields" style="display:grid;gap:10px"></div>
+      </div>
+      <div style="background:#fff;border:.5px solid #e0ddd6;border-radius:8px;padding:22px;margin-bottom:20px">
+        <div style="font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:#aaa;margin-bottom:16px;padding-bottom:10px;border-bottom:.5px solid #f0ede8">Tus datos</div>
+        <div style="display:grid;gap:14px">
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Nombre completo *</label><input id="ap-nombre" type="text" autocomplete="name" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Fecha de nacimiento *</label><input id="ap-nacimiento" type="date" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">DNI o NIE *</label><input id="ap-dni" type="text" autocomplete="off" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">N&uacute;mero de Seguridad Social *</label><input id="ap-ss" type="text" autocomplete="off" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Nacionalidad *</label><input id="ap-nac" type="text" autocomplete="country-name" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Domicilio *</label><input id="ap-dom" type="text" autocomplete="street-address" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Nivel de estudios</label><input id="ap-estudios" type="text" placeholder="Ej: Bachillerato, FP, Universitario..." style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Cuenta bancaria (si procede)</label><input id="ap-banco" type="text" autocomplete="off" placeholder="IBAN" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
+        </div>
+      </div>
+      <button onclick="submitAltaPublic()" style="width:100%;padding:14px;background:#1a1a1a;color:#fff;border:none;border-radius:4px;font-size:11px;font-weight:500;letter-spacing:3px;text-transform:uppercase;cursor:pointer;font-family:inherit">Enviar datos</button>
+      <p style="font-size:9px;color:#aaa;text-align:center;margin-top:16px;line-height:1.6">PROTECCI&Oacute;N DE DATOS: Sus datos ser&aacute;n tratados por WORDCREAM SL con la finalidad de gestionar su relaci&oacute;n laboral, conforme al RGPD 2016/679 y la LOPD 3/2018.</p>
+    </div>
   </div>
 </div>
 </body>
