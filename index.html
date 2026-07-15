@@ -2596,7 +2596,7 @@ async function openTempModal(){
   await loadTempSensorsConfig();
   const{data}=await sb.from('registros_temperatura').select('pozzetti_1,pozzetti_2,pozzetti_3,armario_2,nev_pasteleria,nev_cafeteria,nev_obrador_1,nev_obrador_2').order('created_at',{ascending:false}).limit(1);
   const last=data&&data[0];
-  tempSensors.forEach(s=>{tempVals[s.id]=last&&last[s.id]!=null?last[s.id]:s.default;});
+  tempSensors.forEach(s=>{if(s.custom)tempVals[s.id]=last&&last.extras&&last.extras[s.id]!=null?last.extras[s.id]:s.default;else tempVals[s.id]=last&&last[s.id]!=null?last[s.id]:s.default;});
   buildTempSteppers();
   $('temp-incidencia').value='';
   const btn=$('temp-save-btn');btn.textContent='Guardar registro';btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';btn.disabled=false;
@@ -2615,7 +2615,7 @@ function tempTab(t){
 async function guardarTemp(){
   const btn=$('temp-save-btn');btn.textContent='Guardando…';btn.disabled=true;
   const row={fecha:$('temp-fecha').value,hora:$('temp-hora').value,turno:$('temp-turno').value,responsable:$('temp-responsable').value||currentUser};
-  tempSensors.forEach(s=>{row[s.id]=tempVals[s.id];});
+  const _extras={};tempSensors.forEach(s=>{if(s.custom){if(s.enabled!==false)_extras[s.id]=tempVals[s.id];}else{row[s.id]=tempVals[s.id];}});if(Object.keys(_extras).length)row.extras=_extras;
   const inc=$('temp-incidencia').value.trim();if(inc)row.incidencia=inc;
   const{error}=await sb.from('registros_temperatura').insert(row);
   if(error){btn.textContent='Guardar registro';btn.disabled=false;alert('Error al guardar: '+error.message);return;}
@@ -2643,8 +2643,8 @@ async function renderTempHistorial(){
   window._tempHisData=data;
   el.innerHTML=data.map(r=>{
     const activeSensors=tempSensors.filter(s=>s.enabled!==false);
-    const alerts=activeSensors.filter(s=>r[s.id]!=null&&(r[s.id]<s.min||r[s.id]>s.max));
-    const grid=activeSensors.map(s=>{const v=r[s.id];const out=v!=null&&(v<s.min||v>s.max);return`<div><div style="color:var(--muted);font-size:9px;margin-bottom:2px">${s.label}</div><div style="font-weight:500;font-size:11px;color:${out?'#c0392b':s.neg?'#2266bb':'#1a7a3d'}">${v!=null?((v<0?'−':'+')+Math.abs(v).toFixed(1)+'°'):'—'}</div></div>`;}).join('');
+    const alerts=activeSensors.filter(s=>{const v=s.custom?(r.extras&&r.extras[s.id]!=null?r.extras[s.id]:null):r[s.id];return v!=null&&(v<s.min||v>s.max);});
+    const grid=activeSensors.map(s=>{const v=s.custom?(r.extras&&r.extras[s.id]!=null?r.extras[s.id]:null):r[s.id];const out=v!=null&&(v<s.min||v>s.max);return`<div><div style="color:var(--muted);font-size:9px;margin-bottom:2px">${s.label}</div><div style="font-weight:500;font-size:11px;color:${out?'#c0392b':s.neg?'#2266bb':'#1a7a3d'}">${v!=null?((v<0?'−':'+')+Math.abs(v).toFixed(1)+'°'):'—'}</div></div>`;}).join('');
     return`<div style="border:.5px solid ${alerts.length?'#c0392b':'var(--border)'};border-radius:4px;padding:10px 12px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:8px"><span style="font-size:12px;font-weight:500">${r.fecha} · ${(r.hora||'').slice(0,5)}</span><span style="font-size:10px;color:var(--muted)">${r.turno} · ${r.responsable}</span>${alerts.length?'<span style="font-size:9px;color:#c0392b;font-weight:700">⚠ ALERTA</span>':''}</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${grid}</div>${r.incidencia?`<div style="margin-top:8px;font-size:11px;color:var(--muted);border-top:.5px solid var(--border);padding-top:6px">Incidencia: ${r.incidencia}</div>`:''}</div>`;
   }).join('');
 }
@@ -2654,7 +2654,7 @@ function exportTempCSV(){
   const cols=['fecha','hora','turno','responsable',...activeSensors.map(s=>s.id),'incidencia'];
   const hdr=['Fecha','Hora','Turno','Responsable',...activeSensors.map(s=>s.label),'Incidencia'];
   let csv=hdr.join(',')+'\n';
-  data.forEach(r=>{csv+=cols.map(c=>r[c]!=null?String(r[c]).replace(/,/g,';'):'').join(',')+'\n';});
+  data.forEach(r=>{csv+=cols.map((c,i)=>{const si=activeSensors[i-4];const v=si&&si.custom?(r.extras&&r.extras[c]!=null?r.extras[c]:null):r[c];return v!=null?String(v).replace(/,/g,';'):'';}).join(',')+'\n';});
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);const link=document.createElement('a');
   link.href=url;link.download=`temperaturas_${$('temp-his-año').value}-${String($('temp-his-mes').value).padStart(2,'0')}.csv`;
@@ -7516,7 +7516,8 @@ async function loadTempSensorsConfig(){
     const{data}=await sb.from('config').select('value').eq('key','temp_sensors_config').maybeSingle();
     if(!data||!data.value)return;
     const cfg=JSON.parse(data.value);
-    cfg.forEach(c=>{const s=tempSensors.find(x=>x.id===c.id);if(s){if(c.label!=null)s.label=c.label;if(c.enabled!=null)s.enabled=c.enabled;if(c.default!=null)s.default=c.default;if(c.min!=null)s.min=c.min;if(c.max!=null)s.max=c.max;}});
+    for(let i=tempSensors.length-1;i>=0;i--){if(tempSensors[i].custom)tempSensors.splice(i,1);}
+    cfg.forEach(c=>{const s=tempSensors.find(x=>x.id===c.id);if(s){if(c.label!=null)s.label=c.label;if(c.enabled!=null)s.enabled=c.enabled;if(c.default!=null)s.default=c.default;if(c.min!=null)s.min=c.min;if(c.max!=null)s.max=c.max;}else if(c.custom){tempSensors.push({id:c.id,label:c.label||'Sensor',default:c.default||(c.neg?-15:4),neg:!!c.neg,min:c.min||(c.neg?-25:0),max:c.max||(c.neg?-8:8),enabled:c.enabled!==false,custom:true});}});
   }catch(e){}
 }
 function openTempCfgOverlay(){
@@ -7551,7 +7552,7 @@ function _tempSaveCurrentFormVals(){
 function deleteTempSensor(id){
   _tempSaveCurrentFormVals();
   const s=tempSensors.find(x=>x.id===id);if(!s)return;
-  s.enabled=false;
+  if(s.custom){const idx=tempSensors.indexOf(s);if(idx>-1)tempSensors.splice(idx,1);}else{s.enabled=false;}
   renderTempCfgList();
 }
 function enableTempSensor(id){
@@ -7561,6 +7562,15 @@ function enableTempSensor(id){
   const name=prompt('Nombre para este sensor:',s.label);
   if(!name||!name.trim())return;
   s.label=name.trim();s.enabled=true;
+  renderTempCfgList();
+}
+function addNewCustomSensor(){
+  _tempSaveCurrentFormVals();
+  const name=(prompt('Nombre del nuevo sensor:')||'').trim();
+  if(!name)return;
+  const neg=confirm('\u00bfEs un congelador (temperatura negativa)?\n\nAceptar = Congelador \u2744\nCancelar = Nevera \uD83C\uDF21');
+  const id='custom_'+Date.now();
+  tempSensors.push({id,label:name,default:neg?-15:4,neg,min:neg?-25:0,max:neg?-8:8,enabled:true,custom:true});
   renderTempCfgList();
 }
 function renderTempCfgList(){
@@ -7598,14 +7608,15 @@ function renderTempCfgList(){
       </button>
     </div>`).join('');
   }
-  if(!avail.length&&active.length===tempSensors.length){
-    html+=`<div style="font-size:11px;color:var(--muted);padding:8px 0;margin-top:8px">Todos los sensores están activos.</div>`;
-  }
+  html+=`<button type="button" onclick="addNewCustomSensor()"
+    style="width:100%;margin-top:14px;padding:10px;border:1.5px dashed var(--border);background:transparent;color:var(--black);font-family:var(--font);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-radius:4px">
+    + Nuevo sensor personalizado
+  </button>`;
   el.innerHTML=html;
 }
 async function saveTempCfg(){
   _tempSaveCurrentFormVals();
-  const cfg=tempSensors.map(s=>({id:s.id,label:s.label,enabled:s.enabled!==false,neg:s.neg,min:s.min,max:s.max,default:s.default}));
+  const cfg=tempSensors.map(s=>({id:s.id,label:s.label,enabled:s.enabled!==false,neg:s.neg,min:s.min,max:s.max,default:s.default,custom:s.custom||false}));
   const{error}=await sb.from('config').upsert({key:'temp_sensors_config',value:JSON.stringify(cfg)});
   if(error){alert('Error al guardar: '+error.message);return;}
   cfg.forEach(c=>{const s=tempSensors.find(x=>x.id===c.id);if(s)Object.assign(s,c);});
