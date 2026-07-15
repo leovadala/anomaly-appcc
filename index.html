@@ -4221,13 +4221,16 @@ function openQuickModal(i){
   const m=$('eg-quick-modal');m.style.display='flex';
   setTimeout(()=>{$('eq-importe').focus();$('eq-importe').select();},50);
 }
-function openTurQuickModal(i){
+async function openTurQuickModal(i){
   const item=_eqBtns[i]||{name:'',importe:null};
   $('tur-eq-title').textContent=item.name;
   $('tur-eq-importe').value=item.importe!=null?item.importe:'';
   $('tur-eq-concepto').value=item.name;
   const sel=$('tur-eq-resp');
-  sel.innerHTML='<option value="">Seleccionar...</option>'+(team||[]).map(m=>`<option value="${m.nombre}">${m.nombre}</option>`).join('');
+  // Use hor_empleados (full list) with team as fallback — same pattern as openTempModal
+  let empPool=horEmpleados.length?horEmpleados:((await sb.from('hor_empleados').select('nombre').order('nombre')).data||[]);
+  if(!empPool.length)empPool=team||[];
+  sel.innerHTML='<option value="">Seleccionar...</option>'+empPool.map(e=>`<option value="${e.nombre}">${e.nombre}</option>`).join('');
   $('tur-eq-modal').style.display='flex';
   setTimeout(()=>$('tur-eq-resp').focus(),50);
 }
