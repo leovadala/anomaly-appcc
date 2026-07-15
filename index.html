@@ -6027,6 +6027,7 @@ function empSubTab(tab){
 // ─── PLANIFICACIÓN DE VACACIONES ──────────────────────────────────────────────
 const _PLAN_PAL=['#E53935','#1E88E5','#F9A825','#43A047','#8E24AA','#FB8C00','#00897B','#C62828'];
 let _editingVacId=null;
+let _fechasClave=JSON.parse(localStorage.getItem('anomaly_fechas_clave')||'[]');
 const _HOL={'2026-08-15':'Asunción','2026-10-09':'Día CV','2026-10-12':'Fiesta Nac.','2026-11-01':'Todos Santos','2026-12-06':'Constitución','2026-12-08':'Inmaculada','2026-12-25':'Navidad','2027-01-01':'Año Nuevo','2027-01-06':'Reyes','2027-03-19':'San José','2027-03-25':'Jue. Santo','2027-03-26':'Vie. Santo','2027-03-29':'Lunes Pascua','2027-05-01':'Día Trabajo','2027-06-24':'Sant Joan'};
 function getMixedVacColor(onList,opacity){
   if(!onList.length)return'transparent';
@@ -6069,6 +6070,15 @@ async function renderVacPlanificacion(){
       </div>
       <div class="sec-t" style="margin-bottom:.75rem">Períodos registrados</div>
       <div id="plan-list"></div>
+      <div class="sec-t" style="margin-bottom:.75rem;margin-top:2rem">Fechas clave del local</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;padding:10px;border:.5px solid var(--border);border-radius:8px;margin-bottom:1rem">
+        <div class="f" style="flex:1;min-width:140px;margin:0"><label>Descripción</label><input id="plan-fc-nombre" placeholder="Ej: Semana Santa, Hogueras..."></div>
+        <div class="f" style="margin:0"><label>Desde</label><input type="date" id="plan-fc-desde"></div>
+        <div class="f" style="margin:0"><label>Hasta</label><input type="date" id="plan-fc-hasta"></div>
+        <div class="f" style="margin:0"><label>Color</label><select id="plan-fc-color" style="font-size:11px;padding:7px 6px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);color:var(--black)"><option value="#FF9800">Naranja</option><option value="#E91E63">Fucsia</option><option value="#00BCD4">Cyan</option><option value="#9C27B0">Violeta</option><option value="#795548">Marrón</option><option value="#607D8B">Gris</option></select></div>
+        <button type="button" class="btn-d" onclick="addFechaClave()" style="align-self:flex-end;height:34px;white-space:nowrap">+ Agregar</button>
+      </div>
+      <div id="plan-fc-list"></div>
     `;
     populatePlanEmpSel();
   }
@@ -6155,6 +6165,7 @@ function renderPlanificacionInner(){
       const on=getVacsOnDate(ds);
       const cnt=on.length;
       const isHoliday=_HOL[ds];
+      const fcDay=_fechasClave.find(fc=>fc.desde<=ds&&fc.hasta>=ds);
       let bg='transparent',topBdr='',txColor='var(--black)';
       if(cnt>max){
         bg='rgba(210,45,55,.14)';topBdr='border-top:2px solid #d03040;';txColor='#b52030';
@@ -6163,10 +6174,11 @@ function renderPlanificacionInner(){
         bg=getMixedVacColor(on,.19);
         topBdr=`border-top:2px solid ${solidMix};`;
       }
+      const botBdr=fcDay?`border-bottom:2px solid ${fcDay.color};`:'';
       const isToday=ds===today;
       const tip=on.map(v=>v.empleado).join(', ');
-      const ttip=tip+(isHoliday?(tip?' · ':'')+isHoliday:'');
-      calHtml+=`<div style="font-size:10px;text-align:center;padding:2px 0 1px;border-radius:3px;background:${bg};${topBdr}color:${txColor};${isToday?'outline:1.5px solid var(--black)':''}${cnt>1?'font-weight:700;':''}" title="${ttip}"><div>${day}</div><div style="width:3px;height:3px;border-radius:50%;background:${isHoliday?'#C0392B':'transparent'};margin:0 auto"></div></div>`;
+      const ttip=tip+(isHoliday?(tip?' · ':'')+isHoliday:'')+(fcDay?(tip||isHoliday?' · ':'')+fcDay.nombre:'');
+      calHtml+=`<div style="font-size:10px;text-align:center;padding:2px 0 1px;border-radius:3px;background:${bg};${topBdr}${botBdr}color:${txColor};${isToday?'outline:1.5px solid var(--black)':''}${cnt>1?'font-weight:700;':''}" title="${ttip}"><div>${day}</div><div style="width:3px;height:3px;border-radius:50%;background:${isHoliday?'#C0392B':'transparent'};margin:0 auto"></div></div>`;
     }
     calHtml+=`</div>`;
     // Employee avatar chips
@@ -6176,6 +6188,9 @@ function renderPlanificacionInner(){
       moEmps.forEach(nombre=>{const c=getPlanEmpColor(nombre);calHtml+=`<div style="width:14px;height:14px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:600" title="${nombre}">${nombre[0]}</div>`;});
       calHtml+=`</div>`;
     }
+    // Fechas clave chips
+    const moFCs=_fechasClave.filter(fc=>fc.desde<=me&&fc.hasta>=ms);
+    if(moFCs.length){calHtml+=`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${moFCs.map(fc=>`<span style="font-size:8px;padding:1px 5px;border-radius:3px;background:${fc.color}22;color:${fc.color};border:.5px solid ${fc.color}88">${fc.nombre}</span>`).join('')}</div>`;}
     calHtml+=`</div>`;
   });
   const calEl=$('plan-cal');if(calEl)calEl.innerHTML=calHtml;
@@ -6211,6 +6226,45 @@ function renderPlanificacionInner(){
     });
   }
   const listEl=$('plan-list');if(listEl)listEl.innerHTML=listHtml;
+
+  // Fechas clave list
+  const fcListEl=$('plan-fc-list');
+  if(fcListEl){
+    const fcSorted=[..._fechasClave].sort((a,b)=>a.desde.localeCompare(b.desde));
+    let fcHtml=fcSorted.length?'':'<div style="font-size:11px;color:var(--hint);padding:.5rem 0">Sin fechas clave registradas.</div>';
+    fcSorted.forEach(fc=>{
+      const dias=Math.round((new Date(fc.hasta)-new Date(fc.desde))/86400000)+1;
+      fcHtml+=`<div style="display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:8px;padding:10px 14px;margin-bottom:6px;border-left:3px solid ${fc.color}">`;
+      fcHtml+=`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${fc.color};flex-shrink:0"></span>`;
+      fcHtml+=`<div style="font-size:12px;font-weight:500;min-width:90px">${fc.nombre}</div>`;
+      fcHtml+=`<div style="font-size:12px;color:var(--muted);flex:1">${fc.desde} &rarr; ${fc.hasta}</div>`;
+      fcHtml+=`<div style="font-size:11px;color:var(--hint);min-width:36px;text-align:right">${dias}d</div>`;
+      fcHtml+=`<button type="button" class="btn-d" onclick="deleteFechaClave(${fc.id})" style="font-size:11px;padding:3px 8px;flex-shrink:0">&#10005;</button>`;
+      fcHtml+=`</div>`;
+    });
+    fcListEl.innerHTML=fcHtml;
+  }
+}
+
+function addFechaClave(){
+  const nombre=(($('plan-fc-nombre')||{}).value||'').trim();
+  const desde=($('plan-fc-desde')||{}).value;
+  const hasta=($('plan-fc-hasta')||{}).value;
+  const color=($('plan-fc-color')||{}).value||'#FF9800';
+  if(!nombre||!desde||!hasta){alert('Completá descripción y fechas');return;}
+  if(hasta<desde){alert('La fecha hasta debe ser posterior al inicio');return;}
+  _fechasClave.push({id:Date.now(),nombre,desde,hasta,color});
+  localStorage.setItem('anomaly_fechas_clave',JSON.stringify(_fechasClave));
+  if($('plan-fc-nombre'))$('plan-fc-nombre').value='';
+  if($('plan-fc-desde'))$('plan-fc-desde').value='';
+  if($('plan-fc-hasta'))$('plan-fc-hasta').value='';
+  renderPlanificacionInner();
+}
+
+function deleteFechaClave(id){
+  _fechasClave=_fechasClave.filter(fc=>fc.id!==id);
+  localStorage.setItem('anomaly_fechas_clave',JSON.stringify(_fechasClave));
+  renderPlanificacionInner();
 }
 
 async function savePlanVacacion(){
