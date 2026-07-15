@@ -1104,6 +1104,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     <button class="emp-subtab" id="empstab-dash" onclick="empSubTab('dash')">Dashboard</button>
     <button class="emp-subtab on" id="empstab-integrantes" onclick="empSubTab('integrantes')">Integrantes</button>
     <button class="emp-subtab" id="empstab-fichaje" onclick="empSubTab('fichaje')">Fichaje</button>
+    <button class="emp-subtab" id="empstab-planificacion" onclick="empSubTab('planificacion')">Planificación</button>
   </div>
   <!-- Dashboard panel -->
   <div id="emp-panel-dash" style="display:none">
@@ -1132,6 +1133,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   </div>
   <!-- Integrantes panel -->
   <div id="emp-panel-integrantes" style="display:none"><div style="color:var(--hint);font-size:11px;padding:1rem 0">Cargando...</div></div>
+  <!-- Planificación vacaciones panel -->
+  <div id="emp-panel-planificacion" style="display:none"></div>
   <!-- Ficha individual -->
   <div id="emp-ficha-panel" style="display:none"></div>
 </div>
@@ -5947,14 +5950,220 @@ var _fkAmbientInterval=null;
 
 // ── Sub-tab navigation ──────────────────────────────────────────────
 function empSubTab(tab){
-  ['dash','integrantes','fichaje'].forEach(t=>{
+  ['dash','integrantes','fichaje','planificacion'].forEach(t=>{
     const p=$('emp-panel-'+t);if(p)p.style.display=t===tab?'block':'none';
     const b=$('empstab-'+t);if(b)b.classList.toggle('on',t===tab);
   });
   $('emp-ficha-panel').style.display='none';
   if(tab==='fichaje'){renderEmpHoy();const u=$('emp-fichaje-url');if(u)u.textContent=window.location.origin+'?fichaje=1';}
   if(tab==='integrantes')renderEmpIntegrantes();
+  if(tab==='planificacion')renderVacPlanificacion();
 }
+
+// ─── PLANIFICACIÓN DE VACACIONES ──────────────────────────────────────────────
+const _PLAN_PAL=['#1D9E75','#378ADD','#7F77DD','#BA7517','#D85A30','#4a3a99','#8a1a4a','#27ae60','#e67e22','#16a085'];
+
+function getVacsOnDate(dateStr){
+  return(horVacaciones||[]).filter(v=>v.fecha_inicio<=dateStr&&v.fecha_fin>=dateStr);
+}
+
+function getPlanEmpColor(nombre){
+  const idx=(horEmpleados||[]).findIndex(e=>e.nombre===nombre);
+  return idx>=0?_PLAN_PAL[idx%_PLAN_PAL.length]:'#888888';
+}
+
+async function renderVacPlanificacion(){
+  const el=$('emp-panel-planificacion');if(!el)return;
+  await loadVacaciones();
+  if(!$('plan-max-sim')){
+    const yr=new Date().getFullYear();
+    el.innerHTML=`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap">
+        <select id="plan-year" onchange="renderPlanificacionInner()" style="font-size:11px">
+          <option value="${yr}">${yr}</option>
+          <option value="${yr+1}">${yr+1}</option>
+        </select>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--muted)">Máx. simultáneos</span>
+          <input type="number" id="plan-max-sim" value="2" min="1" max="${horEmpleados.length||5}" style="width:50px;font-size:11px" onchange="renderPlanificacionInner()">
+        </div>
+        <div id="plan-badge"></div>
+      </div>
+      <div id="plan-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.5rem"></div>
+      <div class="sec-t" style="margin-bottom:.75rem">Calendario</div>
+      <div id="plan-cal" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.5rem"></div>
+      <div class="sec-t" style="margin-bottom:.75rem">Nuevo período</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;padding:10px;border:.5px solid var(--border);border-radius:8px;margin-bottom:1.5rem">
+        <div class="f" style="min-width:120px;margin:0"><label>Empleado</label><select id="plan-emp" style="font-size:11px"></select></div>
+        <div class="f" style="margin:0"><label>Desde</label><input type="date" id="plan-desde"></div>
+        <div class="f" style="margin:0"><label>Hasta</label><input type="date" id="plan-hasta"></div>
+        <div class="f" style="flex:1;min-width:80px;margin:0"><label>Nota (opcional)</label><input id="plan-nota" placeholder=""></div>
+        <button type="button" class="btn-d" onclick="savePlanVacacion()" style="align-self:flex-end;white-space:nowrap;height:34px">+ Agregar</button>
+      </div>
+      <div class="sec-t" style="margin-bottom:.75rem">Períodos registrados</div>
+      <div id="plan-list"></div>
+    `;
+    populatePlanEmpSel();
+  }
+  renderPlanificacionInner();
+}
+
+function populatePlanEmpSel(){
+  const sel=$('plan-emp');if(!sel)return;
+  sel.innerHTML=(horEmpleados||[]).map(e=>`<option value="${e.nombre}">${e.nombre}</option>`).join('');
+}
+
+function renderPlanificacionInner(){
+  const yearSel=$('plan-year');const maxSel=$('plan-max-sim');
+  if(!yearSel||!maxSel)return;
+  const year=parseInt(yearSel.value)||new Date().getFullYear();
+  const max=Math.max(1,parseInt(maxSel.value)||2);
+  const isLeap=year%4===0&&(year%100!==0||year%400===0);
+  const MO_NAMES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const MO_SHORT=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const MO_DAYS=[31,isLeap?29:28,31,30,31,30,31,31,30,31,30,31];
+  const today=new Date().toISOString().split('T')[0];
+  const todayDate=new Date();
+
+  // Conflict count
+  let nConf=0,inC=false;
+  MO_DAYS.forEach((md,mi)=>{
+    for(let d=1;d<=md;d++){
+      const ds=`${year}-${String(mi+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const cnt=getVacsOnDate(ds).length;
+      if(cnt>max&&!inC){nConf++;inC=true;}else if(cnt<=max)inC=false;
+    }
+  });
+
+  // Badge
+  const badge=$('plan-badge');
+  if(badge)badge.innerHTML=nConf>0
+    ?`<span style="font-size:10px;background:#fff3f3;color:#a32d2d;padding:3px 9px;border-radius:6px;border:.5px solid #f09595">&#9888; ${nConf} conflicto${nConf!==1?'s':''}</span>`
+    :`<span style="font-size:10px;background:#eaf3de;color:#3b6d11;padding:3px 9px;border-radius:6px;border:.5px solid #c0dd97">&#10003; Sin conflictos</span>`;
+
+  // Stats
+  const totalDias=(horVacaciones||[]).reduce((s,v)=>{try{return s+countWorkingDays(v.fecha_inicio,v.fecha_fin);}catch(e){return s;}},0);
+  const avgDias=(horEmpleados||[]).length?Math.round(totalDias/(horEmpleados||[]).length):0;
+  const upcoming=[...(horVacaciones||[])].sort((a,b)=>a.fecha_inicio.localeCompare(b.fecha_inicio)).find(v=>new Date(v.fecha_inicio)>todayDate);
+  const statsEl=$('plan-stats');
+  if(statsEl)statsEl.innerHTML=`
+    <div style="background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:12px 14px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Promedio días/año</div>
+      <div style="font-size:22px;font-weight:500">${avgDias}</div>
+      <div style="font-size:10px;color:var(--hint);margin-top:2px">por empleado</div>
+    </div>
+    <div style="background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:12px 14px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Períodos con conflicto</div>
+      <div style="font-size:22px;font-weight:500;color:${nConf?'#a32d2d':'#27ae60'}">${nConf}</div>
+      <div style="font-size:10px;color:var(--hint);margin-top:2px">más de ${max} simultáneo${max!==1?'s':''}</div>
+    </div>
+    <div style="background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:12px 14px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Próximas vacaciones</div>
+      <div style="font-size:13px;font-weight:500;padding-top:4px">${upcoming?upcoming.empleado+' &middot; '+MO_SHORT[new Date(upcoming.fecha_inicio).getMonth()]:'&mdash;'}</div>
+      <div style="font-size:10px;color:var(--hint);margin-top:2px">${upcoming?upcoming.fecha_inicio:'sin planificar'}</div>
+    </div>`;
+
+  // Calendar
+  function hexA(hex,a){try{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`;}catch(e){return`rgba(128,128,128,${a})`;}}
+  let calHtml='';
+  MO_NAMES.forEach((moName,mi)=>{
+    const moDays=MO_DAYS[mi];
+    const firstDow=new Date(year,mi,1).getDay();
+    const off=firstDow===0?6:firstDow-1;
+    const moStr=String(mi+1).padStart(2,'0');
+    const ms=`${year}-${moStr}-01`,me=`${year}-${moStr}-${String(moDays).padStart(2,'0')}`;
+    // Check conflict in month
+    let moCx=false;
+    for(let d=1;d<=moDays&&!moCx;d++){if(getVacsOnDate(`${year}-${moStr}-${String(d).padStart(2,'0')}`).length>max)moCx=true;}
+    calHtml+=`<div style="background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:10px 8px">`;
+    calHtml+=`<div style="font-size:11px;font-weight:500;margin-bottom:5px;display:flex;justify-content:space-between"><span>${moName}</span>${moCx?'<span style="font-size:9px;color:#a32d2d">&#9888;</span>':''}</div>`;
+    calHtml+=`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px">`;
+    ['L','M','M','J','V','S','D'].forEach(d=>{calHtml+=`<div style="font-size:9px;color:var(--hint);text-align:center;padding-bottom:2px">${d}</div>`;});
+    for(let i=0;i<off;i++)calHtml+=`<div></div>`;
+    for(let day=1;day<=moDays;day++){
+      const dow=(off+day-1)%7;
+      const ds=`${year}-${moStr}-${String(day).padStart(2,'0')}`;
+      const on=getVacsOnDate(ds);
+      const cnt=on.length;
+      let bg='transparent';
+      if(cnt>max)bg='rgba(226,75,74,.55)';
+      else if(cnt===max)bg='rgba(239,159,39,.40)';
+      else if(cnt===1)bg=hexA(getPlanEmpColor(on[0].empleado),.28);
+      else if(cnt>1)bg='rgba(55,138,221,.28)';
+      const isToday=ds===today;
+      const tip=on.map(v=>v.empleado).join(', ');
+      calHtml+=`<div style="font-size:10px;text-align:center;padding:3px 0;border-radius:3px;background:${bg};color:${dow>=5?'var(--hint)':'var(--black)'};${isToday?'outline:1.5px solid var(--black)':''}" title="${tip}">${day}</div>`;
+    }
+    calHtml+=`</div>`;
+    // Employee avatar chips
+    const moEmps=[...new Set((horVacaciones||[]).filter(v=>v.fecha_inicio<=me&&v.fecha_fin>=ms).map(v=>v.empleado))];
+    if(moEmps.length){
+      calHtml+=`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">`;
+      moEmps.forEach(nombre=>{const c=getPlanEmpColor(nombre);calHtml+=`<div style="width:14px;height:14px;border-radius:50%;background:${c};display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:600" title="${nombre}">${nombre[0]}</div>`;});
+      calHtml+=`</div>`;
+    }
+    calHtml+=`</div>`;
+  });
+  const calEl=$('plan-cal');if(calEl)calEl.innerHTML=calHtml;
+
+  // Periods list
+  const sorted=[...(horVacaciones||[])].sort((a,b)=>a.fecha_inicio.localeCompare(b.fecha_inicio));
+  let listHtml='';
+  if(!sorted.length){
+    listHtml='<div style="font-size:11px;color:var(--hint);padding:.5rem 0">Sin períodos registrados. Usá el formulario de arriba para agregar.</div>';
+  }else{
+    sorted.forEach(v=>{
+      const empColor=getPlanEmpColor(v.empleado);
+      let dias=0;try{dias=countWorkingDays(v.fecha_inicio,v.fecha_fin);}catch(e){}
+      const isPast=v.fecha_fin<today;
+      const isNow=v.fecha_inicio<=today&&v.fecha_fin>=today;
+      // Conflict check
+      const cxWith=new Set();
+      const loopE=new Date(v.fecha_fin);
+      for(let d=new Date(v.fecha_inicio);d<=loopE;d.setDate(d.getDate()+1)){
+        const ds=d.toISOString().split('T')[0];
+        const on=getVacsOnDate(ds);
+        if(on.length>max)on.forEach(w=>{if(w.empleado!==v.empleado)cxWith.add(w.empleado);});
+      }
+      const hasCx=cxWith.size>0;
+      listHtml+=`<div style="display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:8px;padding:10px 14px;margin-bottom:6px;border-left:3px solid ${hasCx?'#E24B4A':empColor};opacity:${isPast?.5:1}">`;
+      listHtml+=`<div style="display:flex;align-items:center;gap:6px;min-width:90px;flex-shrink:0"><div style="width:9px;height:9px;border-radius:50%;background:${empColor};flex-shrink:0"></div><span style="font-size:12px;font-weight:500">${v.empleado}</span></div>`;
+      listHtml+=`<div style="font-size:12px;color:var(--muted);flex:1">${v.fecha_inicio} &rarr; ${v.fecha_fin}${isNow?' <span style="font-size:10px;color:#27ae60;font-weight:600">&#9679; hoy</span>':''}${v.nota?` &middot; <span style="font-style:italic;color:var(--hint)">${v.nota}</span>`:''}</div>`;
+      listHtml+=`<div style="font-size:11px;color:var(--hint);min-width:44px;text-align:right;flex-shrink:0">${dias}d</div>`;
+      if(hasCx)listHtml+=`<div style="font-size:10px;color:#a32d2d;white-space:nowrap;flex-shrink:0">&#9888; con ${[...cxWith].join(', ')}</div>`;
+      listHtml+=`<button type="button" class="btn-d" onclick="deletePlanVacacion('${v.id}')" style="font-size:11px;padding:3px 8px;flex-shrink:0">&#10005;</button>`;
+      listHtml+=`</div>`;
+    });
+  }
+  const listEl=$('plan-list');if(listEl)listEl.innerHTML=listHtml;
+}
+
+async function savePlanVacacion(){
+  const emp=($('plan-emp')||{}).value;
+  const desde=($('plan-desde')||{}).value;
+  const hasta=($('plan-hasta')||{}).value;
+  if(!emp||!desde||!hasta){alert('Completá empleado y fechas');return;}
+  if(hasta<desde){alert('La fecha hasta debe ser posterior al inicio');return;}
+  const nota=(($('plan-nota')||{}).value||'').trim();
+  const{data,error}=await sb.from('hor_vacaciones').insert({empleado:emp,fecha_inicio:desde,fecha_fin:hasta,nota:nota||null}).select();
+  if(error){alert('Error: '+error.message);return;}
+  if(data&&data[0])horVacaciones.push(data[0]);
+  if($('plan-desde'))$('plan-desde').value='';
+  if($('plan-hasta'))$('plan-hasta').value='';
+  if($('plan-nota'))$('plan-nota').value='';
+  renderPlanificacionInner();
+  renderHorGrilla();
+}
+
+async function deletePlanVacacion(id){
+  if(!confirm('&#191;Eliminar este período de vacaciones?'))return;
+  await sb.from('hor_vacaciones').delete().eq('id',id);
+  const idx=(horVacaciones||[]).findIndex(v=>String(v.id)===String(id));
+  if(idx!==-1)horVacaciones.splice(idx,1);
+  renderPlanificacionInner();
+  renderHorGrilla();
+}
+
 
 function empSetPeriod(p){
   _empPeriod=p;
