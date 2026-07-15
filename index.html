@@ -352,6 +352,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
       <div class="tc-lbl">Temperatura</div>
       <div class="tc-val" id="tur-temp-val">—</div>
       <div class="tc-sub" id="tur-temp-sub">cargando</div>
+      <div class="tc-sub" id="tur-temp-sub2" style="opacity:.7;font-size:10px;margin-top:1px"></div>
     </div>
     <div id="tur-card-nov" class="tur-card t-pend" onclick="openNovModal()">
       <div class="tc-ico">✦</div>
@@ -2237,10 +2238,21 @@ async function loadTurnoCaja(){
 }
 async function loadTurnoTemp(){
   const t=new Date().toISOString().slice(0,10);
-  const{data}=await sb.from('registros_temperatura').select('turno,pozzetti_1').gte('fecha',t).order('created_at',{ascending:false}).limit(1);
+  const{data}=await sb.from('registros_temperatura').select('turno,responsable,hora,fecha').gte('fecha',t).order('created_at',{ascending:false}).limit(1);
   const c=$('tur-card-temp');
-  if((data||[]).length>0){const r=data[0];const v=r.pozzetti_1!=null?(r.pozzetti_1<0?'\u2212':'')+Math.abs(r.pozzetti_1).toFixed(1)+'\u00b0':'\u2713';c.className='tur-card t-ok';$('tur-temp-val').textContent=v;$('tur-temp-sub').textContent=(r.turno||'')+' registrado';}
-  else{c.className='tur-card t-pend';$('tur-temp-val').textContent='\u2014';$('tur-temp-sub').textContent='sin registro hoy';}
+  if((data||[]).length>0){
+    const r=data[0];
+    c.className='tur-card t-ok';
+    $('tur-temp-val').textContent=r.turno||'\u2713';
+    $('tur-temp-sub').textContent=r.responsable||'';
+    const sub2=$('tur-temp-sub2');
+    if(sub2){const d=r.fecha?r.fecha.slice(5).replace('-','/'):'';const h=r.hora?r.hora.slice(0,5):'';sub2.textContent=d&&h?d+' \u00b7 '+h:d||h;}
+  }else{
+    c.className='tur-card t-pend';
+    $('tur-temp-val').textContent='\u2014';
+    $('tur-temp-sub').textContent='sin registro hoy';
+    const sub2=$('tur-temp-sub2');if(sub2)sub2.textContent='';
+  }
 }
 async function loadTurnoNovedades(){
   const t=new Date().toISOString().slice(0,10);
