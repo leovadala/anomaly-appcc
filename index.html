@@ -6026,6 +6026,7 @@ function empSubTab(tab){
 
 // ─── PLANIFICACIÓN DE VACACIONES ──────────────────────────────────────────────
 const _PLAN_PAL=['#1D9E75','#378ADD','#7F77DD','#BA7517','#D85A30','#4a3a99','#8a1a4a','#27ae60','#e67e22','#16a085'];
+let _editingVacId=null;
 
 function getVacsOnDate(dateStr){
   return(horVacaciones||[]).filter(v=>v.fecha_inicio<=dateStr&&v.fecha_fin>=dateStr);
@@ -6040,13 +6041,8 @@ async function renderVacPlanificacion(){
   const el=$('emp-panel-planificacion');if(!el)return;
   await loadVacaciones();
   if(!$('plan-max-sim')){
-    const yr=new Date().getFullYear();
     el.innerHTML=`
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap">
-        <select id="plan-year" onchange="renderPlanificacionInner()" style="font-size:11px">
-          <option value="${yr}">${yr}</option>
-          <option value="${yr+1}">${yr+1}</option>
-        </select>
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:11px;color:var(--muted)">Máx. simultáneos</span>
           <input type="number" id="plan-max-sim" value="2" min="1" max="${horEmpleados.length||5}" style="width:50px;font-size:11px" onchange="renderPlanificacionInner()">
@@ -6078,21 +6074,22 @@ function populatePlanEmpSel(){
 }
 
 function renderPlanificacionInner(){
-  const yearSel=$('plan-year');const maxSel=$('plan-max-sim');
-  if(!yearSel||!maxSel)return;
-  const year=parseInt(yearSel.value)||new Date().getFullYear();
+  const maxSel=$('plan-max-sim');
+  if(!maxSel)return;
   const max=Math.max(1,parseInt(maxSel.value)||2);
-  const isLeap=year%4===0&&(year%100!==0||year%400===0);
   const MO_NAMES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const MO_SHORT=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const MO_DAYS=[31,isLeap?29:28,31,30,31,30,31,31,30,31,30,31];
   const today=new Date().toISOString().split('T')[0];
   const todayDate=new Date();
+  // Rolling 12 months from current month
+  const rollingMonths=[];
+  for(let i=0;i<12;i++){const d=new Date(todayDate.getFullYear(),todayDate.getMonth()+i,1);rollingMonths.push({year:d.getFullYear(),mi:d.getMonth()});}
 
-  // Conflict count
+  // Conflict count across rolling window
   let nConf=0,inC=false;
-  MO_DAYS.forEach((md,mi)=>{
-    for(let d=1;d<=md;d++){
+  rollingMonths.forEach(({year,mi})=>{
+    const moDays=new Date(year,mi+1,0).getDate();
+    for(let d=1;d<=moDays;d++){
       const ds=`${year}-${String(mi+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       const cnt=getVacsOnDate(ds).length;
       if(cnt>max&&!inC){nConf++;inC=true;}else if(cnt<=max)inC=false;
@@ -6130,8 +6127,9 @@ function renderPlanificacionInner(){
   // Calendar
   function hexA(hex,a){try{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`;}catch(e){return`rgba(128,128,128,${a})`;}}
   let calHtml='';
-  MO_NAMES.forEach((moName,mi)=>{
-    const moDays=MO_DAYS[mi];
+  rollingMonths.forEach(({year,mi})=>{
+    const moName=MO_NAMES[mi];
+    const moDays=new Date(year,mi+1,0).getDate();
     const firstDow=new Date(year,mi,1).getDay();
     const off=firstDow===0?6:firstDow-1;
     const moStr=String(mi+1).padStart(2,'0');
@@ -6140,7 +6138,7 @@ function renderPlanificacionInner(){
     let moCx=false;
     for(let d=1;d<=moDays&&!moCx;d++){if(getVacsOnDate(`${year}-${moStr}-${String(d).padStart(2,'0')}`).length>max)moCx=true;}
     calHtml+=`<div style="background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:10px 8px">`;
-    calHtml+=`<div style="font-size:11px;font-weight:500;margin-bottom:5px;display:flex;justify-content:space-between"><span>${moName}</span>${moCx?'<span style="font-size:9px;color:#a32d2d">&#9888;</span>':''}</div>`;
+    calHtml+=`<div style="font-size:11px;font-weight:500;margin-bottom:5px;display:flex;justify-content:space-between"><span>${moName}${year!==todayDate.getFullYear()?' \''+String(year).slice(2):''}</span>${moCx?'<span style="font-size:9px;color:#a32d2d">&#9888;</span>':''}</div>`;
     calHtml+=`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px">`;
     ['L','M','M','J','V','S','D'].forEach(d=>{calHtml+=`<div style="font-size:9px;color:var(--hint);text-align:center;padding-bottom:2px">${d}</div>`;});
     for(let i=0;i<off;i++)calHtml+=`<div></div>`;
@@ -6195,6 +6193,7 @@ function renderPlanificacionInner(){
       listHtml+=`<div style="font-size:12px;color:var(--muted);flex:1">${v.fecha_inicio} &rarr; ${v.fecha_fin}${isNow?' <span style="font-size:10px;color:#27ae60;font-weight:600">&#9679; hoy</span>':''}${v.nota?` &middot; <span style="font-style:italic;color:var(--hint)">${v.nota}</span>`:''}</div>`;
       listHtml+=`<div style="font-size:11px;color:var(--hint);min-width:44px;text-align:right;flex-shrink:0">${dias}d</div>`;
       if(hasCx)listHtml+=`<div style="font-size:10px;color:#a32d2d;white-space:nowrap;flex-shrink:0">&#9888; con ${[...cxWith].join(', ')}</div>`;
+      listHtml+=`<button type="button" onclick="editPlanVacacion('${v.id}')" style="font-size:11px;padding:3px 8px;flex-shrink:0;background:transparent;border:.5px solid var(--border);cursor:pointer;border-radius:4px;color:var(--black)">&#9998;</button>`;
       listHtml+=`<button type="button" class="btn-d" onclick="deletePlanVacacion('${v.id}')" style="font-size:11px;padding:3px 8px;flex-shrink:0">&#10005;</button>`;
       listHtml+=`</div>`;
     });
@@ -6209,14 +6208,50 @@ async function savePlanVacacion(){
   if(!emp||!desde||!hasta){alert('Completá empleado y fechas');return;}
   if(hasta<desde){alert('La fecha hasta debe ser posterior al inicio');return;}
   const nota=(($('plan-nota')||{}).value||'').trim();
-  const{data,error}=await sb.from('hor_vacaciones').insert({empleado:emp,fecha_inicio:desde,fecha_fin:hasta,nota:nota||null}).select();
-  if(error){alert('Error: '+error.message);return;}
-  if(data&&data[0])horVacaciones.push(data[0]);
+  if(_editingVacId){
+    const{error}=await sb.from('hor_vacaciones').update({empleado:emp,fecha_inicio:desde,fecha_fin:hasta,nota:nota||null}).eq('id',_editingVacId);
+    if(error){alert('Error: '+error.message);return;}
+    const idx=(horVacaciones||[]).findIndex(v=>String(v.id)===String(_editingVacId));
+    if(idx!==-1)horVacaciones[idx]={...horVacaciones[idx],empleado:emp,fecha_inicio:desde,fecha_fin:hasta,nota:nota||null};
+    cancelPlanEdit();
+  }else{
+    const{data,error}=await sb.from('hor_vacaciones').insert({empleado:emp,fecha_inicio:desde,fecha_fin:hasta,nota:nota||null}).select();
+    if(error){alert('Error: '+error.message);return;}
+    if(data&&data[0])horVacaciones.push(data[0]);
+    if($('plan-desde'))$('plan-desde').value='';
+    if($('plan-hasta'))$('plan-hasta').value='';
+    if($('plan-nota'))$('plan-nota').value='';
+  }
+  renderPlanificacionInner();
+  renderHorGrilla();
+}
+
+function editPlanVacacion(id){
+  const v=(horVacaciones||[]).find(v=>String(v.id)===String(id));
+  if(!v)return;
+  _editingVacId=id;
+  const empSel=$('plan-emp');if(empSel)empSel.value=v.empleado;
+  if($('plan-desde'))$('plan-desde').value=v.fecha_inicio;
+  if($('plan-hasta'))$('plan-hasta').value=v.fecha_fin;
+  if($('plan-nota'))$('plan-nota').value=v.nota||'';
+  const saveBtn=document.querySelector('[onclick="savePlanVacacion()"]');
+  if(saveBtn)saveBtn.textContent='Guardar cambios';
+  if(!$('plan-edit-cancel')){
+    const b=document.createElement('button');b.type='button';b.id='plan-edit-cancel';
+    b.className='btn-d';b.textContent='Cancelar';b.style.cssText='align-self:flex-end;height:34px';
+    b.onclick=cancelPlanEdit;if(saveBtn)saveBtn.insertAdjacentElement('afterend',b);
+  }
+  const form=$('plan-desde');if(form)form.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function cancelPlanEdit(){
+  _editingVacId=null;
   if($('plan-desde'))$('plan-desde').value='';
   if($('plan-hasta'))$('plan-hasta').value='';
   if($('plan-nota'))$('plan-nota').value='';
-  renderPlanificacionInner();
-  renderHorGrilla();
+  const saveBtn=document.querySelector('[onclick="savePlanVacacion()"]');
+  if(saveBtn)saveBtn.textContent='+ Agregar';
+  const c=$('plan-edit-cancel');if(c)c.remove();
 }
 
 async function deletePlanVacacion(id){
