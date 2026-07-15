@@ -6147,14 +6147,21 @@ function renderPlanificacionInner(){
       const ds=`${year}-${moStr}-${String(day).padStart(2,'0')}`;
       const on=getVacsOnDate(ds);
       const cnt=on.length;
-      let bg='transparent';
-      if(cnt>max)bg='rgba(226,75,74,.55)';
-      else if(cnt===max)bg='rgba(239,159,39,.40)';
-      else if(cnt===1)bg=hexA(getPlanEmpColor(on[0].empleado),.28);
-      else if(cnt>1)bg='rgba(55,138,221,.28)';
+      let bg='transparent',txColor=dow>=5?'var(--hint)':'var(--black)',cellOut='';
+      if(cnt>max){
+        bg='rgba(210,45,55,.82)';txColor='#fff';
+      } else if(cnt===1){
+        bg=hexA(getPlanEmpColor(on[0].empleado),.52);
+      } else if(cnt===2){
+        bg=`linear-gradient(135deg,${hexA(getPlanEmpColor(on[0].empleado),.60)} 50%,${hexA(getPlanEmpColor(on[1].empleado),.60)} 50%)`;
+        if(cnt===max)cellOut='outline:1px solid rgba(160,100,0,.50);';
+      } else if(cnt>2){
+        bg='rgba(80,80,190,.55)';
+        if(cnt===max)cellOut='outline:1px solid rgba(160,100,0,.50);';
+      }
       const isToday=ds===today;
       const tip=on.map(v=>v.empleado).join(', ');
-      calHtml+=`<div style="font-size:10px;text-align:center;padding:3px 0;border-radius:3px;background:${bg};color:${dow>=5?'var(--hint)':'var(--black)'};${isToday?'outline:1.5px solid var(--black)':''}" title="${tip}">${day}</div>`;
+      calHtml+=`<div style="font-size:10px;text-align:center;padding:3px 0;border-radius:3px;background:${bg};color:${txColor};${isToday?'outline:1.5px solid var(--black);':cellOut}${cnt>0?'font-weight:500;':''}" title="${tip}">${day}</div>`;
     }
     calHtml+=`</div>`;
     // Employee avatar chips
