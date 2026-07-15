@@ -7430,6 +7430,10 @@ async function renderAltasPanel(){
         +'<div class="f" style="margin:0"><label>Tipo de jornada *</label><input id="alt-jornada" placeholder="Ej: Completa, Parcial..."></div>'
         +'<div class="f" style="margin:0"><label>Fecha de alta</label><input id="alt-fecha-alta" type="date"></div>'
       +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        +'<div class="f" style="margin:0"><label>Fecha de baja</label><input id="alt-fecha-baja" type="date"></div>'
+        +'<div></div>'
+      +'</div>'
       +'<div class="f" style="margin:0"><label>Horario</label><input id="alt-horario" placeholder="Ej: L-V 9:00-17:00..."></div>'
       +'<div class="f" style="margin:0"><label>Observaciones</label><input id="alt-obs" placeholder="Notas adicionales..."></div>'
       +'<button type="button" class="btn-d" onclick="saveNuevaAlta()" style="align-self:start;margin-top:4px">+ Crear alta y generar link</button>'
@@ -7446,11 +7450,12 @@ async function saveNuevaAlta(){
   const row={token,empresa:'WORDCREAM SL',puesto,tipo_contrato:contrato,tipo_jornada:jornada,
     horario:v('horario')||null,
     fecha_alta:v('fecha-alta')||null,
+    fecha_baja:v('fecha-baja')||null,
     observaciones_empresa:v('obs')||null,
     status:'pendiente'};
   const{error}=await sb.from('hor_altas').insert(row);
   if(error){alert('Error: '+error.message);return;}
-  ['puesto','contrato','jornada','horario','fecha-alta','obs'].forEach(function(id){var el=$('alt-'+id);if(el)el.value='';});
+  ['puesto','contrato','jornada','horario','fecha-alta','fecha-baja','obs'].forEach(function(id){var el=$('alt-'+id);if(el)el.value='';});
   await loadAltas();
   renderAltasPanel();
   copyAltaLink(token,true);
