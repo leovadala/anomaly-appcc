@@ -377,6 +377,20 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 </div>
 </div>
 
+<!-- Turno screen quick-expense modal (inside #onboard so it's visible when main is hidden) -->
+<div id="tur-eq-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.65);z-index:3000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:.5px solid var(--border);padding:1.5rem;width:300px;max-width:90vw">
+    <div id="tur-eq-title" style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase;margin-bottom:1.2rem"></div>
+    <div class="f"><label>Responsable</label><select id="tur-eq-resp" style="width:100%;padding:8px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);font-size:13px;color:var(--black)"><option value="">Seleccionar...</option></select></div>
+    <div class="f"><label>Importe (€)</label><input type="number" id="tur-eq-importe" step="0.01" placeholder="0.00" inputmode="decimal"></div>
+    <div class="f"><label>Concepto</label><input type="text" id="tur-eq-concepto"></div>
+    <div style="display:flex;gap:8px;margin-top:1rem">
+      <button class="btn" onclick="saveTurEgresoRapido()" style="flex:1;margin-top:0">Guardar</button>
+      <button class="btn-s" onclick="$('tur-eq-modal').style.display='none'" style="padding:10px 14px">✕</button>
+    </div>
+  </div>
+</div>
+
 <!-- MAIN APP -->
 <div id="main" style="display:none">
 <div class="header">
@@ -4208,18 +4222,28 @@ function openQuickModal(i){
   setTimeout(()=>{$('eq-importe').focus();$('eq-importe').select();},50);
 }
 function openTurQuickModal(i){
-  _eqFromTurno=true;
   const item=_eqBtns[i]||{name:'',importe:null};
-  _eqActive=item.name;
-  $('eq-title').textContent=item.name;
-  $('eq-fecha').value=new Date().toISOString().split('T')[0];
-  $('eq-concepto').value=item.name;
-  $('eq-importe').value=item.importe!=null?item.importe:'';
-  const sel=$('eq-resp');
+  $('tur-eq-title').textContent=item.name;
+  $('tur-eq-importe').value=item.importe!=null?item.importe:'';
+  $('tur-eq-concepto').value=item.name;
+  const sel=$('tur-eq-resp');
   sel.innerHTML='<option value="">Seleccionar...</option>'+(team||[]).map(m=>`<option value="${m.nombre}">${m.nombre}</option>`).join('');
-  $('eq-resp-wrap').style.display='';
-  const mod=$('eg-quick-modal');mod.style.display='flex';
-  setTimeout(()=>{$('eq-resp').focus();},50);
+  $('tur-eq-modal').style.display='flex';
+  setTimeout(()=>$('tur-eq-resp').focus(),50);
+}
+async function saveTurEgresoRapido(){
+  const responsable=($('tur-eq-resp').value||'').trim();
+  if(!responsable){alert('Seleccioná un responsable');return;}
+  const importe=parseFloat($('tur-eq-importe').value)||0;
+  if(!importe){alert('Ingresá el importe');return;}
+  const concepto=($('tur-eq-concepto').value||'').trim();
+  const fecha=new Date().toISOString().split('T')[0];
+  const{error}=await sb.from('egresos').insert({
+    fecha,proveedor:$('tur-eq-title').textContent,concepto,importe,
+    categoria:'Otros',nro_factura:'Ticket',notas:'Egreso rápido — '+responsable
+  });
+  if(error){alert('Error: '+error.message);return;}
+  $('tur-eq-modal').style.display='none';
 }
 
 let _eqFromTurno=false;
