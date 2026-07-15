@@ -2259,11 +2259,13 @@ async function openNovModal(){
 }
 function closeNovModal(){$('novedad-modal').style.display='none';}
 function novSwitchTab(t){
-  ['hoy','hist'].forEach(x=>{
+  ['hoy','hist','rec'].forEach(x=>{
     const btn=$('novtab-'+x);if(btn){btn.style.borderBottomColor=t===x?'var(--black)':'transparent';btn.style.color=t===x?'var(--black)':'var(--muted)';}
     const panel=$('nov-panel-'+x);if(panel)panel.style.display=t===x?(x==='hist'?'flex':'block'):'none';
   });
+  const footer=$('nov-footer');if(footer)footer.style.display=t==='rec'?'none':'';
   if(t==='hist')loadNovHistorial();
+  if(t==='rec')loadRecordatorios();
 }
 async function deleteNovedad(id){
   if(!confirm('¿Eliminar esta novedad?'))return;
@@ -7377,6 +7379,133 @@ async function saveAllRecLines(){
   if(errors)alert(`${errors} de ${savedCount} producto(s) no se pudieron guardar:\n${errMsgs.join('\n')}`);
   else showToast(`\u2713 ${savedCount} producto${savedCount!==1?'s':''} registrado${savedCount!==1?'s':''}`);
 }
+
+// ─── PUSH NOTIFICATIONS + RECORDATORIOS ─────────────────────────────────────
+const _VAPID_PUB='BOC5k8g5Jiqszyn8SQFiWaZf1K7HQc5Q_Aie2uzeBvsfYZgS2gvPfr-wWYAL_RBC7VwRSVHqKqteQAq_5hdQGlU';
+let _recCat='General';
+
+function _b64ToU8(b64){
+  const pad='='.repeat((4-b64.length%4)%4);
+  const raw=atob((b64+pad).replace(/-/g,'+').replace(/_/g,'/'));
+  return Uint8Array.from(raw,c=>c.charCodeAt(0));
+}
+
+async function initPushSW(){
+  if(!('serviceWorker' in navigator&&'PushManager' in window))return;
+  try{
+    const reg=await navigator.serviceWorker.register('/sw.js');
+    window._swReg=reg;
+    if(Notification.permission==='granted')await _ensurePushSub(reg);
+  }catch(e){console.warn('[SW]',e);}
+}
+
+async function _ensurePushSub(reg){
+  try{
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_b64ToU8(_VAPID_PUB)});
+    await _savePushSub(sub);
+  }catch(e){console.warn('[Push subscribe]',e);}
+}
+
+async function _savePushSub(sub){
+  // INSERT; la DB ignora duplicados por el índice único en endpoint
+  await sb.from('hor_push_subscriptions').insert({subscription:sub.toJSON(),user_agent:navigator.userAgent.slice(0,200)});
+}
+
+async function reqNotifPerms(){
+  if(!('Notification' in window))return;
+  const p=await Notification.requestPermission();
+  _updateRecNotifBar(p);
+  if(p==='granted'&&window._swReg)await _ensurePushSub(window._swReg);
+}
+
+function _updateRecNotifBar(perm){
+  const st=$('rec-notif-status'),btn=$('rec-notif-btn');
+  if(!st)return;
+  if(perm==='granted'){
+    st.innerHTML='<span style="color:#27ae60">&#10003; Notificaciones activas en este dispositivo</span>';
+    if(btn)btn.style.display='none';
+  }else if(perm==='denied'){
+    st.innerHTML='<span style="color:#c0392b">&#10007; Bloqueadas &mdash; habilitatlas en la configuraci&oacute;n del navegador</span>';
+    if(btn)btn.style.display='none';
+  }else{
+    st.textContent='Activá las notificaciones push para recibir recordatorios.';
+    if(btn)btn.style.display='';
+  }
+}
+
+function setRecCat(cat,el){
+  _recCat=cat;
+  document.querySelectorAll('[id^="rec-cat-"]').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+
+async function loadRecordatorios(){
+  _updateRecNotifBar(typeof Notification!=='undefined'?Notification.permission:'default');
+  // Default datetime: now + 1h
+  const fd=$('rec-fecha');
+  if(fd&&!fd.value){const d=new Date(Date.now()+3600000);fd.value=d.toISOString().slice(0,16);}
+  const el=$('rec-list');if(!el)return;
+  el.innerHTML='<div style="color:var(--hint);font-size:11px;padding:.75rem 0">Cargando…</div>';
+  const{data}=await sb.from('hor_recordatorios').select('*').order('fecha_hora',{ascending:true});
+  _renderRecList(data||[]);
+}
+
+function _renderRecList(list){
+  const el=$('rec-list');if(!el)return;
+  if(!list.length){el.innerHTML='<div style="color:var(--hint);font-size:11px;padding:.75rem 0">Sin recordatorios agendados</div>';return;}
+  const now=new Date().toISOString();
+  const REC_LABELS={diaria:'diaria',semanal:'semanal',mensual:'mensual'};
+  const CAT_COLORS={Equipo:'#378ADD',APPCC:'#1D9E75',Logistica:'#BA7517'};
+  el.innerHTML=list.map(r=>{
+    const isPast=r.fecha_hora<now&&!r.activo;
+    const fh=new Date(r.fecha_hora);
+    const fmtDt=fh.toLocaleDateString('es-AR',{day:'2-digit',month:'short'})+' '+fh.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    const recTxt=r.recurrencia?' &middot; '+REC_LABELS[r.recurrencia]:'';
+    const catColor=CAT_COLORS[r.categoria]||'#888';
+    const badge=r.activo
+      ?'<span style="font-size:9px;background:#eaf3de;color:#3b6d11;padding:2px 7px;border-radius:4px;flex-shrink:0">activo</span>'
+      :'<span style="font-size:9px;color:var(--hint);flex-shrink:0">enviado</span>';
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:.5px solid var(--border);opacity:${isPast?'.45':'1'}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;margin-bottom:2px">${r.titulo}</div>
+        ${r.mensaje?`<div style="font-size:11px;color:var(--muted);margin-bottom:3px">${r.mensaje}</div>`:''}
+        <div style="font-size:10px;color:var(--hint)">${fmtDt}${recTxt} &middot; <span style="color:${catColor}">${r.categoria}</span></div>
+      </div>
+      ${badge}
+      <button type="button" onclick="deleteRecordatorio('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px;opacity:.5" onmouseover="this.style.opacity='1';this.style.color='#c0392b'" onmouseout="this.style.opacity='.5';this.style.color='var(--muted)'">&#x2715;</button>
+    </div>`;
+  }).join('');
+}
+
+async function saveRecordatorio(){
+  const titulo=($('rec-titulo')||{}).value?.trim();
+  const fechaStr=($('rec-fecha')||{}).value;
+  if(!titulo){$('rec-titulo')?.focus();return;}
+  if(!fechaStr){alert('Elegí fecha y hora');return;}
+  const fecha_hora=new Date(fechaStr).toISOString();
+  const mensaje=($('rec-mensaje')||{value:''}).value.trim()||null;
+  const recurrencia=($('rec-recurrencia')||{value:''}).value||null;
+  const{error}=await sb.from('hor_recordatorios').insert({titulo,mensaje,fecha_hora,recurrencia,categoria:_recCat,activo:true});
+  if(error){alert('Error: '+error.message);return;}
+  if($('rec-titulo'))$('rec-titulo').value='';
+  if($('rec-mensaje'))$('rec-mensaje').value='';
+  loadRecordatorios();
+}
+
+async function deleteRecordatorio(id){
+  if(!confirm('¿Eliminar este recordatorio?'))return;
+  await sb.from('hor_recordatorios').delete().eq('id',id);
+  loadRecordatorios();
+}
+
+// Registrar SW al cargar la página
+(function(){
+  const run=()=>setTimeout(initPushSW,1500);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run);
+  else run();
+})();
+
 </script>
 
 <!-- TURNO MODALS -->
@@ -7389,6 +7518,7 @@ async function saveAllRecLines(){
     <div style="display:flex;border-bottom:.5px solid var(--border);flex-shrink:0">
       <button type="button" id="novtab-hoy" onclick="novSwitchTab('hoy')" style="flex:1;padding:9px;border:none;background:transparent;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid var(--black);font-family:var(--font);color:var(--black)">Hoy</button>
       <button type="button" id="novtab-hist" onclick="novSwitchTab('hist')" style="flex:1;padding:9px;border:none;background:transparent;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font);color:var(--muted)">Historial</button>
+      <button type="button" id="novtab-rec" onclick="novSwitchTab('rec')" style="flex:1;padding:9px;border:none;background:transparent;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font);color:var(--muted)">&#128276; Rec.</button>
     </div>
     <div id="nov-panel-hoy" style="overflow-y:auto;padding:0 1.2rem;flex:1;min-height:60px">
       <div id="nov-modal-list"></div>
@@ -7412,7 +7542,37 @@ async function saveAllRecLines(){
       </div>
       <div id="nov-hist-list" style="overflow-y:auto;flex:1;padding:0 1.2rem"></div>
     </div>
-    <div style="border-top:.5px solid var(--border);padding:1rem 1.2rem;flex-shrink:0">
+    <!-- RECORDATORIOS panel -->
+    <div id="nov-panel-rec" style="display:none;overflow-y:auto;flex:1;padding:0 1.2rem">
+      <div style="padding:.75rem 0;border-bottom:.5px solid var(--border);display:flex;align-items:center;gap:8px">
+        <div id="rec-notif-status" style="font-size:11px;color:var(--muted);flex:1">Cargando estado de notificaciones…</div>
+        <button type="button" id="rec-notif-btn" onclick="reqNotifPerms()" style="display:none;font-size:10px;padding:5px 10px;border:.5px solid var(--border);border-radius:4px;background:transparent;cursor:pointer;font-family:var(--font);color:var(--black)">Activar</button>
+      </div>
+      <div style="padding:.75rem 0;border-bottom:.5px solid var(--border)">
+        <div class="f" style="margin-bottom:6px"><label>T&iacute;tulo</label><input id="rec-titulo" placeholder="Qu&eacute; recordar&hellip;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
+          <div class="f" style="margin:0"><label>Fecha y hora</label><input type="datetime-local" id="rec-fecha"></div>
+          <div class="f" style="margin:0"><label>Repetir</label>
+            <select id="rec-recurrencia" style="font-size:12px;padding:8px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);font-family:var(--font);color:var(--black);width:100%">
+              <option value="">Una vez</option>
+              <option value="diaria">Diaria</option>
+              <option value="semanal">Semanal</option>
+              <option value="mensual">Mensual</option>
+            </select>
+          </div>
+        </div>
+        <div class="f" style="margin-bottom:8px"><label>Mensaje (opcional)</label><input id="rec-mensaje" placeholder="Detalle&hellip;"></div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
+          <button type="button" class="nov-cat-btn on" id="rec-cat-General" onclick="setRecCat('General',this)">General</button>
+          <button type="button" class="nov-cat-btn" id="rec-cat-Equipo" onclick="setRecCat('Equipo',this)">Equipo</button>
+          <button type="button" class="nov-cat-btn" id="rec-cat-APPCC" onclick="setRecCat('APPCC',this)">APPCC</button>
+          <button type="button" class="nov-cat-btn" id="rec-cat-Logistica" onclick="setRecCat('Logistica',this)">Log&iacute;stica</button>
+        </div>
+        <button type="button" onclick="saveRecordatorio()" style="width:100%;padding:10px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px">+ Agregar</button>
+      </div>
+      <div id="rec-list" style="padding:.25rem 0"></div>
+    </div>
+    <div id="nov-footer" style="border-top:.5px solid var(--border);padding:1rem 1.2rem;flex-shrink:0">
       <textarea id="nov-modal-txt" rows="2" placeholder="Novedad, incidencia, idea…" style="resize:none;width:100%;font-family:var(--font);font-size:13px;padding:8px 10px;border:.5px solid var(--border);border-radius:4px;background:transparent;color:inherit;box-sizing:border-box;margin-bottom:8px"></textarea>
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
         <button type="button" class="nov-cat-btn on" id="nov-cat-General" onclick="setNovCat('General',this)">General</button>
