@@ -6025,8 +6025,15 @@ function empSubTab(tab){
 }
 
 // ─── PLANIFICACIÓN DE VACACIONES ──────────────────────────────────────────────
-const _PLAN_PAL=['#1D9E75','#378ADD','#7F77DD','#BA7517','#D85A30','#4a3a99','#8a1a4a','#27ae60','#e67e22','#16a085'];
+const _PLAN_PAL=['#E53935','#1E88E5','#F9A825','#43A047','#8E24AA','#FB8C00','#00897B','#C62828'];
 let _editingVacId=null;
+const _HOL={'2026-08-15':'Asunción','2026-10-09':'Día CV','2026-10-12':'Fiesta Nac.','2026-11-01':'Todos Santos','2026-12-06':'Constitución','2026-12-08':'Inmaculada','2026-12-25':'Navidad','2027-01-01':'Año Nuevo','2027-01-06':'Reyes','2027-03-19':'San José','2027-03-25':'Jue. Santo','2027-03-26':'Vie. Santo','2027-03-29':'Lunes Pascua','2027-05-01':'Día Trabajo','2027-06-24':'Sant Joan'};
+function getMixedVacColor(onList,opacity){
+  if(!onList.length)return'transparent';
+  let r=0,g=0,b=0;
+  onList.forEach(v=>{const hex=getPlanEmpColor(v.empleado);r+=parseInt(hex.slice(1,3),16);g+=parseInt(hex.slice(3,5),16);b+=parseInt(hex.slice(5,7),16);});
+  return`rgba(${Math.round(r/onList.length)},${Math.round(g/onList.length)},${Math.round(b/onList.length)},${opacity})`;
+}
 
 function getVacsOnDate(dateStr){
   return(horVacaciones||[]).filter(v=>v.fecha_inicio<=dateStr&&v.fecha_fin>=dateStr);
@@ -6147,22 +6154,19 @@ function renderPlanificacionInner(){
       const ds=`${year}-${moStr}-${String(day).padStart(2,'0')}`;
       const on=getVacsOnDate(ds);
       const cnt=on.length;
-      let bg='transparent',topBdr='',txColor=dow>=5?'var(--hint)':'var(--black)';
+      const isHoliday=_HOL[ds];
+      let bg='transparent',topBdr='',txColor='var(--black)';
       if(cnt>max){
-        bg='rgba(210,45,55,.13)';topBdr='border-top:2px solid #d03040;';txColor='#b52030';
-      } else if(cnt===1){
-        const ec=getPlanEmpColor(on[0].empleado);
-        bg=hexA(ec,.17);topBdr=`border-top:2px solid ${ec};`;
-      } else if(cnt===2){
-        const c1=getPlanEmpColor(on[0].empleado),c2=getPlanEmpColor(on[1].empleado);
-        bg=`linear-gradient(to right,${hexA(c1,.20)} 50%,${hexA(c2,.20)} 50%)`;
-        topBdr=`border-top:1.5px solid ${c1};`;
-      } else if(cnt>2){
-        bg='rgba(80,80,180,.14)';topBdr='border-top:2px solid rgba(60,60,200,.70);';
+        bg='rgba(210,45,55,.14)';topBdr='border-top:2px solid #d03040;';txColor='#b52030';
+      } else if(cnt>0){
+        const solidMix=getMixedVacColor(on,.88);
+        bg=getMixedVacColor(on,.19);
+        topBdr=`border-top:2px solid ${solidMix};`;
       }
       const isToday=ds===today;
       const tip=on.map(v=>v.empleado).join(', ');
-      calHtml+=`<div style="font-size:10px;text-align:center;padding:3px 0;border-radius:3px;background:${bg};${topBdr}color:${txColor};${isToday?'outline:1.5px solid var(--black)':''}" title="${tip}">${day}</div>`;
+      const ttip=tip+(isHoliday?(tip?' · ':'')+isHoliday:'');
+      calHtml+=`<div style="font-size:10px;text-align:center;padding:2px 0 1px;border-radius:3px;background:${bg};${topBdr}color:${txColor};${isToday?'outline:1.5px solid var(--black)':''}${cnt>1?'font-weight:700;':''}" title="${ttip}"><div>${day}</div><div style="width:3px;height:3px;border-radius:50%;background:${isHoliday?'#C0392B':'transparent'};margin:0 auto"></div></div>`;
     }
     calHtml+=`</div>`;
     // Employee avatar chips
