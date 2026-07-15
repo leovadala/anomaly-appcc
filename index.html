@@ -296,7 +296,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .cat-Logistica,.cat-Log\EDstica{background:#e6f1fb;color:#185FA5}
 .cat-APPCC{background:#eaf3de;color:#3B6D11}
 .cat-Incidencia{background:#fcebeb;color:#A32D2D}
-.cat-Pendiente{background:#fff3e0;color:#b8860b}
+.cat-Pendiente{background:#fff3e0;color:#b8860b}.cat-Rotura{background:#fdf0f0;color:#8b1a1a}
 #nov-cat-Pendiente.on{border-color:#b8860b!important;color:#b8860b!important;background:#fff8ec!important}
 .cat-General{background:#f1efe8;color:#5F5E5A}
 .nov-cat-btn{padding:4px 10px;border:.5px solid var(--border);background:transparent;font-size:9px;color:var(--muted);cursor:pointer;font-family:var(--font);border-radius:2px;transition:all .15s}
@@ -2282,7 +2282,7 @@ function renderNovModalList(list){
 let _novCat='General';
 async function openNovModal(){
   _novCat='General';$('nov-modal-txt').value='';novSwitchTab('hoy');
-  document.querySelectorAll('.nov-cat-btn').forEach(b=>b.classList.remove('on'));$('nov-cat-General').classList.add('on');
+  document.querySelectorAll('.nov-cat-btn').forEach(b=>b.classList.remove('on'));$('nov-cat-General').classList.add('on');const _rf=$('nov-rotura-form');if(_rf)_rf.style.display='none';if($('nov-rotura-cant'))$('nov-rotura-cant').value=1;
   const btn=$('nov-save-btn');btn.textContent='Agregar';btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';btn.disabled=false;
   $('novedad-modal').style.display='flex';
   const t=new Date().toISOString().slice(0,10);
@@ -2347,12 +2347,29 @@ async function loadNovHistorial(){
   });
   el.innerHTML=html;
 }
-function setNovCat(cat,el){_novCat=cat;document.querySelectorAll('.nov-cat-btn').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
+function setNovCat(cat,el){_novCat=cat;document.querySelectorAll('.nov-cat-btn').forEach(b=>b.classList.remove('on'));el.classList.add('on');const rf=$('nov-rotura-form');if(rf)rf.style.display=cat==='Rotura'?'block':'none';}
 async function guardarNovedad(){
-  const txt=$('nov-modal-txt').value.trim();if(!txt){$('nov-modal-txt').focus();return;}
+  let txt=$('nov-modal-txt').value.trim();
   const btn=$('nov-save-btn');btn.textContent='Guardando…';btn.disabled=true;
-  const{error}=await sb.from('novedades').insert({texto:txt,categoria:_novCat,usuario:currentUser||$('ob-user').value||'Equipo'});
-  if(error){btn.textContent='Agregar';btn.disabled=false;alert('Error: '+error.message);return;}
+  if(_novCat==='Rotura'){
+    const item=($('nov-rotura-item')||{}).value||'Ítem';
+    const cant=parseInt(($('nov-rotura-cant')||{}).value)||1;
+    const autoTxt=cant+'x '+item+(txt?' · '+txt:'');
+    const fecha=new Date().toISOString().slice(0,10);
+    const h=new Date().getHours();
+    const turno=h<12?'Apertura':h<17?'Tarde':'Cierre';
+    const resp=currentUser||$('ob-user')?.value||'Equipo';
+    const[{error:e1},{error:e2}]=await Promise.all([
+      sb.from('novedades').insert({texto:autoTxt,categoria:'Rotura',usuario:resp}),
+      sb.from('hor_roturas').insert({fecha,turno,responsable:resp,item,cantidad:cant,observacion:txt||null})
+    ]);
+    const error=e1||e2;
+    if(error){btn.textContent='Agregar';btn.disabled=false;alert('Error: '+error.message);return;}
+  } else {
+    if(!txt){$('nov-modal-txt').focus();btn.textContent='Agregar';btn.disabled=false;return;}
+    const{error}=await sb.from('novedades').insert({texto:txt,categoria:_novCat,usuario:currentUser||$('ob-user')?.value||'Equipo'});
+    if(error){btn.textContent='Agregar';btn.disabled=false;alert('Error: '+error.message);return;}
+  }
   $('nov-modal-txt').value='';
   btn.textContent='✓ Guardado';btn.style.background='#1a7a3d';btn.style.color='#fff';btn.style.borderColor='#1a7a3d';
   setTimeout(()=>{btn.textContent='Agregar';btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';btn.disabled=false;},1400);
@@ -8180,6 +8197,7 @@ function _setupTempTouchDrag(){
           <option value="APPCC">APPCC</option>
           <option value="Incidencia">Incidencia</option>
           <option value="Pendiente">Pendiente</option>
+          <option value="Rotura">Rotura</option>
         </select>
       </div>
       <div id="nov-hist-list" style="overflow-y:auto;flex:1;padding:0 1.2rem"></div>
@@ -8223,6 +8241,25 @@ function _setupTempTouchDrag(){
         <button type="button" class="nov-cat-btn" id="nov-cat-APPCC" onclick="setNovCat('APPCC',this)">APPCC</button>
         <button type="button" class="nov-cat-btn" id="nov-cat-Incidencia" onclick="setNovCat('Incidencia',this)">Incidencia</button>
         <button type="button" class="nov-cat-btn" id="nov-cat-Pendiente" onclick="setNovCat('Pendiente',this)" style="border-color:#b8860b;color:#b8860b">Pendiente</button>
+        <button type="button" class="nov-cat-btn" id="nov-cat-Rotura" onclick="setNovCat('Rotura',this)" style="border-color:#8b1a1a;color:#8b1a1a">Rotura</button>
+      </div>
+      <div id="nov-rotura-form" style="display:none;margin-bottom:8px;display:none">
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="nov-rotura-item" style="flex:1;height:34px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;padding:0 8px;background:transparent;color:inherit">
+            <option>Vaso café</option>
+            <option>Taza café</option>
+            <option>Copa</option>
+            <option>Plato</option>
+            <option>Bol</option>
+            <option>Jarra</option>
+            <option>Cristalería</option>
+            <option>Otro</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:4px">
+            <label style="font-size:11px;color:var(--muted)">Cant.</label>
+            <input id="nov-rotura-cant" type="number" min="1" value="1" style="width:54px;height:34px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;text-align:center;background:transparent;color:inherit">
+          </div>
+        </div>
       </div>
       <button type="button" id="nov-save-btn" onclick="guardarNovedad()" style="width:100%;padding:11px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s">Agregar</button>
     </div>
