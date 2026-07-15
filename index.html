@@ -7613,6 +7613,7 @@ function renderTempCfgList(){
     + Nuevo sensor personalizado
   </button>`;
   el.innerHTML=html;
+  _setupTempTouchDrag();
 }
 async function saveTempCfg(){
   _tempSaveCurrentFormVals();
@@ -7623,6 +7624,62 @@ async function saveTempCfg(){
   const btn=$('temp-cfg-save-btn');
   btn.textContent='✓ Guardado';btn.style.background='#1a7a3d';btn.style.color='#fff';btn.style.borderColor='#1a7a3d';
   setTimeout(()=>{btn.textContent='Guardar configuración';btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';},2000);
+}
+
+// --- Temp sensor drag-to-reorder ---
+let _tempDragId=null,_tempTouchDragId=null,_tempTouchEl=null,_tempDragListInit=false;
+function tempDragStart(e,id){
+  _tempDragId=id;e.dataTransfer.effectAllowed='move';
+  const row=e.currentTarget.closest('[id^="tcfg-row"]');if(row)row.style.opacity='.4';
+}
+function tempDragEnd(){
+  document.querySelectorAll('[id^="tcfg-row"]').forEach(r=>{r.style.background='';r.style.opacity='';});
+  _tempDragId=null;
+}
+function tempDragOver(id){
+  if(!_tempDragId||_tempDragId===id)return;
+  document.querySelectorAll('[id^="tcfg-row"]').forEach(r=>r.style.background='');
+  const t=document.getElementById('tcfg-row-'+id);if(t)t.style.background='var(--surface,#f5f5f5)';
+}
+function tempDrop(e,id){
+  e.preventDefault();if(!_tempDragId||_tempDragId===id)return;
+  _tempReorder(_tempDragId,id);_tempDragId=null;
+}
+function _tempReorder(srcId,tgtId){
+  _tempSaveCurrentFormVals();
+  const si=tempSensors.findIndex(s=>s.id===srcId),ti=tempSensors.findIndex(s=>s.id===tgtId);
+  if(si<0||ti<0)return;
+  const[m]=tempSensors.splice(si,1);tempSensors.splice(ti,0,m);
+  renderTempCfgList();
+}
+function _setupTempTouchDrag(){
+  if(!_tempDragListInit){
+    _tempDragListInit=true;
+    document.addEventListener('touchmove',function(e){
+      if(!_tempTouchDragId)return;e.preventDefault();
+      const t=e.touches[0],over=document.elementFromPoint(t.clientX,t.clientY);
+      const row=over&&over.closest('[id^="tcfg-row"]');
+      document.querySelectorAll('[id^="tcfg-row"]').forEach(r=>r.style.background='');
+      if(row&&row.id!=='tcfg-row-'+_tempTouchDragId)row.style.background='var(--surface,#f5f5f5)';
+    },{passive:false});
+    document.addEventListener('touchend',function(e){
+      if(!_tempTouchDragId)return;
+      const t=e.changedTouches[0],over=document.elementFromPoint(t.clientX,t.clientY);
+      const row=over&&over.closest('[id^="tcfg-row"]');
+      const tid=row&&row.id.replace('tcfg-row-','');
+      if(_tempTouchEl)_tempTouchEl.style.opacity='';
+      document.querySelectorAll('[id^="tcfg-row"]').forEach(r=>r.style.background='');
+      if(tid&&tid!==_tempTouchDragId)_tempReorder(_tempTouchDragId,tid);
+      _tempTouchDragId=null;_tempTouchEl=null;
+    });
+  }
+  document.querySelectorAll('.tcfg-handle').forEach(h=>{
+    h.addEventListener('touchstart',function(e){
+      const row=this.closest('[id^="tcfg-row"]');
+      _tempTouchDragId=row.id.replace('tcfg-row-','');_tempTouchEl=row;row.style.opacity='.4';
+      e.preventDefault();
+    },{passive:false});
+  });
 }
 
 </script>
