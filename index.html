@@ -2588,7 +2588,7 @@ const tempSensors=[
 let tempVals={};
 function buildTempSteppers(){
   const neg=tempSensors.filter(s=>s.neg&&s.enabled!==false),pos=tempSensors.filter(s=>!s.neg&&s.enabled!==false);
-  const makeRow=s=>{const v=tempVals[s.id];const out=v<s.min||v>s.max;const disp=(v<0?'−':'+')+Math.abs(v).toFixed(1)+'°';const col=out?'#c0392b':s.neg?'#2266bb':'#1a7a3d';return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:9px 10px;border:.5px solid ${out?'#c0392b':'var(--border)'};border-radius:4px;background:${out?'#fff5f5':'transparent'}"><span style="flex:1;font-size:13px">${s.label}</span><button type="button" onclick="adjTemp('${s.id}',-0.5)" style="width:28px;height:28px;border:.5px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;font-size:18px;line-height:1;font-family:var(--font)">−</button><span id="tv-${s.id}" style="font-size:14px;font-weight:500;min-width:52px;text-align:center;color:${col}">${disp}</span><button type="button" onclick="adjTemp('${s.id}',0.5)" style="width:28px;height:28px;border:.5px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;font-size:18px;line-height:1;font-family:var(--font)">+</button>${out?'<span style="font-size:9px;color:#c0392b;font-weight:700">ALERTA</span>':''}</div>`;};
+  const makeRow=s=>{const v=tempVals[s.id];const out=v<s.min||v>s.max;const disp=(v<0?'−':'+')+Math.abs(v).toFixed(1)+'°';const col=out?'#c0392b':s.neg?'#2266bb':'#1a7a3d';return`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:9px 10px;border:.5px solid ${out?'#c0392b':'var(--border)'};border-radius:4px;background:${out?'#fff5f5':'transparent'}"><span style="flex:1;font-size:13px">${s.label}</span><button type="button" onclick="adjTemp('${s.id}',-0.1)" style="width:28px;height:28px;border:.5px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;font-size:18px;line-height:1;font-family:var(--font)">−</button><span id="tv-${s.id}" style="font-size:14px;font-weight:500;min-width:52px;text-align:center;color:${col}">${disp}</span><button type="button" onclick="adjTemp('${s.id}',0.1)" style="width:28px;height:28px;border:.5px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;font-size:18px;line-height:1;font-family:var(--font)">+</button>${out?'<span style="font-size:9px;color:#c0392b;font-weight:700">ALERTA</span>':''}</div>`;};
   $('temp-steppers-neg').innerHTML=neg.map(makeRow).join('');
   $('temp-steppers-pos').innerHTML=pos.map(makeRow).join('');
 }
@@ -2617,7 +2617,7 @@ async function openTempModal(){
   await loadTempSensorsConfig();
   const{data}=await sb.from('registros_temperatura').select('pozzetti_1,pozzetti_2,pozzetti_3,armario_2,nev_pasteleria,nev_cafeteria,nev_obrador_1,nev_obrador_2').order('created_at',{ascending:false}).limit(1);
   const last=data&&data[0];
-  tempSensors.forEach(s=>{if(s.custom)tempVals[s.id]=last&&last.extras&&last.extras[s.id]!=null?last.extras[s.id]:s.default;else tempVals[s.id]=last&&last[s.id]!=null?last[s.id]:s.default;});
+  tempSensors.forEach(s=>{tempVals[s.id]=0;});
   buildTempSteppers();
   $('temp-incidencia').value='';
   const btn=$('temp-save-btn');btn.textContent='Guardar registro';btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';btn.disabled=false;
