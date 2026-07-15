@@ -2347,7 +2347,43 @@ async function loadNovHistorial(){
   });
   el.innerHTML=html;
 }
-function setNovCat(cat,el){_novCat=cat;document.querySelectorAll('.nov-cat-btn').forEach(b=>b.classList.remove('on'));el.classList.add('on');const rf=$('nov-rotura-form');if(rf)rf.style.display=cat==='Rotura'?'block':'none';}
+function setNovCat(cat,el){_novCat=cat;document.querySelectorAll('.nov-cat-btn').forEach(b=>b.classList.remove('on'));el.classList.add('on');const rf=$('nov-rotura-form');if(rf)rf.style.display=cat==='Rotura'?'block':'none';if(cat==='Rotura')loadRoturaItems();}
+async function loadRoturaItems(){
+  const sel=$('nov-rotura-item');if(!sel)return;
+  const{data}=await sb.from('hor_rotura_items').select('id,nombre').order('orden').order('id');
+  const items=data||[];
+  sel.innerHTML=items.map(i=>`<option value="${i.nombre}">${i.nombre}</option>`).join('');
+  renderRoturaEditorList(items);
+}
+function renderRoturaEditorList(items){
+  const el=$('nov-rotura-editor-list');if(!el)return;
+  if(!items.length){el.innerHTML='<div style="font-size:11px;color:var(--muted)">Sin ítems. Agregá uno abajo.</div>';return;}
+  el.innerHTML=items.map(i=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0;font-size:12px">
+    <span>${i.nombre}</span>
+    <button type="button" onclick="deleteRoturaItem(${i.id})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px" title="Eliminar">&times;</button>
+  </div>`).join('');
+}
+function toggleRoturaEditor(){
+  const ed=$('nov-rotura-editor');if(!ed)return;
+  const open=ed.style.display==='none'||!ed.style.display;
+  ed.style.display=open?'block':'none';
+  if(open)setTimeout(()=>$('nov-rotura-new')&&$('nov-rotura-new').focus(),80);
+}
+async function addRoturaItem(){
+  const inp=$('nov-rotura-new');if(!inp)return;
+  const nombre=inp.value.trim();if(!nombre)return;
+  const{error}=await sb.from('hor_rotura_items').insert({nombre,orden:99});
+  if(error){alert('Error: '+error.message);return;}
+  inp.value='';
+  await loadRoturaItems();
+}
+async function deleteRoturaItem(id){
+  if(!confirm('¿Eliminar este ítem?'))return;
+  const{error}=await sb.from('hor_rotura_items').delete().eq('id',id);
+  if(error){alert('Error: '+error.message);return;}
+  await loadRoturaItems();
+}
+
 async function guardarNovedad(){
   let txt=$('nov-modal-txt').value.trim();
   const btn=$('nov-save-btn');btn.textContent='Guardando…';btn.disabled=true;
@@ -8243,21 +8279,22 @@ function _setupTempTouchDrag(){
         <button type="button" class="nov-cat-btn" id="nov-cat-Pendiente" onclick="setNovCat('Pendiente',this)" style="border-color:#b8860b;color:#b8860b">Pendiente</button>
         <button type="button" class="nov-cat-btn" id="nov-cat-Rotura" onclick="setNovCat('Rotura',this)" style="border-color:#8b1a1a;color:#8b1a1a">Rotura</button>
       </div>
-      <div id="nov-rotura-form" style="display:none;margin-bottom:8px;display:none">
-        <div style="display:flex;gap:8px;align-items:center">
+      <div id="nov-rotura-form" style="display:none;margin-bottom:8px">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
           <select id="nov-rotura-item" style="flex:1;height:34px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;padding:0 8px;background:transparent;color:inherit">
-            <option>Vaso café</option>
-            <option>Taza café</option>
-            <option>Copa</option>
-            <option>Plato</option>
-            <option>Bol</option>
-            <option>Jarra</option>
-            <option>Cristalería</option>
-            <option>Otro</option>
+            <option>Cargando…</option>
           </select>
           <div style="display:flex;align-items:center;gap:4px">
             <label style="font-size:11px;color:var(--muted)">Cant.</label>
             <input id="nov-rotura-cant" type="number" min="1" value="1" style="width:54px;height:34px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:13px;text-align:center;background:transparent;color:inherit">
+          </div>
+          <button type="button" onclick="toggleRoturaEditor()" title="Editar lista" style="width:30px;height:34px;border:.5px solid var(--border);border-radius:4px;background:transparent;cursor:pointer;font-size:13px;color:var(--muted);flex-shrink:0">&#9998;</button>
+        </div>
+        <div id="nov-rotura-editor" style="display:none;border:.5px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px">
+          <div id="nov-rotura-editor-list" style="margin-bottom:8px"></div>
+          <div style="display:flex;gap:6px">
+            <input id="nov-rotura-new" type="text" placeholder="Nuevo ítem…" style="flex:1;height:30px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:12px;padding:0 8px;background:transparent;color:inherit" onkeydown="if(event.key==='Enter')addRoturaItem()">
+            <button type="button" onclick="addRoturaItem()" style="height:30px;padding:0 10px;border:.5px solid var(--black);border-radius:4px;background:transparent;font-family:var(--font);font-size:11px;cursor:pointer">+ Agregar</button>
           </div>
         </div>
       </div>
