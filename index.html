@@ -6147,21 +6147,22 @@ function renderPlanificacionInner(){
       const ds=`${year}-${moStr}-${String(day).padStart(2,'0')}`;
       const on=getVacsOnDate(ds);
       const cnt=on.length;
-      let bg='transparent',txColor=dow>=5?'var(--hint)':'var(--black)',cellOut='';
+      let bg='transparent',topBdr='',txColor=dow>=5?'var(--hint)':'var(--black)';
       if(cnt>max){
-        bg='rgba(210,45,55,.82)';txColor='#fff';
+        bg='rgba(210,45,55,.13)';topBdr='border-top:2px solid #d03040;';txColor='#b52030';
       } else if(cnt===1){
-        bg=hexA(getPlanEmpColor(on[0].empleado),.52);
+        const ec=getPlanEmpColor(on[0].empleado);
+        bg=hexA(ec,.17);topBdr=`border-top:2px solid ${ec};`;
       } else if(cnt===2){
-        bg=`linear-gradient(135deg,${hexA(getPlanEmpColor(on[0].empleado),.60)} 50%,${hexA(getPlanEmpColor(on[1].empleado),.60)} 50%)`;
-        if(cnt===max)cellOut='outline:1px solid rgba(160,100,0,.50);';
+        const c1=getPlanEmpColor(on[0].empleado),c2=getPlanEmpColor(on[1].empleado);
+        bg=`linear-gradient(to right,${hexA(c1,.20)} 50%,${hexA(c2,.20)} 50%)`;
+        topBdr=`border-top:1.5px solid ${c1};`;
       } else if(cnt>2){
-        bg='rgba(80,80,190,.55)';
-        if(cnt===max)cellOut='outline:1px solid rgba(160,100,0,.50);';
+        bg='rgba(80,80,180,.14)';topBdr='border-top:2px solid rgba(60,60,200,.70);';
       }
       const isToday=ds===today;
       const tip=on.map(v=>v.empleado).join(', ');
-      calHtml+=`<div style="font-size:10px;text-align:center;padding:3px 0;border-radius:3px;background:${bg};color:${txColor};${isToday?'outline:1.5px solid var(--black);':cellOut}${cnt>0?'font-weight:500;':''}" title="${tip}">${day}</div>`;
+      calHtml+=`<div style="font-size:10px;text-align:center;padding:3px 0;border-radius:3px;background:${bg};${topBdr}color:${txColor};${isToday?'outline:1.5px solid var(--black)':''}" title="${tip}">${day}</div>`;
     }
     calHtml+=`</div>`;
     // Employee avatar chips
