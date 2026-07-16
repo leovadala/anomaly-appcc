@@ -1471,25 +1471,57 @@ async function importVentasCSV(input){
     else if(b[0]===0xFE&&b[1]===0xFF)text=new TextDecoder('utf-16be').decode(buf);
     else text=new TextDecoder('utf-8').decode(buf);
   }catch(e){text=await file.text()}
-  const lines=text.split(/\r?\n/).map(l=>l.split(/[,;\t]/));
-  let vb=0,vd=0,vn=0,nt=0;
-  for(const row of lines){
-    const lbl=(row[0]||'').replace(/"/g,'').trim().toLowerCase();
-    let val=0;
-    for(let i=1;i<row.length;i++){const v=parseFloat((row[i]||'').replace(/"/g,'').replace(',','.').trim());if(!isNaN(v)&&v!==0){val=v;break}}
-    if(lbl.includes('bruta')||lbl.includes('gross'))vb=Math.abs(val);
-    else if(lbl.includes('descuento')||lbl.includes('discount'))vd=Math.abs(val);
-    else if(lbl.includes('neta')||lbl.includes('net sale'))vn=Math.abs(val);
-    else if(lbl.includes('cobro')||lbl.includes('transacci')||lbl.includes('payment'))nt=Math.abs(parseInt(val))||nt;
+  // Parser CSV con soporte de campos entre comillas
+  function parseCSVLine(line){
+    const fields=[];let cur='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){inQ=!inQ;}
+      else if(c===','&&!inQ){fields.push(cur.trim());cur='';}
+      else cur+=c;
+    }
+    fields.push(cur.trim());
+    return fields;
   }
+  // Parsear formato numérico español: "(€ 54.288,68)" → -54288.68
+  function parseMoney(s){
+    if(!s)return 0;
+    const neg=s.includes('(');
+    const n=parseFloat(s.replace(/[^0-9,.]/g,'').replace(/\./g,'').replace(',','.'));
+    return isNaN(n)?0:(neg?-n:n);
+  }
+  // Construir mapa label→valor con parsing correcto
+  const rows={};
+  for(const line of text.split(/?
+/)){
+    if(!line.trim())continue;
+    const fields=parseCSVLine(line);
+    if(fields.length>=2){
+      const key=fields[0].toLowerCase().trim();
+      rows[key]=fields[1];
+    }
+  }
+  // Extraer valores por label exacto del CSV de Square en español
+  const vb=Math.abs(parseMoney(rows['ventas brutas']||''));
+  const vn=Math.abs(parseMoney(rows['ventas netas']||''));
+  const vd=Math.abs(parseMoney(rows['descuentos y artículos gratuitos']||''));
+  const ef=Math.abs(parseMoney(rows['efectivo']||''));
+  const tar=Math.abs(parseMoney(rows['tarjeta']||''));
+  const dev=Math.abs(parseMoney(rows['devoluciones']||''));
+  const raw_nt=(rows['total de transacciones de pagos cobrados']||'').replace(/[^0-9]/g,'');
+  const nt=parseInt(raw_nt)||0;
   if(!vb&&!vn){alert('No se detectaron datos de ventas. Verificá el CSV de Square.');input.value='';return}
-  if(!vn)vn=vb-vd;
-  const ticket=nt>0?vn/nt:null;
-  const{error}=await sb.from('ventas_mes').upsert({mes:mes+'-01',ventas_brutas:vb,descuentos:vd,ventas_netas:vn,num_transacciones:nt,ticket_medio:ticket},{onConflict:'mes'});
+  const vn_final=vn||vb-vd;
+  const ticket=nt>0?Math.round(vn_final/nt*100)/100:null;
+  const{error}=await sb.from('ventas_mes').upsert({
+    mes:mes+'-01',ventas_brutas:vb,descuentos:vd,ventas_netas:vn_final,
+    num_transacciones:nt,ticket_medio:ticket
+  },{onConflict:'mes'});
   if(error){alert('Error: '+error.message);return}
   const{data}=await sb.from('ventas_mes').select('*').order('mes',{ascending:false});
   _VentasMes=data||[];renderVentasList();
-  alert('✓ Ventas importadas: '+vn.toFixed(2)+' € netas');input.value='';
+  alert('\u2713 Ventas importadas\nBrutas: '+vb.toFixed(2)+' \u20ac | Netas: '+vn_final.toFixed(2)+' \u20ac\nEfectivo: '+ef.toFixed(2)+' \u20ac | Tarjeta: '+tar.toFixed(2)+' \u20ac\nTransacciones: '+nt);
+  input.value='';
 }
 
 // — NÓMINAS —
