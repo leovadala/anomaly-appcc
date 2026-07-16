@@ -3288,6 +3288,20 @@ async function renderHomeDashboard(){
     else h+=`<div style="font-size:10px;color:var(--hint);padding-top:5px;cursor:pointer" onclick="openNovModal()">Ver y responder →</div>`;
     h+='</div>';
   }
+  const vacPen=(vR.data||[]);
+  if(vacPen.length&&currentUserEsEncargado()){
+    h+=lbl('Vacaciones \xb7 Pendientes');
+    h+='<div class="card" style="margin-bottom:16px">';
+    vacPen.forEach(v=>{
+      const dias=Math.round((new Date(v.fecha_fin)-new Date(v.fecha_inicio))/86400000)+1;
+      h+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:.5px solid var(--border);cursor:pointer;gap:8px" onclick="openVacModal()">`;
+      h+=`<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:500;color:var(--black)">${v.empleado_nombre}</div>`;
+      h+=`<div style="font-size:10px;color:var(--muted);margin-top:1px">${v.fecha_inicio} \u2192 ${v.fecha_fin} (${dias}d)${v.motivo?' \xb7 '+v.motivo:''}</div></div>`;
+      h+=`<span style="font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);white-space:nowrap">pendiente</span></div>`;
+    });
+    h+=`<div style="font-size:10px;color:var(--hint);padding-top:5px;cursor:pointer" onclick="openVacModal()">Revisar y responder \u2192</div>`;
+    h+='</div>';
+  }
   el.innerHTML=h;
 }
 function goHome(){
