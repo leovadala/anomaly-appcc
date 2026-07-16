@@ -437,6 +437,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <button onclick="go(9)">Inventario</button>
 <button onclick="go(10)">Finanzas</button>
 <button onclick="go(11)">Equipo</button>
+<button onclick="openVacModal()">Vacaciones</button>
 </div>
 <div id="app-footer" style="display:none">
   <div class="af-row"><span class="af-clock" id="af-clock">--:--</span><span class="af-ingreso" id="af-ingreso">—</span></div>
@@ -2618,6 +2619,69 @@ async function deleteRoturaItem(id){
   await loadRoturaItems();
 }
 
+async function openVacModal(){
+  const m=$('vac-modal');if(!m)return;
+  m.style.display='flex';
+  const tabPen=$('vactab-pen');
+  if(tabPen)tabPen.style.display=currentUserEsEncargado()?'flex':'none';
+  vacSwitchTab('mia');
+  await loadVacSolicitudes();
+}
+function closeVacModal(){const m=$('vac-modal');if(m)m.style.display='none';}
+function vacSwitchTab(tab){
+  ['mia','pen'].forEach(t=>{
+    const btn=$('vactab-'+t),pan=$('vac-panel-'+t);
+    if(btn){btn.style.borderBottomColor=t===tab?'var(--black)':'transparent';btn.style.color=t===tab?'var(--black)':'var(--muted)';}
+    if(pan)pan.style.display=t===tab?'':'none';
+  });
+}
+async function loadVacSolicitudes(){
+  const misEl=$('vac-mis-solicitudes');
+  if(misEl&&currentUser){
+    const{data:mis}=await sb.from('solicitudes_vacaciones').select('*').eq('empleado_nombre',currentUser).order('created_at',{ascending:false}).limit(15);
+    if(!mis||!mis.length){misEl.innerHTML='<div style="font-size:12px;color:var(--muted);padding:12px 0">Sin solicitudes anteriores</div>';}
+    else{
+      misEl.innerHTML='<div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 0 6px">Mis solicitudes</div>'+mis.map(s=>{
+        const estadoColor=s.estado==='aprobada'?'#27ae60':s.estado==='rechazada'?'#c0392b':'var(--muted)';
+        const dias=Math.round((new Date(s.fecha_fin)-new Date(s.fecha_inicio))/86400000)+1;
+        return`<div style="padding:8px 0;border-bottom:.5px solid var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px"><span style="font-size:12px">${s.fecha_inicio} → ${s.fecha_fin} <span style="font-size:10px;color:var(--muted)">(${dias}d)</span></span><span style="font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:${estadoColor}">${s.estado}</span></div>${s.motivo?`<div style="font-size:11px;color:var(--muted)">${s.motivo}</div>`:''}${s.respuesta_encargado?`<div style="font-size:11px;color:var(--black);margin-top:3px;font-style:italic">"${s.respuesta_encargado}" — ${s.respondida_por||'Encargado'}</div>`:''}</div>`;
+      }).join('');
+    }
+  }
+  if(currentUserEsEncargado()){
+    const penEl=$('vac-pen-list');
+    if(penEl){
+      const{data:pen}=await sb.from('solicitudes_vacaciones').select('*').eq('estado','pendiente').order('created_at',{ascending:true});
+      if(!pen||!pen.length){penEl.innerHTML='<div style="font-size:12px;color:var(--muted);padding:12px 0">Sin solicitudes pendientes</div>';}
+      else{
+        penEl.innerHTML=pen.map(s=>{
+          const dias=Math.round((new Date(s.fecha_fin)-new Date(s.fecha_inicio))/86400000)+1;
+          return`<div id="vac-req-${s.id}" style="padding:10px 0;border-bottom:.5px solid var(--border)"><div style="font-size:11px;font-weight:500;margin-bottom:2px">${s.empleado_nombre}</div><div style="font-size:12px;margin-bottom:2px">${s.fecha_inicio} → ${s.fecha_fin} (${dias}d)</div>${s.motivo?`<div style="font-size:11px;color:var(--muted);margin-bottom:6px">${s.motivo}</div>`:'<div style="margin-bottom:6px"></div>'}<div id="vac-resp-area-${s.id}" style="display:none;margin-bottom:6px"><input type="text" id="vac-resp-txt-${s.id}" placeholder="Comentario (opcional)…" style="width:100%;padding:7px 9px;border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:12px;background:transparent;color:inherit;box-sizing:border-box"></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" onclick="responderSolicitudVac(${s.id},'aprobada')" style="padding:5px 12px;border:.5px solid #27ae60;background:transparent;color:#27ae60;font-family:var(--font);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:2px">✓ Aprobar</button><button type="button" onclick="responderSolicitudVac(${s.id},'rechazada')" style="padding:5px 12px;border:.5px solid #c0392b;background:transparent;color:#c0392b;font-family:var(--font);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:2px">✕ Rechazar</button><button type="button" onclick="(function(){var a=document.getElementById('vac-resp-area-${s.id}');a.style.display=a.style.display==='none'?'block':'none'})()" style="padding:5px 10px;border:.5px solid var(--border);background:transparent;color:var(--muted);font-family:var(--font);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:2px">Comentar</button></div></div>`;
+        }).join('');
+      }
+    }
+  }
+}
+async function submitSolicitudVac(){
+  const inicio=$('vac-inicio')?.value;const fin=$('vac-fin')?.value;
+  if(!inicio||!fin){alert('Indica fecha de inicio y fin.');return;}
+  if(new Date(fin)<new Date(inicio)){alert('La fecha fin debe ser posterior al inicio.');return;}
+  const motivo=($('vac-motivo')?.value||'').trim();
+  const btn=$('vac-save-btn');if(btn){btn.textContent='Enviando…';btn.disabled=true;}
+  const{error}=await sb.from('solicitudes_vacaciones').insert({empleado_nombre:currentUser,fecha_inicio:inicio,fecha_fin:fin,motivo:motivo||null});
+  if(btn){btn.textContent='Solicitar';btn.disabled=false;}
+  if(error){alert('Error: '+error.message);return;}
+  if($('vac-inicio'))$('vac-inicio').value='';if($('vac-fin'))$('vac-fin').value='';if($('vac-motivo'))$('vac-motivo').value='';
+  await loadVacSolicitudes();
+  if(typeof renderHomeDashboard==='function'&&$('home-dashboard')?.style.display!=='none')renderHomeDashboard();
+}
+async function responderSolicitudVac(id,estado){
+  const respTxt=($('vac-resp-txt-'+id)||{}).value?.trim()||null;
+  const{error}=await sb.from('solicitudes_vacaciones').update({estado,respuesta_encargado:respTxt,respondida_por:currentUser,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){alert('Error: '+error.message);return;}
+  await loadVacSolicitudes();
+  if(typeof renderHomeDashboard==='function'&&$('home-dashboard')?.style.display!=='none')renderHomeDashboard();
+}
 function currentUserEsEncargado(){
   if(!currentUser)return false;
   const emp=horEmpleados.find(e=>e.nombre===currentUser);
@@ -3195,12 +3259,13 @@ async function renderHomeDashboard(){
   const todayStr=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
   const in7=new Date(new Date(todayStr+'T12:00:00Z').getTime()+7*86400000).toISOString().split('T')[0];
   const since7=new Date(new Date(todayStr+'T12:00:00Z').getTime()-6*86400000).toISOString().split('T')[0];
-  const [fR,sR,tR,aR,nR]=await Promise.all([
+  const [fR,sR,tR,aR,nR,vR]=await Promise.all([
     sb.from('fichajes').select('empleado_nombre,tipo,timestamp').gte('timestamp',todayStr+'T00:00:00Z').order('timestamp',{ascending:false}).limit(100),
     sb.from('recepciones').select('producto,vencimiento').eq('estado','activo').not('vencimiento','is',null).lte('vencimiento',in7).order('vencimiento',{ascending:true}).limit(8),
     sb.from('registros_temperatura').select('fecha,hora,temp_armario_1,temp_armario_2,temp_armario_3,incidencia').order('fecha',{ascending:false}).order('hora',{ascending:false}).limit(1),
     sb.from('registros_appcc').select('fecha,hora,responsable,producto').order('fecha',{ascending:false}).order('hora',{ascending:false}).limit(1),
-    sb.from('novedades').select('id,texto,categoria,usuario,created_at').eq('resuelta',false).gte('created_at',since7+'T00:00:00Z').order('created_at',{ascending:false}).limit(10)
+    sb.from('novedades').select('id,texto,categoria,usuario,created_at').eq('resuelta',false).gte('created_at',since7+'T00:00:00Z').order('created_at',{ascending:false}).limit(10),
+    sb.from('solicitudes_vacaciones').select('id,empleado_nombre,fecha_inicio,fecha_fin,motivo,created_at').eq('estado','pendiente').order('created_at',{ascending:true})
   ]);
   const activos={};
   (fR.data||[]).filter(f=>new Date(f.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0]===todayStr).forEach(f=>{
@@ -8864,6 +8929,31 @@ function _setupTempTouchDrag(){
         </div>
       </div>
       <button type="button" id="nov-save-btn" onclick="guardarNovedad()" style="width:100%;padding:11px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<div class="ocr-modal" id="vac-modal" style="display:none;align-items:center" onclick="if(event.target===this)closeVacModal()">
+  <div style="background:var(--white,#fff);width:100%;max-width:460px;border-radius:10px;overflow:hidden;max-height:88vh;display:flex;flex-direction:column;margin:1rem">
+    <div style="padding:1rem 1.2rem;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid var(--border);flex-shrink:0">
+      <span style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Vacaciones</span>
+      <button type="button" onclick="closeVacModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">&times;</button>
+    </div>
+    <div style="display:flex;border-bottom:.5px solid var(--border);flex-shrink:0">
+      <button type="button" id="vactab-mia" onclick="vacSwitchTab('mia')" style="flex:1;padding:9px;border:none;background:transparent;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid var(--black);font-family:var(--font);color:var(--black)">Mi Solicitud</button>
+      <button type="button" id="vactab-pen" onclick="vacSwitchTab('pen')" style="display:none;flex:1;padding:9px;border:none;background:transparent;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font);color:var(--muted)">Pendientes</button>
+    </div>
+    <div id="vac-panel-mia" style="overflow-y:auto;padding:0 1.2rem 1.2rem;flex:1">
+      <div style="padding:1rem 0;border-bottom:.5px solid var(--border);margin-bottom:4px">
+        <div class="f"><label>Fecha inicio</label><input type="date" id="vac-inicio" style="font-family:var(--font)"></div>
+        <div class="f"><label>Fecha fin</label><input type="date" id="vac-fin" style="font-family:var(--font)"></div>
+        <div class="f"><label>Motivo (opcional)</label><input type="text" id="vac-motivo" placeholder="Vacaciones, asunto personal…"></div>
+        <button type="button" id="vac-save-btn" onclick="submitSolicitudVac()" style="width:100%;padding:11px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;margin-top:4px;transition:all .2s">Solicitar</button>
+      </div>
+      <div id="vac-mis-solicitudes"></div>
+    </div>
+    <div id="vac-panel-pen" style="display:none;overflow-y:auto;padding:0 1.2rem 1.2rem;flex:1">
+      <div id="vac-pen-list" style="padding-top:4px"></div>
     </div>
   </div>
 </div>
