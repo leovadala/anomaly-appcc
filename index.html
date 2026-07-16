@@ -2427,17 +2427,44 @@ async function loadTurnoNovedades(){
 function renderNovModalList(list){
   const el=$('nov-modal-list');if(!el)return;
   if(!list||!list.length){el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:14px 0 10px">Sin novedades hoy</div>';return;}
+  const esEnc=currentUserEsEncargado();
   el.innerHTML=list.map(n=>{
     const d=new Date(n.created_at),hh=String(d.getHours()).padStart(2,'0'),mm=String(d.getMinutes()).padStart(2,'0');
-    return`<div style="padding:11px 0;border-bottom:.5px solid var(--border)">
+    const resuelta=!!n.resuelta;
+    const resps=((n.novedades_respuestas)||[]).slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+    let rhtml='';
+    if(resps.length){
+      rhtml='<div style="margin-top:8px;border-left:2px solid var(--border);padding-left:8px">';
+      resps.forEach(r=>{
+        const rd=new Date(r.created_at),rhh=String(rd.getHours()).padStart(2,'0'),rmm=String(rd.getMinutes()).padStart(2,'0');
+        rhtml+=`<div style="margin-bottom:6px"><div style="font-size:9px;color:var(--muted);margin-bottom:2px">${r.autor}${r.cargo?' \xb7 <strong>'+r.cargo+'</strong>':''} \xb7 ${rhh}:${rmm}</div><div style="font-size:12px;color:var(--black);line-height:1.4">${r.mensaje}</div></div>`;
+      });
+      rhtml+='</div>';
+    }
+    let actions='';
+    if(esEnc&&!resuelta){
+      actions=`<div id="nov-reply-area-${n.id}" style="display:none;margin-top:8px">
+        <textarea id="nov-reply-txt-${n.id}" rows="2" placeholder="Respuesta del encargado…" style="resize:none;width:100%;font-family:var(--font);font-size:12px;padding:7px 9px;border:.5px solid var(--border);border-radius:4px;background:transparent;color:inherit;box-sizing:border-box;margin-bottom:6px"></textarea>
+        <button type="button" onclick="submitRespuestaNovedad(${n.id})" style="padding:5px 14px;border:.5px solid var(--black);background:var(--black);color:var(--bg);font-family:var(--font);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:2px">Enviar</button>
+        <button type="button" onclick="document.getElementById('nov-reply-area-${n.id}').style.display='none'" style="margin-left:6px;padding:5px 10px;border:.5px solid var(--border);background:transparent;color:var(--muted);font-family:var(--font);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:2px">Cancelar</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button type="button" onclick="document.getElementById('nov-reply-area-${n.id}').style.display='block';document.getElementById('nov-reply-txt-${n.id}').focus()" style="padding:4px 10px;border:.5px solid var(--border);background:transparent;color:var(--muted);font-family:var(--font);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:2px">Responder</button>
+        <button type="button" onclick="resolverNovedad(${n.id})" style="padding:4px 10px;border:.5px solid #27ae60;background:transparent;color:#27ae60;font-family:var(--font);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:2px">✓ Resolver</button>
+      </div>`;
+    } else if(resuelta){
+      actions='<div style="font-size:9px;color:#27ae60;margin-top:6px;letter-spacing:.5px">✓ Resuelta</div>';
+    }
+    return`<div id="nov-item-${n.id}" style="padding:11px 0;border-bottom:.5px solid var(--border);opacity:${resuelta?.6:1}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
         <div style="display:flex;align-items:center;gap:6px">
           <span class="nov-cat cat-${n.categoria}">${n.categoria}</span>
-          <span style="font-size:10px;color:var(--muted);white-space:nowrap">${hh}:${mm} · ${n.usuario}</span>
+          <span style="font-size:10px;color:var(--muted);white-space:nowrap">${hh}:${mm} \xb7 ${n.usuario}</span>
         </div>
-        <button type="button" onclick="deleteNovedad(${n.id})" title="Eliminar" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px;line-height:1;opacity:.5" onmouseover="this.style.opacity='1';this.style.color='#c0392b'" onmouseout="this.style.opacity='.5';this.style.color='var(--muted)'">&#x2715;</button>
+        ${!resuelta?`<button type="button" onclick="deleteNovedad(${n.id})" title="Eliminar" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px;line-height:1;opacity:.5" onmouseover="this.style.opacity='1';this.style.color='#c0392b'" onmouseout="this.style.opacity='.5';this.style.color='var(--muted)'">&#x2715;</button>`:''}
       </div>
-      <div style="font-size:13px;line-height:1.5">${n.texto}</div>
+      <div style="font-size:13px;line-height:1.5;color:${resuelta?'var(--muted)':'var(--black)'}">${n.texto}</div>
+      ${rhtml}${actions}
     </div>`;
   }).join('');
 }
@@ -2448,7 +2475,7 @@ async function openNovModal(){
   const btn=$('nov-save-btn');btn.textContent='Agregar';btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';btn.disabled=false;
   $('novedad-modal').style.display='flex';
   const t=new Date().toISOString().slice(0,10);
-  const{data}=await sb.from('novedades').select('*').gte('created_at',t+'T00:00:00').order('created_at',{ascending:false});
+  const{data}=await sb.from('novedades').select('*,novedades_respuestas(id,autor,cargo,mensaje,created_at)').gte('created_at',t+'T00:00:00').order('created_at',{ascending:false});
   renderNovModalList(data||[]);
   setTimeout(()=>$('nov-modal-txt').focus(),80);
 }
@@ -2467,7 +2494,7 @@ async function deleteNovedad(id){
   const{error}=await sb.from('novedades').delete().eq('id',id);
   if(error){alert('Error: '+error.message);return;}
   const t=new Date().toISOString().slice(0,10);
-  const{data}=await sb.from('novedades').select('*').gte('created_at',t+'T00:00:00').order('created_at',{ascending:false});
+  const{data}=await sb.from('novedades').select('*,novedades_respuestas(id,autor,cargo,mensaje,created_at)').gte('created_at',t+'T00:00:00').order('created_at',{ascending:false});
   renderNovModalList(data||[]);
   $('tur-nov-val').textContent=(data||[]).length;
   $('tur-nov-sub').textContent=(data||[]).length?((data||[]).length+' hoy'):'hoy';
@@ -2591,6 +2618,30 @@ async function deleteRoturaItem(id){
   await loadRoturaItems();
 }
 
+function currentUserEsEncargado(){
+  if(!currentUser)return false;
+  const emp=horEmpleados.find(e=>e.nombre===currentUser);
+  if(!emp||!emp.cargo)return false;
+  return /encargad|responsable|supervisor|due[ñn]/i.test(emp.cargo);
+}
+async function resolverNovedad(id){
+  const{error}=await sb.from('novedades').update({resuelta:true}).eq('id',id);
+  if(error){alert('Error: '+error.message);return;}
+  const t=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
+  const{data}=await sb.from('novedades').select('*,novedades_respuestas(id,autor,cargo,mensaje,created_at)').gte('created_at',t+'T00:00:00').order('created_at',{ascending:false});
+  renderNovModalList(data||[]);
+  if(typeof renderHomeDashboard==='function'&&$('home-dashboard')?.style.display!=='none')renderHomeDashboard();
+}
+async function submitRespuestaNovedad(novId){
+  const txt=($('nov-reply-txt-'+novId)||{}).value?.trim();
+  if(!txt)return;
+  const emp=horEmpleados.find(e=>e.nombre===currentUser);
+  const{error}=await sb.from('novedades_respuestas').insert({novedad_id:novId,autor:currentUser||'Equipo',cargo:emp?.cargo||null,mensaje:txt});
+  if(error){alert('Error: '+error.message);return;}
+  const t=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
+  const{data}=await sb.from('novedades').select('*,novedades_respuestas(id,autor,cargo,mensaje,created_at)').gte('created_at',t+'T00:00:00').order('created_at',{ascending:false});
+  renderNovModalList(data||[]);
+}
 async function guardarNovedad(){
   let txt=$('nov-modal-txt').value.trim();
   const btn=$('nov-save-btn');btn.textContent='Guardando…';btn.disabled=true;
@@ -2617,7 +2668,7 @@ async function guardarNovedad(){
   btn.textContent='✓ Guardado';btn.style.background='#1a7a3d';btn.style.color='#fff';btn.style.borderColor='#1a7a3d';
   setTimeout(()=>{btn.textContent='Agregar';btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';btn.disabled=false;},1400);
   const t=new Date().toISOString().slice(0,10);
-  const{data}=await sb.from('novedades').select('*').gte('created_at',t+'T00:00:00').order('created_at',{ascending:false});
+  const{data}=await sb.from('novedades').select('*,novedades_respuestas(id,autor,cargo,mensaje,created_at)').gte('created_at',t+'T00:00:00').order('created_at',{ascending:false});
   renderNovModalList(data||[]);
   $('tur-nov-val').textContent=(data||[]).length;
   $('tur-nov-sub').textContent=(data||[]).length+' hoy';
@@ -3143,11 +3194,13 @@ async function renderHomeDashboard(){
   el.innerHTML='<div style="color:var(--hint);font-size:11px;padding:.5rem 0 .2rem">Cargando…</div>';
   const todayStr=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
   const in7=new Date(new Date(todayStr+'T12:00:00Z').getTime()+7*86400000).toISOString().split('T')[0];
-  const [fR,sR,tR,aR]=await Promise.all([
+  const since7=new Date(new Date(todayStr+'T12:00:00Z').getTime()-6*86400000).toISOString().split('T')[0];
+  const [fR,sR,tR,aR,nR]=await Promise.all([
     sb.from('fichajes').select('empleado_nombre,tipo,timestamp').gte('timestamp',todayStr+'T00:00:00Z').order('timestamp',{ascending:false}).limit(100),
     sb.from('recepciones').select('producto,vencimiento').eq('estado','activo').not('vencimiento','is',null).lte('vencimiento',in7).order('vencimiento',{ascending:true}).limit(8),
     sb.from('registros_temperatura').select('fecha,hora,temp_armario_1,temp_armario_2,temp_armario_3,incidencia').order('fecha',{ascending:false}).order('hora',{ascending:false}).limit(1),
-    sb.from('registros_appcc').select('fecha,hora,responsable,producto').order('fecha',{ascending:false}).order('hora',{ascending:false}).limit(1)
+    sb.from('registros_appcc').select('fecha,hora,responsable,producto').order('fecha',{ascending:false}).order('hora',{ascending:false}).limit(1),
+    sb.from('novedades').select('id,texto,categoria,usuario,created_at').eq('resuelta',false).gte('created_at',since7+'T00:00:00Z').order('created_at',{ascending:false}).limit(10)
   ]);
   const activos={};
   (fR.data||[]).filter(f=>new Date(f.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0]===todayStr).forEach(f=>{
@@ -3218,6 +3271,23 @@ async function renderHomeDashboard(){
   }
   h+='</div>';
   h+='</div>';
+  const novPri={Incidencia:0,Pendiente:1,Rotura:2,Logistica:3,Equipo:4,APPCC:5,General:6};
+  const novs=(nR.data||[]).sort((a,b)=>(novPri[a.categoria]||6)-(novPri[b.categoria]||6));
+  if(novs.length){
+    h+=lbl('Novedades \xb7 Pendientes');
+    h+='<div class="card" style="margin-bottom:16px">';
+    novs.slice(0,4).forEach(n=>{
+      const dias=Math.round((new Date(todayStr)-new Date(n.created_at.slice(0,10)))/86400000);
+      const cuandoStr=dias===0?'Hoy':dias===1?'Ayer':'Hace '+dias+'d';
+      h+=`<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:.5px solid var(--border);cursor:pointer" onclick="openNovModal()">`;
+      h+=`<span class="nov-cat cat-${n.categoria}" style="margin-top:2px;flex-shrink:0">${n.categoria}</span>`;
+      h+=`<div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--black);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${n.texto}</div>`;
+      h+=`<div style="font-size:9px;color:var(--hint);margin-top:2px">${n.usuario} \xb7 ${cuandoStr}</div></div></div>`;
+    });
+    if(novs.length>4)h+=`<div style="font-size:10px;color:var(--hint);padding-top:5px;cursor:pointer" onclick="openNovModal()">+${novs.length-4} m\xe1s — ver todas</div>`;
+    else h+=`<div style="font-size:10px;color:var(--hint);padding-top:5px;cursor:pointer" onclick="openNovModal()">Ver y responder →</div>`;
+    h+='</div>';
+  }
   el.innerHTML=h;
 }
 function goHome(){
