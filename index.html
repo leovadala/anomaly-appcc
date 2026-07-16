@@ -3021,15 +3021,22 @@ function exportTempCSV(){
 }
 
 let _appPinVal='';
+function _appPinKbd(e){
+  if(/^[0-9]$/.test(e.key)){e.preventDefault();appPinKey(e.key);}
+  else if(e.key==='Backspace'||e.key==='Delete'){e.preventDefault();appPinDel();}
+  else if(e.key==='Escape'){e.preventDefault();closeAppPinModal();}
+}
 function openAppPinModal(){
   _appPinVal='';
   renderAppPinDots();
   const e=$('app-pin-err');if(e)e.style.display='none';
   const m=$('app-pin-modal');if(m)m.style.display='flex';
+  document.addEventListener('keydown',_appPinKbd);
 }
 function closeAppPinModal(){
   _appPinVal='';
   const m=$('app-pin-modal');if(m)m.style.display='none';
+  document.removeEventListener('keydown',_appPinKbd);
 }
 function appPinKey(k){
   if(_appPinVal.length>=4)return;
@@ -3051,6 +3058,7 @@ async function submitAppPin(){
   const{data}=await sb.from('team').select('nombre').eq('pin',pin).maybeSingle();
   if(data?.nombre){
     const m=$('app-pin-modal');if(m)m.style.display='none';
+    document.removeEventListener('keydown',_appPinKbd);
     const sel=$('ob-user');if(sel)sel.value=data.nombre;
     enterApp();
   } else {
