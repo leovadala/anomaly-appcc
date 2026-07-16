@@ -6985,12 +6985,12 @@ function renderEmpFichajesHistorico(){
     const salida=[...sorted].reverse().find(f=>f.tipo==='egreso');
     const mins=calcNetMinutes(sorted);
     const fmtT=ts=>ts?new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN}):'—';
-    const tard=entrada&&entrada.tardanza_min>0;
+    const tard=entrada&&entrada.tardanza_min>0&&entrada.tardanza_min<=120;
     const [y,m,d]=r.fecha.split('-');
     return `<tr style="border-bottom:.5px solid var(--border)">
       <td style="padding:5px 6px;font-weight:500">${r.nombre}</td>
       <td style="padding:5px 6px;color:var(--muted)">${d}/${m}</td>
-      <td style="padding:5px 6px;font-family:var(--mono);color:${tard?'#b33':'var(--black)'}">${fmtT(entrada?.timestamp)}${tard?` <span style="font-size:8px;color:#b33">+${entrada.tardanza_min}m</span>`:''}</td>
+      <td style="padding:5px 6px;font-family:var(--mono);color:${tard?'#b33':'var(--black)'}">${fmtT(entrada?.timestamp)}${tard&&entrada.tardanza_min<=120?` <span style="font-size:8px;color:#b33">+${entrada.tardanza_min}m</span>`:''}</td>
       <td style="padding:5px 6px;font-family:var(--mono)">${fmtT(salida?.timestamp)}</td>
       <td style="padding:5px 6px;font-family:var(--mono);color:var(--muted)">${mins>0?(Math.floor(mins/60)+'h'+(mins%60?(' '+(mins%60)+'m'):'')):'—'}</td>
     </tr>`;
@@ -7030,7 +7030,7 @@ async function renderEmpHoy(){
         <td style="padding:5px 6px;font-weight:500">${f.empleado_nombre}</td>
         <td style="padding:5px 6px;color:${tipoColor};font-weight:600;text-transform:uppercase;font-size:9px;letter-spacing:.5px">${f.tipo}</td>
         <td style="padding:5px 6px;font-family:var(--mono)">${hora}</td>
-        <td style="padding:5px 6px;color:${f.tardanza_min>0?'#b33':'var(--hint)'}">${f.tardanza_min>0?'+'+f.tardanza_min+'min':'—'}</td>
+        <td style="padding:5px 6px;color:${f.tardanza_min>0&&f.tardanza_min<=120?'#b33':'var(--hint)'}">${f.tardanza_min>0&&f.tardanza_min<=120?'+'+f.tardanza_min+'min':'—'}</td>
       </tr>`;
     }).join('')}
     </tbody></table>`;
@@ -7170,7 +7170,7 @@ async function openEmpFicha(nombre){
             <td style="padding:5px 6px">${fecha}</td>
             <td style="padding:5px 6px;color:${tc};font-weight:600;font-size:9px;letter-spacing:.5px;text-transform:uppercase">${f.tipo}${isCorrected?' ✎':''}</td>
             <td style="padding:5px 6px;font-family:var(--mono)">${hora}</td>
-            <td style="padding:5px 6px;color:${f.tardanza_min>0?'#b33':'var(--hint)'}">${f.tardanza_min>0?'+'+f.tardanza_min+'m':'—'}</td>
+            <td style="padding:5px 6px;color:${f.tardanza_min>0&&f.tardanza_min<=120?'#b33':'var(--hint)'}">${f.tardanza_min>0&&f.tardanza_min<=120?'+'+f.tardanza_min+'m':'—'}</td>
             <td style="padding:5px 6px">${!isCorrected?`<button onclick="openFichajeCorrection(${f.id},'${safets}','${f.tipo}','${nombre.replace(/'/g,"\'")}','${f.empleado_nombre.replace(/'/g,"\'")}')" style="font-size:9px;color:var(--muted);background:transparent;border:.5px solid var(--border);cursor:pointer;padding:2px 5px;border-radius:2px">Corregir</button>`:''}</td>
           </tr>
           ${f.motivo_correccion?`<tr style="border-bottom:.5px solid var(--border);background:var(--surface)"><td colspan="5" style="padding:3px 6px;font-size:9px;color:var(--hint)">✎ ${f.motivo_correccion}${f.corregido_por?' · '+f.corregido_por:''}</td></tr>`:''}`
@@ -7834,7 +7834,7 @@ async function fkRegistrar(tipo){
       const[hh,mm]=(hl.a||'').split(':').map(Number);
       const scheduled=new Date(now);scheduled.setHours(hh||0,mm||0,0,0);
       const diff=Math.floor((now-scheduled)/60000);
-      if(diff>5)tardanza_min=diff;
+      if(diff>5&&diff<=120)tardanza_min=diff;
     }
   }
   const wk=getScheduleKey();
