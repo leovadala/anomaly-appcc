@@ -1450,7 +1450,13 @@ function renderVentasList(){
   if(!_VentasMes.length){el.innerHTML='<div class="empty">Sin ventas importadas.</div>';return}
   el.innerHTML=_VentasMes.map(v=>`
     <div class="card">
-      <div class="card-top"><span class="card-nm">${_fmtMes(v.mes)}</span><span style="font-size:13px;font-weight:500">${(v.ventas_netas||0).toFixed(2)} €</span></div>
+      <div class="card-top">
+        <span class="card-nm">${_fmtMes(v.mes)}</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:13px;font-weight:500">${(v.ventas_netas||0).toFixed(2)} €</span>
+          <button type="button" onclick="deleteVentasMes('${v.mes}')" style="background:none;border:none;cursor:pointer;font-size:14px;color:var(--muted);padding:2px 4px;line-height:1" title="Eliminar">✕</button>
+        </div>
+      </div>
       <div class="card-row">
         <div><div class="card-l">Brutas</div><div class="card-v">${(v.ventas_brutas||0).toFixed(2)} €</div></div>
         <div><div class="card-l">Descuentos</div><div class="card-v">-${(v.descuentos||0).toFixed(2)} €</div></div>
@@ -1458,6 +1464,14 @@ function renderVentasList(){
         <div><div class="card-l">Ticket</div><div class="card-v">${v.ticket_medio?v.ticket_medio.toFixed(2)+' €':'—'}</div></div>
       </div>
     </div>`).join('');
+}
+
+async function deleteVentasMes(mes){
+  if(!confirm('¿Eliminar ventas de '+_fmtMes(mes)+'?'))return;
+  const{error}=await sb.from('ventas_mes').delete().eq('mes',mes);
+  if(error){alert('Error: '+error.message);return}
+  _VentasMes=_VentasMes.filter(v=>v.mes!==mes);
+  renderVentasList();
 }
 
 async function importVentasCSV(input){
