@@ -423,6 +423,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 </div>
 
 <div id="home-quick-sec" style="padding:12px 16px 12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">Egreso rápido</span><button type="button" onclick="openQuickEdit()" style="background:none;border:none;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer;padding:2px 0">⚙ Editar</button></div><div id="home-quick-btns" style="display:flex;flex-wrap:wrap;gap:8px;padding-bottom:12px;border-bottom:.5px solid var(--border);justify-content:flex-start"></div></div>
+<div id="home-dashboard" style="display:none;padding:0 16px 4px"></div>
 <div class="nav-grid" id="nav">
 <button onclick="go(0)">Proveedores</button>
 <button onclick="go(1)">Recepción</button>
@@ -3129,11 +3130,94 @@ async function savePinSup(){const p=$('cfg-pin-sup').value.trim();if(!/^\d{4}$/.
 
 function autoGenREHE(){const fechaStr=$('af').value;if(!fechaStr)return;const[year,month,day]=fechaStr.split('-');const dd=String(day).padStart(2,'0');const mm=String(month).padStart(2,'0');const cnt=H.filter(r=>r.fecha===fechaStr).length+1;const rehe='REHE-'+dd+mm+'-'+String(cnt).padStart(3,'0');$('adr').value=rehe}
 
+async function renderHomeDashboard(){
+  const el=$('home-dashboard');if(!el)return;
+  el.innerHTML='<div style="color:var(--hint);font-size:11px;padding:.5rem 0 .2rem">Cargando…</div>';
+  const todayStr=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
+  const in7=new Date(new Date(todayStr+'T12:00:00Z').getTime()+7*86400000).toISOString().split('T')[0];
+  const [fR,sR,tR,aR]=await Promise.all([
+    sb.from('fichajes').select('empleado_nombre,tipo,timestamp').gte('timestamp',todayStr+'T00:00:00Z').order('timestamp',{ascending:false}).limit(100),
+    sb.from('recepciones').select('producto,vencimiento').eq('estado','activo').not('vencimiento','is',null).lte('vencimiento',in7).order('vencimiento',{ascending:true}).limit(8),
+    sb.from('registros_temperatura').select('fecha,hora,temp_armario_1,temp_armario_2,temp_armario_3,incidencia').order('fecha',{ascending:false}).order('hora',{ascending:false}).limit(1),
+    sb.from('registros_appcc').select('fecha,hora,responsable,producto').order('fecha',{ascending:false}).order('hora',{ascending:false}).limit(1)
+  ]);
+  const activos={};
+  (fR.data||[]).filter(f=>new Date(f.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0]===todayStr).forEach(f=>{
+    if(!activos[f.empleado_nombre])activos[f.empleado_nombre]={tipo:f.tipo,ts:f.timestamp};
+  });
+  const enLocal=Object.entries(activos).filter(([,v])=>v.tipo==='ingreso'||v.tipo==='vuelta');
+  const fuera=Object.entries(activos).filter(([,v])=>v.tipo==='egreso'||v.tipo==='pausa');
+  const totalHoy=Object.keys(activos).length;
+  const stock=sR.data||[];
+  const temp=(tR.data||[])[0]||null;
+  const appcc=(aR.data||[])[0]||null;
+  const lbl=t=>`<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--hint);margin:1rem 0 .5rem;font-weight:500">${t}</div>`;
+  const dot=c=>`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${c};flex-shrink:0;margin-top:2px"></span>`;
+  const row='display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:.5px solid var(--border)';
+  let h='';
+  h+=lbl('Equipo · Hoy');
+  h+='<div class="card">';
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center${enLocal.length||fuera.length?';margin-bottom:8px':''}">`;
+  h+=`<span style="font-size:12px;font-weight:500;color:var(--black)">${enLocal.length?enLocal.length+' en local':'Nadie ahora'}</span>`;
+  h+=`<span style="font-size:10px;color:var(--hint)">${totalHoy} ficharon</span>`;
+  h+='</div>';
+  enLocal.forEach(([nombre,v])=>{
+    const hora=new Date(v.ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN});
+    h+=`<div style="${row}">${dot('#27ae60')}<span style="font-size:11px;flex:1;color:var(--black)">${nombre}</span><span style="font-size:10px;font-family:var(--mono);color:var(--muted)">${hora}</span></div>`;
+  });
+  fuera.forEach(([nombre,v])=>{
+    const hora=new Date(v.ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN});
+    const tip=v.tipo==='pausa'?'en pausa':'salió';
+    h+=`<div style="${row}">${dot('#ccc')}<span style="font-size:11px;flex:1;color:var(--muted)">${nombre}</span><span style="font-size:10px;color:var(--hint)">${tip} ${hora}</span></div>`;
+  });
+  if(!totalHoy)h+='<div style="font-size:11px;color:var(--hint)">Sin fichajes hoy</div>';
+  h+='</div>';
+  if(stock.length){
+    h+=lbl('Stock · Alertas');
+    h+='<div class="card">';
+    stock.slice(0,5).forEach(s=>{
+      const isV=s.vencimiento<=todayStr;
+      const col=isV?'#e74c3c':'#e67e22';
+      const dias=Math.round((new Date(s.vencimiento)-new Date(todayStr))/86400000);
+      const dStr=isV?'Vencido':dias===0?'Hoy':'En '+dias+'d';
+      h+=`<div style="${row}">${dot(col)}<span style="font-size:11px;flex:1;color:var(--black)">${s.producto}</span><span style="font-size:10px;color:${col};font-weight:500">${dStr}</span></div>`;
+    });
+    if(stock.length>5)h+=`<div style="font-size:10px;color:var(--hint);padding-top:4px">+${stock.length-5} más</div>`;
+    h+='</div>';
+  }
+  h+=lbl('Controles');
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">';
+  h+='<div class="card" style="margin-bottom:0">';
+  h+='<div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--hint);margin-bottom:6px">Temperatura</div>';
+  if(temp){
+    const tv=[temp.temp_armario_1,temp.temp_armario_2,temp.temp_armario_3].find(t=>t!=null);
+    const alert=temp.incidencia;
+    h+=`<div style="font-size:20px;font-weight:500;color:var(--black);margin-bottom:2px">${tv!=null?tv+'°C':'—'}</div>`;
+    h+=`<div style="font-size:10px;color:${alert?'#e74c3c':'#27ae60'}">${alert?'⚠ Incidencia':'✓ Normal'}</div>`;
+    h+=`<div style="font-size:9px;color:var(--hint);margin-top:3px">${temp.fecha} · ${(temp.hora||'').slice(0,5)}</div>`;
+  }else{
+    h+='<div style="font-size:11px;color:var(--hint)">Sin datos</div>';
+  }
+  h+='</div>';
+  h+='<div class="card" style="margin-bottom:0">';
+  h+='<div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--hint);margin-bottom:6px">APPCC</div>';
+  if(appcc){
+    h+=`<div style="font-size:12px;font-weight:500;color:var(--black);margin-bottom:2px;line-height:1.3">${appcc.producto||'—'}</div>`;
+    h+='<div style="font-size:10px;color:#27ae60">✓ Registrado</div>';
+    h+=`<div style="font-size:9px;color:var(--hint);margin-top:3px">${appcc.fecha} · ${appcc.responsable||''}</div>`;
+  }else{
+    h+='<div style="font-size:11px;color:var(--hint)">Sin datos</div>';
+  }
+  h+='</div>';
+  h+='</div>';
+  el.innerHTML=h;
+}
 function goHome(){
   $('btn-back').style.display='none';
   $('nav').style.display='';
   $('app-footer').style.display='';
   const _hqs2=$('home-quick-sec');if(_hqs2)_hqs2.style.display='';renderQuickBtns();
+  const _hd=$('home-dashboard');if(_hd){_hd.style.display='';renderHomeDashboard();}
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));
   document.querySelectorAll('#nav button').forEach(e=>e.classList.remove('on'));
   window.scrollTo(0,0);
@@ -3147,6 +3231,7 @@ function go(n){
   $('nav').style.display='none';
   $('app-footer').style.display='none';
   const _hqs=$('home-quick-sec');if(_hqs)_hqs.style.display='none';
+  const _hd2=$('home-dashboard');if(_hd2)_hd2.style.display='none';
   $('btn-back').style.display='inline-block';
   if(n===1){uSP();initRecDate();rRH();renderHistorial()};
   if(n===2){renderStockCatChips();rS();renderSH()};
