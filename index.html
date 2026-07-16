@@ -1492,8 +1492,7 @@ async function importVentasCSV(input){
   }
   // Construir mapa label→valor con parsing correcto
   const rows={};
-  for(const line of text.split(/?
-/)){
+  for(const line of text.replace(/\r/g,"").split("\n")){
     if(!line.trim())continue;
     const fields=parseCSVLine(line);
     if(fields.length>=2){
