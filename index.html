@@ -3253,6 +3253,14 @@ async function savePinSup(){const p=$('cfg-pin-sup').value.trim();if(!/^\d{4}$/.
 
 function autoGenREHE(){const fechaStr=$('af').value;if(!fechaStr)return;const[year,month,day]=fechaStr.split('-');const dd=String(day).padStart(2,'0');const mm=String(month).padStart(2,'0');const cnt=H.filter(r=>r.fecha===fechaStr).length+1;const rehe='REHE-'+dd+mm+'-'+String(cnt).padStart(3,'0');$('adr').value=rehe}
 
+function spainDayStartISO(dateStr){
+  // Returns the UTC ISO string for midnight of dateStr in Spain timezone
+  const now=new Date();
+  const spainMs=Date.parse(now.toLocaleString('sv',{timeZone:TZ_SPAIN}).replace(' ','T')+'Z');
+  const utcMs=Date.parse(now.toISOString().slice(0,19)+'Z');
+  const offsetMs=spainMs-utcMs;
+  return new Date(Date.parse(dateStr+'T00:00:00Z')-offsetMs).toISOString();
+}
 async function renderHomeDashboard(){
   const el=$('home-dashboard');if(!el)return;
   el.innerHTML='<div style="color:var(--hint);font-size:11px;padding:.5rem 0 .2rem">Cargando…</div>';
@@ -3260,7 +3268,7 @@ async function renderHomeDashboard(){
   const in7=new Date(new Date(todayStr+'T12:00:00Z').getTime()+7*86400000).toISOString().split('T')[0];
   const since7=new Date(new Date(todayStr+'T12:00:00Z').getTime()-6*86400000).toISOString().split('T')[0];
   const [fR,sR,tR,aR,nR,vR]=await Promise.all([
-    sb.from('fichajes').select('empleado_nombre,tipo,timestamp').gte('timestamp',todayStr+'T00:00:00Z').order('timestamp',{ascending:false}).limit(100),
+    sb.from('fichajes').select('empleado_nombre,tipo,timestamp').gte('timestamp',spainDayStartISO(todayStr)).order('timestamp',{ascending:false}).limit(100),
     sb.from('recepciones').select('producto,vencimiento').eq('estado','activo').not('vencimiento','is',null).lte('vencimiento',in7).order('vencimiento',{ascending:true}).limit(8),
     sb.from('registros_temperatura').select('fecha,hora,temp_armario_1,temp_armario_2,temp_armario_3,incidencia').order('fecha',{ascending:false}).order('hora',{ascending:false}).limit(1),
     sb.from('registros_appcc').select('fecha,hora,responsable,producto').order('fecha',{ascending:false}).order('hora',{ascending:false}).limit(1),
@@ -6985,7 +6993,7 @@ async function initEmpleados(){
   _empFichajes=data||[];
   // Today's fichajes
   const todayStr=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
-  _empFichajeHoy=_empFichajes.filter(f=>f.timestamp.startsWith(todayStr));
+  _empFichajeHoy=_empFichajes.filter(f=>new Date(f.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0]===todayStr);
   renderEmpDashboard();
   renderEmpIntegrantes();
   empSubTab('integrantes');
@@ -7202,7 +7210,7 @@ function renderEmpFichajesHistorico(){
   const toStr=to.toISOString().split('T')[0];
 
   const period=(_empFichajes||[]).filter(f=>{
-    const d=f.timestamp.split('T')[0];
+    const d=new Date(f.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
     return d>=fromStr&&d<=toStr&&(!f.estado||f.estado==='activo');
   });
 
@@ -7253,7 +7261,7 @@ async function renderEmpHoy(){
   const el=$('emp-hoy-list');if(!el)return;
   const todayStr=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
   const{data}=await sb.from('fichajes').select('*')
-    .gte('timestamp',todayStr+'T00:00:00')
+    .gte('timestamp',spainDayStartISO(todayStr))
     .order('timestamp',{ascending:false});
   _empFichajeHoy=data||[];
   if(!_empFichajeHoy.length){el.innerHTML='<div style="color:var(--hint);padding:.5rem">Sin fichajes hoy</div>';return;}
