@@ -1188,27 +1188,29 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   </div>
   <!-- Dashboard panel -->
   <div id="emp-panel-dash" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
-      <div style="display:flex;gap:8px">
-        <button class="btn-s" onclick="empSetPeriod('week')" id="emp-btn-week" style="border-color:var(--black)">Esta semana</button>
-        <button class="btn-s" onclick="empSetPeriod('month')" id="emp-btn-month">Este mes</button>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn-s" onclick="exportFichajesCSV()">↓ CSV</button>
-        <button class="btn-s" onclick="openFichaje()">⏱ Fichaje</button>
-      </div>
+    <div style="display:flex;gap:8px;margin-bottom:1rem">
+      <button class="btn-s" onclick="empSetPeriod('week')" id="emp-btn-week" style="border-color:var(--black)">Esta semana</button>
+      <button class="btn-s" onclick="empSetPeriod('month')" id="emp-btn-month">Este mes</button>
     </div>
+    <div id="emp-dash-summary" style="margin-bottom:1rem"></div>
     <div class="emp-kpi-grid" id="emp-kpi-grid">
       <div style="color:var(--hint);font-size:11px;padding:1rem">Cargando empleados…</div>
     </div>
   </div>
   <!-- Fichaje inline panel -->
   <div id="emp-panel-fichaje" style="display:none">
-    <p style="font-size:11px;color:var(--muted);margin-bottom:1rem">Para la tablet de la puerta usá la URL dedicada: <code id="emp-fichaje-url" style="background:var(--surface);padding:2px 6px;font-size:10px"></code></p>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <p style="font-size:11px;color:var(--muted);margin:0;flex:1">Tablet: <code id="emp-fichaje-url" style="background:var(--surface);padding:2px 6px;font-size:10px"></code></p>
+      <button class="btn-s" onclick="exportFichajesCSV()" style="flex-shrink:0">↓ CSV</button>
+    </div>
     <button class="btn" onclick="openFichaje()" style="width:100%;font-size:13px;padding:16px;letter-spacing:2px">⏱ ABRIR KIOSKO DE FICHAJE</button>
     <div style="margin-top:1.5rem" id="emp-fichaje-hoy">
       <div class="sec-t" style="margin-bottom:.6rem">Fichajes de hoy</div>
       <div id="emp-hoy-list" style="font-size:11px;color:var(--muted)">Cargando…</div>
+    </div>
+    <div style="margin-top:1.8rem">
+      <div class="sec-t" style="margin-bottom:.6rem">Historial del período</div>
+      <div id="emp-hist-list"><div style="color:var(--hint);font-size:11px">Cargando…</div></div>
     </div>
   </div>
   <!-- Integrantes panel -->
@@ -6796,11 +6798,12 @@ function renderEmpDashboard(){
     return d>=fromStr&&d<=toStr;
   });
 
-  grid.innerHTML=horEmpleados.map(emp=>{
+  // ── Summary bar ──
+  let totalH=0,conAlertas=0,totalTard=0;
+  const cardHtml=horEmpleados.map(emp=>{
     const nombre=emp.nombre||emp.name||'';
     const empF=periodFichajes.filter(f=>f.empleado_nombre===nombre);
 
-    // Calculate real hours from ingreso/egreso pairs per day
     const byDay={};
     empF.forEach(f=>{
       const d=f.timestamp.split('T')[0];
@@ -6815,7 +6818,6 @@ function renderEmpDashboard(){
     });
     realH=Math.round(realH*10)/10;
 
-    // Planned hours from schedule
     let planH=0;
     if(_empPeriod==='week'){
       const days=getWeekDates(horCurrentWeekOffset);
@@ -6823,42 +6825,65 @@ function renderEmpDashboard(){
       const esch=sch[nombre]||{};
       days.forEach((d,i)=>planH+=parseShiftHours(esch[i]||''));
     } else {
-      // Sum across all weeks in month
       planH=Math.round((emp.horas_contrato||0)*4.33);
     }
 
     const diff=Math.round((realH-planH)*10)/10;
-    const diffClass=diff>0?'emp-kpi-ok':diff<-2?'emp-kpi-bad':'emp-kpi-warn';
-    const diffStr=(diff>0?'+':'')+diff;
-    const tardClass=tardanzas>2?'emp-kpi-bad':tardanzas>0?'emp-kpi-warn':'emp-kpi-ok';
+    const diffColor=diff>0?'#2d6a2d':diff<-2?'#b33':'#b8860b';
+    const diffStr=(diff>=0?'+':'')+diff+'h';
     const hasReal=realH>0;
 
-    return `<div class="emp-card" onclick="openEmpFicha('${nombre.replace(/'/g,"\\'")}')">
-      <div class="emp-card-name">${nombre}</div>
-      <div class="emp-card-cargo">${emp.cargo||'—'}</div>
-      <div class="emp-kpi-row">
-        <div class="emp-kpi">
-          <div class="emp-kpi-val">${fmtH(planH).replace('+','')}</div>
-          <div class="emp-kpi-lbl">${_empPeriod==='week'?'Planif.':'Objetivo'}</div>
+    totalH+=realH;
+    if(alehAlerts.length)conAlertas++;
+    totalTard+=tardanzas;
+
+    const visible2=alehAlerts.slice(0,2);
+    const extra=alehAlerts.length-2;
+
+    return `<div class="emp-card" onclick="openEmpFicha('${nombre.replace(/'/g,"\'")}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div>
+          <div class="emp-card-name">${nombre}</div>
+          <div class="emp-card-cargo">${emp.cargo||'—'}</div>
         </div>
-        <div class="emp-kpi">
-          <div class="emp-kpi-val ${hasReal?'':'emp-kpi-warn'}">${hasReal?fmtH(realH).replace('+',''):'—'}</div>
-          <div class="emp-kpi-lbl">Fichadas</div>
-        </div>
-        <div class="emp-kpi">
-          <div class="emp-kpi-val ${hasReal?diffClass:''}">${hasReal?fmtH(diff):'—'}</div>
-          <div class="emp-kpi-lbl">Dif.</div>
-        </div>
-        <div class="emp-kpi">
-          <div class="emp-kpi-val ${tardClass}">${tardanzas||'—'}</div>
-          <div class="emp-kpi-lbl">Tard.</div>
-        </div>
+        ${tardanzas>0?`<span style="font-size:9px;font-weight:600;background:#fdecea;color:#b33;padding:2px 7px;border-radius:10px;white-space:nowrap">${tardanzas} tard.</span>`:''}
       </div>
-      ${alehAlerts.length?`<div style="margin-top:8px;display:flex;flex-direction:column;gap:3px">
-        ${alehAlerts.slice(0,3).map(a=>`<div class="aleh-tag ${a.tipo}">${a.tipo==='red'?'⛔':'⚠'} ${a.msg}</div>`).join('')}
+      <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:${alehAlerts.length?'8':'0'}px">
+        <div>
+          <div style="font-size:${hasReal?'24':'18'}px;font-weight:700;font-family:var(--mono);color:${hasReal?diffColor:'var(--hint)'};line-height:1">${hasReal?diffStr:'—'}</div>
+          <div style="font-size:8px;color:var(--hint);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Diferencia</div>
+        </div>
+        ${hasReal?`<div style="border-left:.5px solid var(--border);padding-left:14px">
+          <div style="font-size:15px;font-weight:600;font-family:var(--mono);color:var(--black);line-height:1">${fmtH(realH).replace('+','')}</div>
+          <div style="font-size:8px;color:var(--hint);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Fichadas</div>
+        </div>`:''}
+      </div>
+      ${alehAlerts.length?`<div style="display:flex;flex-direction:column;gap:3px">
+        ${visible2.map(a=>`<div class="aleh-tag ${a.tipo}">${a.tipo==='red'?'⛔':'⚠'} ${a.msg}</div>`).join('')}
+        ${extra>0?`<div style="font-size:9px;color:var(--hint);padding:1px 0">+${extra} alerta${extra>1?'s':''} más</div>`:''}
       </div>`:''}
     </div>`;
   }).join('');
+
+  const smEl=$('emp-dash-summary');
+  if(smEl){
+    const totalHfmt=Math.round(totalH*10)/10;
+    smEl.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      <div style="background:var(--surface);border:.5px solid var(--border);border-radius:6px;padding:10px 12px;text-align:center">
+        <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:var(--black)">${totalHfmt}h</div>
+        <div style="font-size:8px;color:var(--hint);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Total fichadas</div>
+      </div>
+      <div style="background:var(--surface);border:.5px solid ${conAlertas>0?'#e4c07a':'var(--border)'};border-radius:6px;padding:10px 12px;text-align:center">
+        <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:${conAlertas>0?'#b8860b':'var(--black)'}">${conAlertas}</div>
+        <div style="font-size:8px;color:var(--hint);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Con alertas</div>
+      </div>
+      <div style="background:var(--surface);border:.5px solid ${totalTard>0?'#f5b8b8':'var(--border)'};border-radius:6px;padding:10px 12px;text-align:center">
+        <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:${totalTard>0?'#b33':'var(--black)'}">${totalTard}</div>
+        <div style="font-size:8px;color:var(--hint);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Tardanzas</div>
+      </div>
+    </div>`;
+  }
+  grid.innerHTML=cardHtml;
 }
 
 // ── ALEH hostelería utilities ──────────────────────────────────────
@@ -6912,6 +6937,68 @@ function checkALEH(fichajes){
   if(weekMin>40*60)alerts.push({tipo:'red',msg:`Esta semana: ${(weekMin/60).toFixed(1)}h — excede 40h semanales`});
   else if(weekMin>38*60)alerts.push({tipo:'warn',msg:`Esta semana: ${(weekMin/60).toFixed(1)}h — próx. límite 40h`});
   return alerts;
+}
+
+// ── Fichajes histórico ───────────────────────────────────────────────
+function renderEmpFichajesHistorico(){
+  const el=$('emp-hist-list');if(!el)return;
+  const now=new Date();
+  let from,to;
+  if(_empPeriod==='week'){
+    const days=getWeekDates(horCurrentWeekOffset);
+    from=days[0];to=days[6];
+  } else {
+    from=new Date(now.getFullYear(),now.getMonth(),1);
+    to=new Date(now.getFullYear(),now.getMonth()+1,0);
+  }
+  const fromStr=from.toISOString().split('T')[0];
+  const toStr=to.toISOString().split('T')[0];
+
+  const period=(_empFichajes||[]).filter(f=>{
+    const d=f.timestamp.split('T')[0];
+    return d>=fromStr&&d<=toStr&&(!f.estado||f.estado==='activo');
+  });
+
+  if(!period.length){
+    el.innerHTML='<div style="color:var(--hint);font-size:11px;padding:.5rem">Sin fichajes en este período</div>';
+    return;
+  }
+
+  // Group by employee+day
+  const byEmpDay={};
+  period.forEach(f=>{
+    const key=f.empleado_nombre+'|'+f.timestamp.split('T')[0];
+    if(!byEmpDay[key])byEmpDay[key]={nombre:f.empleado_nombre,fecha:f.timestamp.split('T')[0],fichajes:[]};
+    byEmpDay[key].fichajes.push(f);
+  });
+
+  const rows=Object.values(byEmpDay).sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.nombre.localeCompare(b.nombre));
+
+  const tbody=rows.map(r=>{
+    const sorted=r.fichajes.slice().sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
+    const entrada=sorted.find(f=>f.tipo==='ingreso');
+    const salida=[...sorted].reverse().find(f=>f.tipo==='egreso');
+    const mins=calcNetMinutes(sorted);
+    const fmtT=ts=>ts?new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):'—';
+    const tard=entrada&&entrada.tardanza_min>0;
+    const [y,m,d]=r.fecha.split('-');
+    return `<tr style="border-bottom:.5px solid var(--border)">
+      <td style="padding:5px 6px;font-weight:500">${r.nombre}</td>
+      <td style="padding:5px 6px;color:var(--muted)">${d}/${m}</td>
+      <td style="padding:5px 6px;font-family:var(--mono);color:${tard?'#b33':'var(--black)'}">${fmtT(entrada?.timestamp)}${tard?` <span style="font-size:8px;color:#b33">+${entrada.tardanza_min}m</span>`:''}</td>
+      <td style="padding:5px 6px;font-family:var(--mono)">${fmtT(salida?.timestamp)}</td>
+      <td style="padding:5px 6px;font-family:var(--mono);color:var(--muted)">${mins>0?(Math.floor(mins/60)+'h'+(mins%60?(' '+(mins%60)+'m'):'')):'—'}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="border-bottom:.5px solid var(--border)">
+      <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400;font-size:9px;text-transform:uppercase;letter-spacing:.5px">Empleado</th>
+      <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400;font-size:9px;text-transform:uppercase;letter-spacing:.5px">Fecha</th>
+      <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400;font-size:9px;text-transform:uppercase;letter-spacing:.5px">Entrada</th>
+      <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400;font-size:9px;text-transform:uppercase;letter-spacing:.5px">Salida</th>
+      <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400;font-size:9px;text-transform:uppercase;letter-spacing:.5px">Total</th>
+    </tr></thead><tbody>${tbody}</tbody></table>`;
 }
 
 // ── Fichaje hoy ─────────────────────────────────────────────────────
