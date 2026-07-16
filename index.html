@@ -75,6 +75,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .btn-s:hover{border-color:var(--black);color:var(--black)}
 .btn-d{padding:3px 8px;border:.5px solid var(--border);background:transparent;color:var(--hint);font-family:var(--font);font-size:10px;cursor:pointer}
 .btn-d:hover{border-color:#b33;color:#b33}
+.pin-key{padding:14px;border:.5px solid var(--border);background:transparent;color:var(--black);font-family:var(--font);font-size:18px;font-weight:500;cursor:pointer;border-radius:8px;transition:background .1s}
+.pin-key:active{background:var(--black);color:var(--bg)}
 
 /* TAGS */
 .tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;min-height:24px}
@@ -369,12 +371,34 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   <div id="tur-quick-btns" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:5px;width:100%;margin-bottom:16px"></div>
 
 </div>
-<label>Responsable del turno</label>
-<select id="ob-user"><option value="">Seleccionar...</option></select>
-<button class="enter" onclick="enterApp()">Ingresar</button>
+<select id="ob-user" style="display:none"><option value="">Seleccionar...</option></select>
+<button class="enter" onclick="openAppPinModal()">Ingresar</button>
 <div style="margin-top:3rem;font-size:10px;color:var(--hint)">
 <span style="cursor:pointer;border-bottom:.5px solid var(--hint)" onclick="goConfig()">Configurar equipo</span>
 </div>
+</div>
+
+<!-- App PIN modal -->
+<div id="app-pin-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.85);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:var(--bg);border-radius:16px;padding:2rem 1.5rem;width:280px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+    <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:1.8rem">Ingresá tu PIN</div>
+    <div id="app-pin-dots" style="display:flex;gap:14px;justify-content:center;margin-bottom:2rem"></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+      <button type="button" class="pin-key" onclick="appPinKey('1')">1</button>
+      <button type="button" class="pin-key" onclick="appPinKey('2')">2</button>
+      <button type="button" class="pin-key" onclick="appPinKey('3')">3</button>
+      <button type="button" class="pin-key" onclick="appPinKey('4')">4</button>
+      <button type="button" class="pin-key" onclick="appPinKey('5')">5</button>
+      <button type="button" class="pin-key" onclick="appPinKey('6')">6</button>
+      <button type="button" class="pin-key" onclick="appPinKey('7')">7</button>
+      <button type="button" class="pin-key" onclick="appPinKey('8')">8</button>
+      <button type="button" class="pin-key" onclick="appPinKey('9')">9</button>
+      <button type="button" class="pin-key" onclick="closeAppPinModal()" style="font-size:11px;color:var(--muted)">Cancelar</button>
+      <button type="button" class="pin-key" onclick="appPinKey('0')">0</button>
+      <button type="button" class="pin-key" onclick="appPinDel()" style="font-size:18px">⌫</button>
+    </div>
+    <div id="app-pin-err" style="display:none;color:#c0392b;font-size:11px;margin-top:10px;letter-spacing:.5px">PIN incorrecto</div>
+  </div>
 </div>
 
 <!-- Turno screen quick-expense modal (inside #onboard so it's visible when main is hidden) -->
@@ -2989,6 +3013,46 @@ function exportTempCSV(){
   const url=URL.createObjectURL(blob);const link=document.createElement('a');
   link.href=url;link.download=`temperaturas_${$('temp-his-año').value}-${String($('temp-his-mes').value).padStart(2,'0')}.csv`;
   link.click();URL.revokeObjectURL(url);
+}
+
+let _appPinVal='';
+function openAppPinModal(){
+  _appPinVal='';
+  renderAppPinDots();
+  const e=$('app-pin-err');if(e)e.style.display='none';
+  const m=$('app-pin-modal');if(m)m.style.display='flex';
+}
+function closeAppPinModal(){
+  _appPinVal='';
+  const m=$('app-pin-modal');if(m)m.style.display='none';
+}
+function appPinKey(k){
+  if(_appPinVal.length>=4)return;
+  _appPinVal+=k;
+  renderAppPinDots();
+  if(_appPinVal.length===4)submitAppPin();
+}
+function appPinDel(){
+  _appPinVal=_appPinVal.slice(0,-1);
+  renderAppPinDots();
+  const e=$('app-pin-err');if(e)e.style.display='none';
+}
+function renderAppPinDots(){
+  const dots=$('app-pin-dots');if(!dots)return;
+  dots.innerHTML=[0,1,2,3].map(i=>`<div style="width:13px;height:13px;border-radius:50%;border:1.5px solid var(--black);background:${i<_appPinVal.length?'var(--black)':'transparent'}"></div>`).join('');
+}
+async function submitAppPin(){
+  const pin=_appPinVal;
+  const{data}=await sb.from('team').select('nombre').eq('pin',pin).maybeSingle();
+  if(data?.nombre){
+    const m=$('app-pin-modal');if(m)m.style.display='none';
+    const sel=$('ob-user');if(sel)sel.value=data.nombre;
+    enterApp();
+  } else {
+    const e=$('app-pin-err');if(e)e.style.display='block';
+    _appPinVal='';
+    renderAppPinDots();
+  }
 }
 
 function enterApp(){const v=$('ob-user').value;if(!v){alert('Seleccion\u00e1 un responsable');return}currentUser=v;$('onboard').style.display='none';$('main').style.display='block';$('hdr-user').textContent=currentUser;$('ar').value=currentUser;$('af').valueAsDate=new Date();loadLastIngreso();try{localStorage.setItem('anomaly_last_login',JSON.stringify({user:v,time:new Date().toISOString()}))}catch(e){};startClock();goHome()}
