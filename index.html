@@ -1042,6 +1042,13 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <span class="btn" style="display:block;margin-top:0;cursor:pointer;text-align:center">📊 Subir CSV de Square</span>
 </label>
 </div>
+<div class="sec">
+  <div class="sec-t" style="display:flex;justify-content:space-between;align-items:center">
+    Acumulado del mes
+    <button type="button" class="btn-s" onclick="consultarSquareMes()" id="sq-live-btn">🔄 Consultar Square</button>
+  </div>
+  <div id="sq-live-block" style="color:var(--muted);font-size:12px;text-align:center;padding:1rem 0">Tocá el botón para ver el acumulado en tiempo real.</div>
+</div>
 <div class="sec"><div class="sec-t">Historial ventas</div><div id="fin-ventas-list"><div class="empty">Sin datos</div></div></div>
 </div>
 
@@ -1445,6 +1452,54 @@ function _fmtMes(d){
 }
 
 // — VENTAS —
+async function consultarSquareMes(){
+  const btn=$('sq-live-btn');
+  const block=$('sq-live-block');
+  if(!block)return;
+  const now=new Date();
+  const mes=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  if(btn){btn.disabled=true;btn.textContent='Consultando...';}
+  block.innerHTML='<div style="color:var(--muted);font-size:12px;text-align:center;padding:1rem 0">Consultando Square...</div>';
+  try{
+    const{data,error}=await sb.functions.invoke('square-proxy',{body:{mode:'month',mes}});
+    if(error)throw new Error(error.message);
+    const d=data;
+    if(d.error)throw new Error(d.error);
+    const fmt=v=>'€'+Number(v).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+    const hoy=now.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'});
+    block.innerHTML=`
+      <div style="font-size:10px;color:var(--muted);text-align:right;margin-bottom:10px">Al ${hoy} · ${d.pedidos} cobros</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div style="padding:12px;border:.5px solid var(--border);border-radius:8px;text-align:center">
+          <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Total cobrado</div>
+          <div style="font-size:18px;font-weight:700">${fmt(d.total_cobrado)}</div>
+        </div>
+        <div style="padding:12px;border:.5px solid var(--border);border-radius:8px;text-align:center">
+          <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Ventas netas</div>
+          <div style="font-size:18px;font-weight:700">${fmt(d.ventas_netas)}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        <div style="padding:10px;border:.5px solid var(--border);border-radius:8px;text-align:center">
+          <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Efectivo</div>
+          <div style="font-size:14px;font-weight:600;color:#1a7a3d">${fmt(d.efectivo)}</div>
+        </div>
+        <div style="padding:10px;border:.5px solid var(--border);border-radius:8px;text-align:center">
+          <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Tarjeta</div>
+          <div style="font-size:14px;font-weight:600;color:#2266bb">${fmt(d.tarjeta)}</div>
+        </div>
+        <div style="padding:10px;border:.5px solid var(--border);border-radius:8px;text-align:center">
+          <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Otros</div>
+          <div style="font-size:14px;font-weight:600">${fmt(d.otros)}</div>
+        </div>
+      </div>`;
+  }catch(e){
+    block.innerHTML='<div style="color:#c0392b;font-size:12px;text-align:center;padding:1rem 0">Error: '+e.message+'</div>';
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='\uD83D\uDD04 Consultar Square';}
+  }
+}
+
 function renderVentasList(){
   const el=$('fin-ventas-list');if(!el)return;
   if(!_VentasMes.length){el.innerHTML='<div class="empty">Sin ventas importadas.</div>';return}
