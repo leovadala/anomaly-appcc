@@ -2212,6 +2212,10 @@ async function _renderERAnio(year){
 
 const SB_URL='https://mknqxqkjtjogbjrlpzbj.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rbnF4cWtqdGpvZ2JqcmxwemJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMDY4NjEsImV4cCI6MjA5MzU4Mjg2MX0.47JXMAtPvK2QVDGJoMMUFNX86-zmpRGCcmhddthNEr0';
+const TZ_SPAIN='Europe/Madrid';
+function toSpainInput(ts){return new Date(ts).toLocaleString('sv',{timeZone:TZ_SPAIN}).replace(' ','T').slice(0,16);}
+function parseSpainInput(s){const u=new Date(s+':00Z');const sp=u.toLocaleString('sv',{timeZone:TZ_SPAIN}).replace(' ','T').slice(0,16);return new Date(u.getTime()+(new Date(s+':00Z').getTime()-new Date(sp+':00Z').getTime())).toISOString();}
+
 let OPENAI_KEY='';
 const sb=window.supabase.createClient(SB_URL,SB_KEY);
 
@@ -2366,7 +2370,7 @@ $('ab').addEventListener('input',uLF);
 $('rd1').value=hoy;$('rd2').value=hoy;
 
 function goConfig(){$('onboard').style.display='none';$('main').style.display='block';go(5)}
-function startClock(){function _t(){var n=new Date(),dy=['dom','lun','mar','mi\u00e9','jue','vie','s\u00e1b'],mo=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'],h=String(n.getHours()).padStart(2,'0'),m=String(n.getMinutes()).padStart(2,'0'),s=String(n.getSeconds()).padStart(2,'0'),el=$('af-clock');if(el)el.textContent=h+':'+m+':'+s+' \u00b7 '+dy[n.getDay()]+' '+n.getDate()+' '+mo[n.getMonth()]+' '+n.getFullYear();}_t();setInterval(_t,1000);}
+function startClock(){const dy=['dom','lun','mar','mi\u00e9','jue','vie','s\u00e1b'],mo=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'],wdMap={'Sun':0,'Mon':1,'Tue':2,'Wed':3,'Thu':4,'Fri':5,'Sat':6};function _t(){const n=new Date(),sv=n.toLocaleString('sv',{timeZone:TZ_SPAIN}),wd=new Intl.DateTimeFormat('en-US',{timeZone:TZ_SPAIN,weekday:'short'}).format(n),[dt,tm]=sv.split(' '),[yr,mn2,dd]=dt.split('-').map(Number),el=$('af-clock');if(el)el.textContent=tm+' \u00b7 '+dy[wdMap[wd]]+' '+dd+' '+mo[mn2-1]+' '+yr;}_t();setInterval(_t,1000);}
 function loadLastIngreso(){const el=$('af-ingreso');if(!el)return;try{const raw=localStorage.getItem('anomaly_last_login');if(raw){const{user,time}=JSON.parse(raw),d=new Date(time),dd=String(d.getDate()).padStart(2,'0'),mm=String(d.getMonth()+1).padStart(2,'0'),hh=String(d.getHours()).padStart(2,'0'),mn=String(d.getMinutes()).padStart(2,'0');el.textContent='\u00falt. ingreso: '+user+' \u00b7 '+dd+'/'+mm+' '+hh+':'+mn;}}catch(e){}}
 
 // TURNO SCREEN
@@ -6738,7 +6742,7 @@ async function initEmpleados(){
     .order('timestamp',{ascending:true});
   _empFichajes=data||[];
   // Today's fichajes
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
   _empFichajeHoy=_empFichajes.filter(f=>f.timestamp.startsWith(todayStr));
   renderEmpDashboard();
   renderEmpIntegrantes();
@@ -6980,7 +6984,7 @@ function renderEmpFichajesHistorico(){
     const entrada=sorted.find(f=>f.tipo==='ingreso');
     const salida=[...sorted].reverse().find(f=>f.tipo==='egreso');
     const mins=calcNetMinutes(sorted);
-    const fmtT=ts=>ts?new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):'—';
+    const fmtT=ts=>ts?new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN}):'—';
     const tard=entrada&&entrada.tardanza_min>0;
     const [y,m,d]=r.fecha.split('-');
     return `<tr style="border-bottom:.5px solid var(--border)">
@@ -7005,7 +7009,7 @@ function renderEmpFichajesHistorico(){
 // ── Fichaje hoy ─────────────────────────────────────────────────────
 async function renderEmpHoy(){
   const el=$('emp-hoy-list');if(!el)return;
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
   const{data}=await sb.from('fichajes').select('*')
     .gte('timestamp',todayStr+'T00:00:00')
     .order('timestamp',{ascending:false});
@@ -7019,7 +7023,7 @@ async function renderEmpHoy(){
       <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400">Tard.</th>
     </tr></thead><tbody>
     ${_empFichajeHoy.filter(f=>!f.estado||f.estado==='activo').map(f=>{
-      const hora=new Date(f.timestamp).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+      const hora=new Date(f.timestamp).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN});
       const tipoColors={ingreso:'#27ae60',egreso:'#e74c3c',pausa:'#c9a227',vuelta:'#1a7f64'};
       const tipoColor=tipoColors[f.tipo]||'var(--muted)';
       return`<tr style="border-bottom:.5px solid var(--border)">
@@ -7077,7 +7081,7 @@ async function openEmpFicha(nombre){
   $('emp-ficha-content').innerHTML='<div style="color:var(--hint);font-size:11px;padding:1rem">Cargando ficha…</div>';
 
   // Load data
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
   const y=new Date().getFullYear(),m=String(new Date().getMonth()+1).padStart(2,'0');
   const [fichRes,ausRes,evalRes]=await Promise.all([
     sb.from('fichajes').select('*').eq('empleado_nombre',nombre).order('timestamp',{ascending:false}).limit(50),
@@ -7155,8 +7159,8 @@ async function openEmpFicha(nombre){
         </tr></thead><tbody>
         ${fichajes.map(f=>{
           const dt=new Date(f.timestamp);
-          const fecha=dt.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit'});
-          const hora=dt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+          const fecha=dt.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',timeZone:TZ_SPAIN});
+          const hora=dt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN});
           const tipoColors={ingreso:'#27ae60',egreso:'#e74c3c',pausa:'#c9a227',vuelta:'#1a7f64'};
           const tc=tipoColors[f.tipo]||'var(--muted)';
           const isCorrected=f.estado==='corregido';
@@ -7250,9 +7254,8 @@ function openFichajeCorrection(fid,ts,tipo,nombre,empNombre){
   $('correc-nombre').value=empNombre||nombre;
   $('correc-tipo').value=tipo;
   const d=new Date(ts);
-  const pad=n=>String(n).padStart(2,'0');
-  $('correc-ts').value=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  $('correc-original').textContent=`${tipo} · ${d.toLocaleString('es-ES')}`;
+  $('correc-ts').value=toSpainInput(ts);
+  $('correc-original').textContent=`${tipo} · ${d.toLocaleString('es-ES',{timeZone:TZ_SPAIN})}`;
   $('correc-motivo').value='';$('correc-por').value='';
   $('ficha-correc-modal').style.display='block';
 }
@@ -7269,7 +7272,7 @@ async function submitFichajeCorrection(){
   await sb.from('fichajes').update({estado:'corregido',corregido_por:por,motivo_correccion:motivo}).eq('id',fid);
   await sb.from('fichajes').insert({
     empleado_nombre:empNombre,tipo,
-    timestamp:new Date(ts).toISOString(),
+    timestamp:parseSpainInput(ts),
     estado:'activo',correccion_de:fid,
     motivo_correccion:motivo,corregido_por:por,tardanza_min:0
   });
@@ -7284,7 +7287,7 @@ async function exportFichajesCSV(){
   const rows=data.map(f=>{
     const dt=new Date(f.timestamp);
     return[f.empleado_nombre||'',f.tipo||'',
-      dt.toLocaleDateString('es-ES'),dt.toLocaleTimeString('es-ES'),
+      dt.toLocaleDateString('es-ES',{timeZone:TZ_SPAIN}),dt.toLocaleTimeString('es-ES',{timeZone:TZ_SPAIN}),
       f.estado||'activo',f.tardanza_min||0,
       f.correccion_de||'',f.motivo_correccion||'',f.corregido_por||''
     ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
@@ -7775,7 +7778,7 @@ async function fkCheckPin(){
     _fkPin='';fkUpdateDots();
     return;
   }
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
   const{data}=await sb.from('fichajes').select('*')
     .eq('empleado_nombre',_fkEmp.nombre||_fkEmp.name)
     .gte('timestamp',todayStr+'T00:00:00')
@@ -7847,7 +7850,7 @@ async function fkRegistrar(tipo){
   $('fk-res-icon').textContent=icons[tipo]||'✓';
   $('fk-res-name').textContent=nombre;
   $('fk-res-tipo').textContent=labels[tipo]||tipo;
-  $('fk-res-time').textContent=now.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  $('fk-res-time').textContent=now.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN});
   setTimeout(fkReset,3000);
 }
 
