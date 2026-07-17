@@ -3279,7 +3279,8 @@ async function renderHomeDashboard(){
   (fR.data||[]).filter(f=>new Date(f.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0]===todayStr).forEach(f=>{
     if(!activos[f.empleado_nombre])activos[f.empleado_nombre]={tipo:f.tipo,ts:f.timestamp};
   });
-  const enLocal=Object.entries(activos).filter(([,v])=>v.tipo==='ingreso'||v.tipo==='vuelta');
+  const _16hAgo=new Date(Date.now()-16*3600000);
+  const enLocal=Object.entries(activos).filter(([,v])=>(v.tipo==='ingreso'||v.tipo==='vuelta')&&new Date(v.ts)>_16hAgo);
   const fuera=Object.entries(activos).filter(([,v])=>v.tipo==='egreso'||v.tipo==='pausa');
   const totalHoy=Object.keys(activos).length;
   const stock=sR.data||[];
