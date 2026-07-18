@@ -3128,7 +3128,7 @@ async function renderTempHistorial(){
     const activeSensors=tempSensors.filter(s=>s.enabled!==false);
     const alerts=activeSensors.filter(s=>{const v=s.custom?(r.extras&&r.extras[s.id]!=null?r.extras[s.id]:null):r[s.id];return v!=null&&(v<s.min||v>s.max);});
     const grid=activeSensors.map(s=>{const v=s.custom?(r.extras&&r.extras[s.id]!=null?r.extras[s.id]:null):r[s.id];const out=v!=null&&(v<s.min||v>s.max);return`<div><div style="color:var(--muted);font-size:9px;margin-bottom:2px">${s.label}</div><div style="font-weight:500;font-size:11px;color:${out?'#c0392b':s.neg?'#2266bb':'#1a7a3d'}">${v!=null?((v<0?'−':'+')+Math.abs(v).toFixed(1)+'°'):'—'}</div></div>`;}).join('');
-    return`<div style="border:.5px solid ${alerts.length?'#c0392b':'var(--border)'};border-radius:4px;padding:10px 12px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:8px"><span style="font-size:12px;font-weight:500">${r.fecha} · ${(r.hora||'').slice(0,5)}</span><span style="font-size:10px;color:var(--muted)">${r.turno} · ${r.responsable}</span>${alerts.length?'<span style="font-size:9px;color:#c0392b;font-weight:700">⚠ ALERTA</span>':''}<button type="button" onclick="deleteTempRecord(${r.id})" style="background:none;border:.5px solid var(--border);border-radius:3px;cursor:pointer;font-size:9px;color:var(--muted);padding:2px 7px;letter-spacing:.5px;font-family:var(--font);margin-left:auto">Eliminar</button></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${grid}</div>${r.incidencia?`<div style="margin-top:8px;font-size:11px;color:var(--muted);border-top:.5px solid var(--border);padding-top:6px">Incidencia: ${r.incidencia}</div>`:''}</div>`;
+    return`<div style="border:.5px solid ${alerts.length?'#c0392b':'var(--border)'};border-radius:4px;padding:10px 12px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:8px"><span style="font-size:12px;font-weight:500">${r.fecha} · ${(r.hora||'').slice(0,5)}</span><span style="font-size:10px;color:var(--muted)">${r.turno} · ${r.responsable}</span>${alerts.length?'<span style="font-size:9px;color:#c0392b;font-weight:700">⚠ ALERTA</span>':''}<button type="button" onclick="deleteTempRecord(${r.id},this)" style="background:none;border:.5px solid var(--border);border-radius:3px;cursor:pointer;font-size:9px;color:var(--muted);padding:2px 7px;letter-spacing:.5px;font-family:var(--font);margin-left:auto">Eliminar</button></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${grid}</div>${r.incidencia?`<div style="margin-top:8px;font-size:11px;color:var(--muted);border-top:.5px solid var(--border);padding-top:6px">Incidencia: ${r.incidencia}</div>`:''}</div>`;
   }).join('');
 }
 function exportTempCSV(){
@@ -3144,26 +3144,43 @@ function exportTempCSV(){
   link.click();URL.revokeObjectURL(url);
 }
 
-let _pendingDelTempId=null;
-function deleteTempRecord(id){
-  _pendingDelTempId=id;
-  const ov=$('temp-del-pin-overlay');if(!ov)return;
-  $('temp-del-pin-input').value='';$('temp-del-pin-err').textContent='';
-  ov.style.display='flex';
-  setTimeout(()=>$('temp-del-pin-input').focus(),60);
-}
-async function confirmTempDelete(){
-  const pin=$('temp-del-pin-input').value;
-  const{data}=await sb.from('team').select('nombre').eq('pin',pin).maybeSingle();
-  if(!data){$('temp-del-pin-err').textContent='PIN incorrecto';$('temp-del-pin-input').value='';$('temp-del-pin-input').focus();return;}
-  const{data:emp}=await sb.from('hor_empleados').select('cargo').eq('nombre',data.nombre).maybeSingle();
-  if(!emp||!/encargad|responsable|supervisor|due[ñn]/i.test(emp.cargo||'')){$('temp-del-pin-err').textContent='Solo encargados pueden eliminar';$('temp-del-pin-input').value='';$('temp-del-pin-input').focus();return;}
-  $('temp-del-pin-overlay').style.display='none';
-  const{error}=await sb.from('registros_temperatura').delete().eq('id',_pendingDelTempId);
-  if(error){alert('Error: '+error.message);return;}
-  _pendingDelTempId=null;
-  renderTempHistorial();
-  if(typeof renderHomeDashboard==='function'&&$('home-dashboard')?.style.display!=='none')renderHomeDashboard();
+let _dpBtn=null;
+function deleteTempRecord(id,btn){
+  // Close any open inline PIN forms first
+  document.querySelectorAll('.__dpwrap').forEach(w=>{w.remove();});
+  if(_dpBtn){_dpBtn.style.display='';_dpBtn=null;}
+  if(!btn)return;
+  _dpBtn=btn;
+  btn.style.display='none';
+  const wrap=document.createElement('div');
+  wrap.className='__dpwrap';
+  wrap.style.cssText='display:flex;align-items:center;gap:5px;margin-left:auto;flex-shrink:0';
+  wrap.innerHTML='<input class="__dpPin" type="password" maxlength="4" inputmode="numeric" placeholder="PIN encargado" style="width:110px;font-size:12px;border:.5px solid var(--border);border-radius:3px;padding:4px 8px;font-family:var(--font);text-align:center;background:transparent;color:inherit;outline:none">'
+    +'<span class="__dpErr" style="font-size:9px;color:#c0392b"></span>'
+    +'<button type="button" style="font-size:9px;border:.5px solid #c0392b;background:transparent;color:#c0392b;padding:3px 8px;cursor:pointer;border-radius:3px;font-family:var(--font);flex-shrink:0">OK</button>'
+    +'<button type="button" style="font-size:9px;border:.5px solid var(--border);background:transparent;color:var(--muted);padding:3px 8px;cursor:pointer;border-radius:3px;font-family:var(--font);flex-shrink:0">✕</button>';
+  btn.parentElement.appendChild(wrap);
+  const pinInp=wrap.querySelector('.__dpPin');
+  const errEl=wrap.querySelector('.__dpErr');
+  const [okBtn,cancelBtn]=wrap.querySelectorAll('button');
+  const cancel=()=>{wrap.remove();btn.style.display='';_dpBtn=null;};
+  cancelBtn.addEventListener('click',cancel);
+  const confirm=async()=>{
+    const pin=pinInp.value;
+    const{data}=await sb.from('team').select('nombre').eq('pin',pin).maybeSingle();
+    if(!data){errEl.textContent='PIN incorrecto';pinInp.value='';pinInp.focus();return;}
+    const{data:emp}=await sb.from('hor_empleados').select('cargo').eq('nombre',data.nombre).maybeSingle();
+    if(!emp||!/encargad|responsable|supervisor|due[\u00f1n]/i.test(emp.cargo||'')){errEl.textContent='Solo encargados';pinInp.value='';pinInp.focus();return;}
+    wrap.innerHTML='<span style="font-size:9px;color:var(--muted);padding:2px 0">Eliminando\u2026</span>';
+    const{error}=await sb.from('registros_temperatura').delete().eq('id',id);
+    if(error){cancel();alert('Error: '+error.message);return;}
+    _dpBtn=null;
+    renderTempHistorial();
+    if(typeof renderHomeDashboard==='function'&&$('home-dashboard')?.style.display!=='none')renderHomeDashboard();
+  };
+  okBtn.addEventListener('click',confirm);
+  pinInp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();confirm();}else if(e.key==='Escape')cancel();});
+  setTimeout(()=>pinInp.focus(),40);
 }
 let _appPinVal='';
 function _appPinKbd(e){
@@ -9203,22 +9220,6 @@ function _setupTempTouchDrag(){
       </div>
     </div>
       </div>
-</div>
-
-<!-- Delete PIN overlay (standalone fixed) -->
-<div id="temp-del-pin-overlay" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.6);z-index:1001;align-items:center;justify-content:center">
-  <div style="background:var(--white,#fff);border-radius:10px;padding:2rem;max-width:320px;width:90%;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
-    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">Confirmar eliminación</div>
-    <div style="font-size:12px;color:var(--black);line-height:1.4">Ingresá tu PIN de encargado<br>para eliminar este registro</div>
-    <input type="password" id="temp-del-pin-input" maxlength="4" inputmode="numeric" placeholder="••••"
-      style="text-align:center;font-size:24px;letter-spacing:8px;width:130px;border:.5px solid var(--border);border-radius:4px;padding:10px;font-family:var(--font);background:transparent;color:inherit;outline:none"
-      onkeydown="if(event.key==='Enter'){event.preventDefault();confirmTempDelete();}else if(event.key==='Escape'){$('temp-del-pin-overlay').style.display='none';}">
-    <div id="temp-del-pin-err" style="font-size:11px;color:#c0392b;min-height:16px"></div>
-    <div style="display:flex;gap:8px">
-      <button type="button" onclick="$('temp-del-pin-overlay').style.display='none'" style="padding:10px 20px;border:.5px solid var(--border);background:transparent;color:var(--muted);font-family:var(--font);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-radius:3px">Cancelar</button>
-      <button type="button" onclick="confirmTempDelete()" style="padding:10px 20px;border:.5px solid #c0392b;background:#c0392b;color:#fff;font-family:var(--font);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-radius:3px">Eliminar</button>
-    </div>
-  </div>
 </div>
 
 <!-- FICHAJE KIOSK MODAL -->
