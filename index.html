@@ -3083,8 +3083,6 @@ async function openTempModal(){
   const{data}=await sb.from('registros_temperatura').select('pozzetti_1,pozzetti_2,pozzetti_3,armario_2,nev_pasteleria,nev_cafeteria,nev_obrador_1,nev_obrador_2').order('created_at',{ascending:false}).limit(1);
   const last=data&&data[0];
   buildTempWizard();
-  $('temp-incidencia').value='';
-  const btn=$('temp-save-btn');btn.textContent='Guardar registro';btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';btn.disabled=false;
   tempTab('reg');
   $('temp-modal').style.display='flex';
 }
