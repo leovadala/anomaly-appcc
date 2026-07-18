@@ -2235,13 +2235,14 @@ let currentIngr=[];
 let pinSupervisor='0000',pinFinanzas=null,_finUnlocked=false,_empSupUnlocked=false,_fichaEmpNombre='';
 let horLocal={};  // {dayIdx:{a:'12:00',c:'00:00'}}
 // ─── Horarios module globals ───
-const FESTIVOS_ES={'01-01':true,'01-06':true,'04-18':true,'05-01':true,'08-15':true,'10-12':true,'11-01':true,'12-06':true,'12-08':true,'12-25':true};
+const FESTIVOS_ES={'01-01':true,'01-06':true,'05-01':true,'08-15':true,'10-12':true,'11-01':true,'12-06':true,'12-08':true,'12-25':true};
 const CONTEO_TARA={plastico:214,acero:1080,cubeta:250,libre:0};
 const CONTEO_CATS=['Helado','Materia prima','Topping','Insumos','Envases','Cafetería','Bebidas','Pastelería','Limpieza','Vajilla y utensilios','Mermas y Roturas'];
 const CAT_ALIASES={'bebida':'Bebidas','bebidas':'Bebidas','cafeteria':'Cafetería','materia-prima':'Materia prima','vajilla':'Vajilla y utensilios'};
 function normalizeCat(c){if(!c)return'Sin categoría';const t=c.trim();const lo=t.toLowerCase();if(CAT_ALIASES[lo])return CAT_ALIASES[lo];const m=CONTEO_CATS.find(x=>x.toLowerCase()===lo);return m||t;}
 const CONTEO_CONT_DEFAULT={Helado:'plastico',Topping:'cubeta'};
-const FESTIVOS_VAL={'03-19':true,'04-17':true,'06-24':true,'10-09':true};
+const FESTIVOS_VAL={'03-19':true,'06-24':true,'10-09':true};
+const FESTIVOS_MOVING={'2025-04-17':true,'2025-04-18':true,'2026-04-02':true,'2026-04-03':true};
 const HOR_PRESETS=['OFF','10A18','11A17','12A20','15A23','16A24','17A1','18A24','18A23','P'];
 const HOR_PANELS=['grilla','empleados','vacaciones','resumen','liquidar'];
 let horCurrentWeekOffset=0;
@@ -5054,7 +5055,7 @@ function removeFixedBtn(i){
 // ─── HORARIOS MODULE (Supabase) ───────────────────────────────────────────────
 
 // (FESTIVOS_ES/VAL declared at top)
-function esFestivo(date){const mmdd=String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');return !!(FESTIVOS_ES[mmdd]||FESTIVOS_VAL[mmdd])}
+function esFestivo(date){const mm=String(date.getMonth()+1).padStart(2,'0'),dd=String(date.getDate()).padStart(2,'0');const mmdd=mm+'-'+dd;const yyyymmdd=date.getFullYear()+'-'+mmdd;return !!(FESTIVOS_ES[mmdd]||FESTIVOS_VAL[mmdd]||FESTIVOS_MOVING[yyyymmdd])}
 
 // (Horarios globals declared at top)
 
@@ -6694,6 +6695,7 @@ async function verDetalleConteo(id){
 var _empPeriod='week';
 var _empFichajes=[];   // loaded fichajes for current period
 var _empFichajeHoy=[]; // today's fichajes
+var _fichajeHistMes=0; // month offset for historial (0=current)
 var _fkPin='';
 var _fkEmp=null; // matched employee object
 var _isKioskMode=false;
@@ -7203,6 +7205,29 @@ function calcNetMinutes(fichs){
   return net;
 }
 
+// Calcula minutos nocturnos (22:00-06:00 hora España) desde pares reales de fichajes
+function calcNocturnidadFromFichajes(fichs){
+  const sorted=(fichs||[]).filter(f=>!f.estado||f.estado==='activo').slice().sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
+  let noct=0,lastIn=null;
+  sorted.forEach(f=>{
+    if(f.tipo==='ingreso'){lastIn=new Date(f.timestamp);}
+    else if(f.tipo==='egreso'&&lastIn){
+      let cur=new Date(lastIn);
+      const out=new Date(f.timestamp);
+      while(cur<out){
+        const hStr=new Date(cur).toLocaleString('es-ES',{timeZone:TZ_SPAIN,hour:'2-digit',hour12:false});
+        const h=parseInt(hStr);
+        const next=new Date(cur.getTime()+3600000);
+        const end=next<out?next:out;
+        if(h>=22||h<6)noct+=Math.round((end-cur)/60000);
+        cur=next;
+      }
+      lastIn=null;
+    }
+  });
+  return noct;
+}
+
 // ALEH hostelería compliance check — returns [{tipo:'red'|'warn', msg}]
 function checkALEH(fichajes){
   const alerts=[];
@@ -7241,97 +7266,258 @@ function checkALEH(fichajes){
 }
 
 // ── Fichajes histórico ───────────────────────────────────────────────
-function renderEmpFichajesHistorico(){
+async function renderEmpFichajesHistorico(){
   const el=$('emp-hist-list');if(!el)return;
+  if(!horEmpleados.length)await loadHorEmpleados();
+
   const now=new Date();
-  let from,to;
-  if(_empPeriod==='week'){
-    const days=getWeekDates(horCurrentWeekOffset);
-    from=days[0];to=days[6];
-  } else {
-    from=new Date(now.getFullYear(),now.getMonth(),1);
-    to=new Date(now.getFullYear(),now.getMonth()+1,0);
-  }
-  const fromStr=from.toISOString().split('T')[0];
-  const toStr=to.toISOString().split('T')[0];
+  const targetDate=new Date(now.getFullYear(),now.getMonth()+_fichajeHistMes,1);
+  const ty=targetDate.getFullYear(),tm=targetDate.getMonth();
+  const mesStr=targetDate.toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+  const fromStr=ty+'-'+String(tm+1).padStart(2,'0')+'-01';
+  const lastDay=new Date(ty,tm+1,0).getDate();
+  const toStr=ty+'-'+String(tm+1).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
 
-  const period=(_empFichajes||[]).filter(f=>{
-    const d=new Date(f.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
-    return d>=fromStr&&d<=toStr&&(!f.estado||f.estado==='activo');
-  });
+  const navHtml=`<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:var(--surface);border:.5px solid var(--border);margin-bottom:12px">
+    <button onclick="_fichajeHistMes--;renderEmpFichajesHistorico()" style="background:transparent;border:none;color:var(--black);cursor:pointer;padding:4px 8px;font-size:18px;line-height:1">‹</button>
+    <span style="font-size:12px;font-weight:500;color:var(--black);text-transform:capitalize">${mesStr}</span>
+    <button onclick="_fichajeHistMes++;renderEmpFichajesHistorico()" style="background:transparent;border:none;color:var(--black);cursor:pointer;padding:4px 8px;font-size:18px;line-height:1;${_fichajeHistMes>=0?'opacity:.25;pointer-events:none':''}">›</button>
+  </div>`;
 
-  if(!period.length){
-    el.innerHTML='<div style="color:var(--hint);font-size:11px;padding:.5rem">Sin fichajes en este período</div>';
+  el.innerHTML=navHtml+'<div style="color:var(--hint);font-size:11px;padding:.5rem">Cargando…</div>';
+
+  const{data:fichData}=await sb.from('fichajes').select('*')
+    .gte('timestamp',fromStr+'T00:00:00Z')
+    .lte('timestamp',toStr+'T23:59:59Z')
+    .order('timestamp',{ascending:true});
+  const periodFichs=(fichData||[]).filter(f=>!f.estado||f.estado==='activo');
+
+  if(!periodFichs.length){
+    el.innerHTML=navHtml+'<div style="color:var(--hint);font-size:11px;padding:.5rem">Sin fichajes en este período</div>';
     return;
   }
 
-  // Group by employee+day
-  const byEmpDay={};
-  period.forEach(f=>{
-    const key=f.empleado_nombre+'|'+f.timestamp.split('T')[0];
-    if(!byEmpDay[key])byEmpDay[key]={nombre:f.empleado_nombre,fecha:f.timestamp.split('T')[0],fichajes:[]};
-    byEmpDay[key].fichajes.push(f);
-  });
+  const cardsHtml=horEmpleados.map(emp=>{
+    const nombre=emp.nombre||'';
+    const empFs=periodFichs.filter(f=>f.empleado_nombre===nombre);
+    if(!empFs.length)return '';
 
-  const rows=Object.values(byEmpDay).sort((a,b)=>b.fecha.localeCompare(a.fecha)||a.nombre.localeCompare(b.nombre));
+    const byDay={};
+    empFs.forEach(f=>{
+      const d=new Date(f.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
+      if(!byDay[d])byDay[d]=[];
+      byDay[d].push(f);
+    });
 
-  const tbody=rows.map(r=>{
-    const sorted=r.fichajes.slice().sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
-    const entrada=sorted.find(f=>f.tipo==='ingreso');
-    const salida=[...sorted].reverse().find(f=>f.tipo==='egreso');
-    const mins=calcNetMinutes(sorted);
-    const fmtT=ts=>ts?new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN}):'—';
-    const tard=entrada&&entrada.tardanza_min>0&&entrada.tardanza_min<=120;
-    const [y,m,d]=r.fecha.split('-');
-    return `<tr style="border-bottom:.5px solid var(--border)">
-      <td style="padding:5px 6px;font-weight:500">${r.nombre}</td>
-      <td style="padding:5px 6px;color:var(--muted)">${d}/${m}</td>
-      <td style="padding:5px 6px;font-family:var(--mono);color:${tard?'#b33':'var(--black)'}">${fmtT(entrada?.timestamp)}${tard&&entrada.tardanza_min<=120?` <span style="font-size:8px;color:#b33">+${entrada.tardanza_min}m</span>`:''}</td>
-      <td style="padding:5px 6px;font-family:var(--mono)">${fmtT(salida?.timestamp)}</td>
-      <td style="padding:5px 6px;font-family:var(--mono);color:var(--muted)">${mins>0?(Math.floor(mins/60)+'h'+(mins%60?(' '+(mins%60)+'m'):'')):'—'}</td>
-    </tr>`;
-  }).join('');
+    let totalMins=0,noctMins=0,festDias=0,tardMins=0;
 
-  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:11px">
-    <thead><tr style="border-bottom:.5px solid var(--border)">
-      <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400;font-size:9px;text-transform:uppercase;letter-spacing:.5px">Empleado</th>
-      <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400;font-size:9px;text-transform:uppercase;letter-spacing:.5px">Fecha</th>
-      <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400;font-size:9px;text-transform:uppercase;letter-spacing:.5px">Entrada</th>
-      <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400;font-size:9px;text-transform:uppercase;letter-spacing:.5px">Salida</th>
-      <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400;font-size:9px;text-transform:uppercase;letter-spacing:.5px">Total</th>
-    </tr></thead><tbody>${tbody}</tbody></table>`;
+    const dayRows=Object.entries(byDay).sort(([a],[b])=>b.localeCompare(a)).map(([dateStr,dayFs])=>{
+      const sorted=dayFs.slice().sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
+      const firstIn=sorted.find(f=>f.tipo==='ingreso');
+      const lastEg=[...sorted].reverse().find(f=>f.tipo==='egreso');
+      const mins=calcNetMinutes(sorted);
+      const noct=calcNocturnidadFromFichajes(sorted);
+      const tard=firstIn&&firstIn.tardanza_min>0&&firstIn.tardanza_min<=120?firstIn.tardanza_min:0;
+      const dayDate=new Date(dateStr+'T12:00:00Z');
+      const isFest=esFestivo(dayDate);
+      totalMins+=mins;noctMins+=noct;if(tard)tardMins+=tard;
+      if(isFest&&firstIn)festDias++;
+      const isAnomaly=firstIn&&lastEg&&(new Date(lastEg.timestamp)-new Date(firstIn.timestamp))<120000;
+      const fmtT=ts=>new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN});
+      const[yy,mm,dd]=dateStr.split('-');
+      let badge='';
+      if(isAnomaly)badge='<span style="font-size:8px;padding:1px 5px;background:#ffeaea;color:#c0392b">⚠ Revisar</span>';
+      else if(isFest&&firstIn)badge='<span style="font-size:8px;padding:1px 5px;background:#eafaf1;color:#196f3d">Festivo</span>';
+      else if(noct>0)badge='<span style="font-size:8px;padding:1px 5px;background:#f0f0fa;color:#5b5bd6">Nocturno</span>';
+      return `<tr style="border-top:.5px solid var(--border)">
+        <td style="padding:5px 0;color:var(--muted);font-size:10px">${dd}/${mm}</td>
+        <td style="text-align:center;font-size:10px;color:${tard?'#c0392b':'var(--black)'}">${firstIn?fmtT(firstIn.timestamp):'—'}${tard?` <span style="font-size:8px">+${tard}m</span>`:''}</td>
+        <td style="text-align:center;font-size:10px;color:${isAnomaly?'#c0392b':'var(--black)'}">${lastEg?fmtT(lastEg.timestamp):'—'}</td>
+        <td style="text-align:center;font-size:10px;font-weight:500">${mins>0?Math.floor(mins/60)+'h'+(mins%60?' '+(mins%60)+'m':''):'—'}</td>
+        <td style="text-align:right">${badge}</td>
+      </tr>`;
+    }).join('');
+
+    const initials=(nombre.split(' ').map(w=>w[0]||'').join('').substring(0,2)).toUpperCase();
+    const totalH=Math.floor(totalMins/60),totalM=totalMins%60;
+    const noctH=Math.floor(noctMins/60),noctM=noctMins%60;
+    const diasTrab=Object.keys(byDay).length;
+
+    return `<div style="background:var(--surface);border:.5px solid var(--border);padding:14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:28px;height:28px;background:var(--black);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:500;flex-shrink:0">${initials}</div>
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--black)">${nombre}</div>
+            <div style="font-size:9px;color:var(--hint)">${diasTrab} día${diasTrab!==1?'s':''} trabajado${diasTrab!==1?'s':''}</div>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:14px;font-weight:500;color:var(--black)">${totalH>0||totalM>0?totalH+'h'+(totalM?' '+totalM+'m':''):'—'}</div>
+          <div style="font-size:9px;color:var(--hint)">total</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-bottom:12px">
+        <div style="background:var(--bg);padding:8px 10px">
+          <div style="font-size:8px;text-transform:uppercase;letter-spacing:1.2px;color:var(--hint);margin-bottom:2px">Horas totales</div>
+          <div style="font-size:14px;font-weight:500;color:var(--black)">${totalH>0||totalM>0?totalH+'h'+(totalM?' '+totalM+'m':''):'—'}</div>
+        </div>
+        <div style="background:#f0f0fa;padding:8px 10px">
+          <div style="font-size:8px;text-transform:uppercase;letter-spacing:1.2px;color:#5b5bd6;margin-bottom:2px">Nocturnidad</div>
+          <div style="font-size:14px;font-weight:500;color:#5b5bd6">${noctH>0||noctM>0?noctH+'h'+(noctM?' '+noctM+'m':''):'—'}</div>
+        </div>
+        <div style="background:#eafaf1;padding:8px 10px">
+          <div style="font-size:8px;text-transform:uppercase;letter-spacing:1.2px;color:#196f3d;margin-bottom:2px">Festivos trab.</div>
+          <div style="font-size:14px;font-weight:500;color:#196f3d">${festDias>0?festDias+' día'+(festDias!==1?'s':''):'—'}</div>
+        </div>
+        <div style="background:${tardMins>0?'#fef9e7':'var(--bg)'};padding:8px 10px">
+          <div style="font-size:8px;text-transform:uppercase;letter-spacing:1.2px;color:${tardMins>0?'#9a7d0a':'var(--hint)'};margin-bottom:2px">Tardanzas</div>
+          <div style="font-size:14px;font-weight:500;color:${tardMins>0?'#9a7d0a':'var(--hint)'}">${tardMins>0?tardMins+' min':'—'}</div>
+        </div>
+      </div>
+      <div style="border-top:.5px solid var(--border);padding-top:10px">
+        <div style="font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--hint);margin-bottom:7px">Detalle por día</div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            <td style="font-size:8px;color:var(--hint);padding-bottom:4px">Fecha</td>
+            <td style="font-size:8px;color:var(--hint);padding-bottom:4px;text-align:center">Entrada</td>
+            <td style="font-size:8px;color:var(--hint);padding-bottom:4px;text-align:center">Salida</td>
+            <td style="font-size:8px;color:var(--hint);padding-bottom:4px;text-align:center">Neto</td>
+            <td style="font-size:8px;color:var(--hint);padding-bottom:4px;text-align:right">Tipo</td>
+          </tr></thead>
+          <tbody>${dayRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).filter(Boolean).join('');
+
+  el.innerHTML=navHtml+(cardsHtml||'<div style="color:var(--hint);font-size:11px;padding:.5rem">Sin fichajes en este período</div>');
 }
-
 // ── Fichaje hoy ─────────────────────────────────────────────────────
 async function renderEmpHoy(){
   const el=$('emp-hoy-list');if(!el)return;
-  const todayStr=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
-  const{data}=await sb.from('fichajes').select('*')
-    .gte('timestamp',spainDayStartISO(todayStr))
-    .order('timestamp',{ascending:false});
-  _empFichajeHoy=data||[];
-  if(!_empFichajeHoy.length){el.innerHTML='<div style="color:var(--hint);padding:.5rem">Sin fichajes hoy</div>';return;}
-  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:11px">
-    <thead><tr style="border-bottom:.5px solid var(--border)">
-      <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400">Empleado</th>
-      <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400">Tipo</th>
-      <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400">Hora</th>
-      <th style="text-align:left;padding:4px 6px;color:var(--hint);font-weight:400">Tard.</th>
-    </tr></thead><tbody>
-    ${_empFichajeHoy.filter(f=>!f.estado||f.estado==='activo').map(f=>{
-      const hora=new Date(f.timestamp).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN});
-      const tipoColors={ingreso:'#27ae60',egreso:'#e74c3c',pausa:'#c9a227',vuelta:'#1a7f64'};
-      const tipoColor=tipoColors[f.tipo]||'var(--muted)';
-      return`<tr style="border-bottom:.5px solid var(--border)">
-        <td style="padding:5px 6px;font-weight:500">${f.empleado_nombre}</td>
-        <td style="padding:5px 6px;color:${tipoColor};font-weight:600;text-transform:uppercase;font-size:9px;letter-spacing:.5px">${f.tipo}</td>
-        <td style="padding:5px 6px;font-family:var(--mono)">${hora}</td>
-        <td style="padding:5px 6px;color:${f.tardanza_min>0&&f.tardanza_min<=120?'#b33':'var(--hint)'}">${f.tardanza_min>0&&f.tardanza_min<=120?'+'+f.tardanza_min+'min':'—'}</td>
-      </tr>`;
-    }).join('')}
-    </tbody></table>`;
-}
+  if(!horEmpleados.length)await loadHorEmpleados();
 
+  const todayStr=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
+  const todayDate=new Date(todayStr+'T12:00:00Z');
+  const dayIdx=(todayDate.getDay()+6)%7; // 0=Lun, 6=Dom
+  const todayFestivo=esFestivo(todayDate);
+
+  // Fichajes en ventana de 28h para capturar nocturnos
+  const since28h=new Date(Date.now()-28*3600000).toISOString();
+  const{data:fichData}=await sb.from('fichajes').select('*')
+    .gte('timestamp',since28h)
+    .order('timestamp',{ascending:true});
+  _empFichajeHoy=fichData||[];
+
+  // Cargar horarios semana actual
+  const wk=weekKey(0);
+  if(!horSchedules[wk])await loadHorariosSemana(wk);
+
+  // Agrupar fichajes activos por empleado
+  const byEmp={};
+  _empFichajeHoy.filter(f=>!f.estado||f.estado==='activo').forEach(f=>{
+    if(!byEmp[f.empleado_nombre])byEmp[f.empleado_nombre]=[];
+    byEmp[f.empleado_nombre].push(f);
+  });
+
+  // Empleados con turno hoy o con fichajes
+  const conTurno=new Set();
+  horEmpleados.forEach(e=>{
+    const t=((horSchedules[wk]||{})[e.nombre]||{})[dayIdx]||'';
+    if(t&&t!=='OFF')conTurno.add(e.nombre);
+  });
+  const todos=[...new Set([...conTurno,...Object.keys(byEmp)])].sort();
+
+  if(!todos.length){el.innerHTML='<div style="color:var(--hint);font-size:11px;padding:.5rem">Sin turnos ni fichajes hoy</div>';return;}
+
+  // Contadores resumen
+  let nFichados=0,nTardanzas=0,nNocturno=0,nAlerta=0;
+
+  const cards=todos.map(nombre=>{
+    const emp=horEmpleados.find(e=>e.nombre===nombre)||{nombre};
+    const turno=((horSchedules[wk]||{})[nombre]||{})[dayIdx]||'';
+    const empFs=(byEmp[nombre]||[]).sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
+    const actFs=empFs.filter(f=>!f.estado||f.estado==='activo');
+
+    // Parsear turno
+    const tm=turno.match(/^(\d+)A(\d+)/i);
+    let planStart='',planEnd='',planHrs=0;
+    if(tm){let a=parseInt(tm[1]),b=parseInt(tm[2]);if(b<=a)b+=24;planStart=String(a%24).padStart(2,'0')+':00';planEnd=String(b%24).padStart(2,'0')+':00';planHrs=b-a;}
+
+    const firstIn=actFs.find(f=>f.tipo==='ingreso');
+    const lastEg=[...actFs].reverse().find(f=>f.tipo==='egreso');
+    const netMins=calcNetMinutes(actFs);
+    const noctMins=calcNocturnidadFromFichajes(actFs);
+    const hasFicha=actFs.length>0;
+    const enTurno=firstIn&&!lastEg;
+    const completo=firstIn&&lastEg;
+    const sinFichar=!hasFicha&&turno&&turno!=='OFF';
+    const isAnomaly=completo&&(new Date(lastEg.timestamp)-new Date(firstIn.timestamp))<120000;
+    const tardMin=firstIn&&firstIn.tardanza_min>0&&firstIn.tardanza_min<=120?firstIn.tardanza_min:0;
+    const isNocturno=nocturnasHoras(turno)>0||noctMins>0;
+
+    if(hasFicha)nFichados++;
+    if(tardMin)nTardanzas++;
+    if(isNocturno&&hasFicha)nNocturno++;
+    if(isAnomaly)nAlerta++;
+
+    const progressPct=enTurno&&planHrs>0?Math.min(100,Math.round((netMins/(planHrs*60))*100)):completo?100:0;
+
+    let statusLabel,statusBg,statusColor;
+    if(isAnomaly){statusLabel='Revisar';statusBg='#ffeaea';statusColor='#c0392b';}
+    else if(completo){statusLabel='Completó';statusBg='#eafaf1';statusColor='#196f3d';}
+    else if(enTurno){statusLabel='En turno';statusBg='#f0f4ff';statusColor='#1a4f9f';}
+    else if(sinFichar){statusLabel='Sin fichar';statusBg='var(--bg)';statusColor:'var(--hint)';}
+    else{statusLabel='—';statusBg='var(--bg)';statusColor='var(--hint)';}
+
+    const fmtT=ts=>new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN});
+    const ingresoStr=firstIn?fmtT(firstIn.timestamp):'—';
+    const egresoStr=lastEg?fmtT(lastEg.timestamp):'—';
+    const netoStr=netMins>0?Math.floor(netMins/60)+'h'+(netMins%60?' '+(netMins%60)+'m':''):'—';
+    const initials=(nombre.split(' ').map(w=>w[0]||'').join('').substring(0,2)).toUpperCase();
+
+    const cardBorder=isAnomaly?'#c0392b':'var(--border)';
+    const progColor=isAnomaly?'#c0392b':completo?'#27ae60':'#2471a3';
+
+    return `<div style="background:var(--surface);border:.5px solid ${cardBorder};padding:11px;cursor:pointer" onclick="requireSupPin(()=>openEmpFicha('${nombre.replace(/'/g,"\'")}'))">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:26px;height:26px;background:var(--black);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:500;flex-shrink:0">${initials}</div>
+          <div>
+            <div style="font-size:11px;font-weight:500;color:var(--black);line-height:1.2">${nombre}</div>
+            <div style="font-size:8px;color:var(--hint)">${emp.cargo||''}</div>
+          </div>
+        </div>
+        <span style="font-size:8px;font-weight:500;padding:2px 6px;background:${statusBg};color:${statusColor}">${statusLabel}</span>
+      </div>
+      <div style="font-size:8px;color:var(--hint);margin-bottom:2px">Grilla hoy</div>
+      <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:7px">${planStart&&planEnd?planStart+' → '+planEnd:turno==='OFF'?'Libre':(turno||'Sin turno')}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:7px">
+        <div>
+          <div style="font-size:8px;color:var(--hint)">Entrada</div>
+          <div style="font-size:11px;color:${tardMin?'#c0392b':'var(--black)'}">${ingresoStr}${tardMin?` <span style="font-size:8px">+${tardMin}m</span>`:''}</div>
+        </div>
+        <div>
+          <div style="font-size:8px;color:var(--hint)">Salida</div>
+          <div style="font-size:11px;color:${isAnomaly?'#c0392b':'var(--black)'}">${egresoStr}</div>
+        </div>
+      </div>
+      ${isNocturno||todayFestivo?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${isNocturno?'<span style="font-size:8px;padding:1px 6px;background:#f0f0fa;color:#5b5bd6">🌙 Nocturno</span>':''}${todayFestivo&&turno&&turno!=='OFF'?'<span style="font-size:8px;padding:1px 6px;background:#eafaf1;color:#196f3d">📅 Festivo</span>':''}</div>`:''}
+      ${planHrs>0||completo?`<div style="height:2px;background:var(--bg);margin-bottom:3px"><div style="height:100%;width:${progressPct}%;background:${progColor}"></div></div><div style="font-size:8px;color:var(--hint)">${enTurno?'Lleva '+netoStr+' · '+progressPct+'%':'Total '+netoStr}</div>`:''}
+    </div>`;
+  });
+
+  const summary=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
+    <span style="font-size:9px;padding:2px 7px;background:#eafaf1;color:#196f3d">${nFichados} fichado${nFichados!==1?'s':''}</span>
+    ${nTardanzas?`<span style="font-size:9px;padding:2px 7px;background:#fef9e7;color:#9a7d0a">${nTardanzas} tardanza${nTardanzas!==1?'s':''}</span>`:''}
+    ${nNocturno?`<span style="font-size:9px;padding:2px 7px;background:#f0f0fa;color:#5b5bd6">${nNocturno} nocturno${nNocturno!==1?'s':''}</span>`:''}
+    ${todayFestivo?'<span style="font-size:9px;padding:2px 7px;background:#eafaf1;color:#196f3d">Hoy festivo</span>':''}
+    ${nAlerta?`<span style="font-size:9px;padding:2px 7px;background:#ffeaea;color:#c0392b">${nAlerta} alerta${nAlerta!==1?'s':''}</span>`:''}
+  </div>`;
+
+  el.innerHTML=summary+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+cards.join('')+'</div>';
+}
 // ── Ficha individual ────────────────────────────────────────────────
 function requireSupPin(cb){
   if(_empSupUnlocked){cb();return;}
