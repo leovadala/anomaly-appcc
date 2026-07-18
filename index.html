@@ -6709,7 +6709,7 @@ function empSubTab(tab){
     const b=$('empstab-'+t);if(b)b.classList.toggle('on',t===tab);
   });
   $('emp-ficha-panel').style.display='none';
-  if(tab==='fichaje'){renderEmpHoy();const u=$('emp-fichaje-url');if(u)u.textContent=window.location.origin+'?fichaje=1';}
+  if(tab==='fichaje'){renderEmpHoy();renderEmpFichajesHistorico();const u=$('emp-fichaje-url');if(u)u.textContent=window.location.origin+'?fichaje=1';}
   if(tab==='integrantes')renderEmpIntegrantes();
   if(tab==='planificacion')renderVacPlanificacion();
   if(tab==='altas')renderAltasPanel();
@@ -7212,20 +7212,16 @@ function calcNocturnidadFromFichajes(fichs){
   sorted.forEach(f=>{
     if(f.tipo==='ingreso'){lastIn=new Date(f.timestamp);}
     else if(f.tipo==='egreso'&&lastIn){
-      let cur=new Date(lastIn);
-      const out=new Date(f.timestamp);
-      while(cur<out){
-        const hStr=new Date(cur).toLocaleString('es-ES',{timeZone:TZ_SPAIN,hour:'2-digit',hour12:false});
-        const h=parseInt(hStr);
-        const next=new Date(cur.getTime()+3600000);
-        const end=next<out?next:out;
-        if(h>=22||h<6)noct+=Math.round((end-cur)/60000);
-        cur=next;
+      const outMs=new Date(f.timestamp).getTime();
+      // Verificar minuto a minuto con hora España fiable (trick sv locale)
+      for(let ms=lastIn.getTime();ms<outMs;ms+=60000){
+        const h=new Date(new Date(ms).toLocaleString('sv',{timeZone:TZ_SPAIN})).getHours();
+        if(h>=22||h<6)noct++;
       }
       lastIn=null;
     }
   });
-  return noct;
+  return noct; // minutos nocturnos
 }
 
 // ALEH hostelería compliance check — returns [{tipo:'red'|'warn', msg}]
