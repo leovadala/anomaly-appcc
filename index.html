@@ -3144,10 +3144,24 @@ function exportTempCSV(){
   link.click();URL.revokeObjectURL(url);
 }
 
-async function deleteTempRecord(id){
-  if(!confirm('¿Eliminar este registro de temperatura?'))return;
-  const{error}=await sb.from('registros_temperatura').delete().eq('id',id);
+let _pendingDelTempId=null;
+function deleteTempRecord(id){
+  _pendingDelTempId=id;
+  const ov=$('temp-del-pin-overlay');if(!ov)return;
+  $('temp-del-pin-input').value='';$('temp-del-pin-err').textContent='';
+  ov.style.display='flex';
+  setTimeout(()=>$('temp-del-pin-input').focus(),60);
+}
+async function confirmTempDelete(){
+  const pin=$('temp-del-pin-input').value;
+  const{data}=await sb.from('team').select('nombre').eq('pin',pin).maybeSingle();
+  if(!data){$('temp-del-pin-err').textContent='PIN incorrecto';$('temp-del-pin-input').value='';$('temp-del-pin-input').focus();return;}
+  const{data:emp}=await sb.from('hor_empleados').select('cargo').eq('nombre',data.nombre).maybeSingle();
+  if(!emp||!/encargad|responsable|supervisor|due[ñn]/i.test(emp.cargo||'')){$('temp-del-pin-err').textContent='Solo encargados pueden eliminar';$('temp-del-pin-input').value='';$('temp-del-pin-input').focus();return;}
+  $('temp-del-pin-overlay').style.display='none';
+  const{error}=await sb.from('registros_temperatura').delete().eq('id',_pendingDelTempId);
   if(error){alert('Error: '+error.message);return;}
+  _pendingDelTempId=null;
   renderTempHistorial();
   if(typeof renderHomeDashboard==='function'&&$('home-dashboard')?.style.display!=='none')renderHomeDashboard();
 }
@@ -9186,6 +9200,19 @@ function _setupTempTouchDrag(){
           style="width:100%;margin-top:1rem;padding:12px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;flex-shrink:0">
           Guardar configuración
         </button>
+      </div>
+    </div>
+    <!-- Delete PIN overlay -->
+    <div id="temp-del-pin-overlay" style="display:none;position:absolute;inset:0;background:var(--white,#fff);border-radius:10px;flex-direction:column;align-items:center;justify-content:center;z-index:20;gap:14px;padding:2rem;text-align:center">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">Confirmar eliminación</div>
+      <div style="font-size:12px;color:var(--black);line-height:1.4">Ingresá tu PIN de encargado<br>para eliminar este registro</div>
+      <input type="password" id="temp-del-pin-input" maxlength="4" inputmode="numeric" placeholder="••••"
+        style="text-align:center;font-size:24px;letter-spacing:8px;width:130px;border:.5px solid var(--border);border-radius:4px;padding:10px;font-family:var(--font);background:transparent;color:inherit;outline:none"
+        onkeydown="if(event.key==='Enter')confirmTempDelete();if(event.key==='Escape')$'temp-del-pin-overlay'.style.display='none'">
+      <div id="temp-del-pin-err" style="font-size:11px;color:#c0392b;min-height:16px"></div>
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="$('temp-del-pin-overlay').style.display='none'" style="padding:10px 20px;border:.5px solid var(--border);background:transparent;color:var(--muted);font-family:var(--font);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-radius:3px">Cancelar</button>
+        <button type="button" onclick="confirmTempDelete()" style="padding:10px 20px;border:.5px solid #c0392b;background:transparent;color:#c0392b;font-family:var(--font);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-radius:3px">Eliminar</button>
       </div>
     </div>
   </div>
