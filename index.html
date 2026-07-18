@@ -3315,7 +3315,7 @@ async function renderHomeDashboard(){
   const in7=new Date(new Date(todayStr+'T12:00:00Z').getTime()+7*86400000).toISOString().split('T')[0];
   const since7=new Date(new Date(todayStr+'T12:00:00Z').getTime()-6*86400000).toISOString().split('T')[0];
   const [fR,sR,tR,aR,nR,vR]=await Promise.all([
-    sb.from('fichajes').select('empleado_nombre,tipo,timestamp').gte('timestamp',spainDayStartISO(todayStr)).order('timestamp',{ascending:false}).limit(100),
+    sb.from('fichajes').select('empleado_nombre,tipo,timestamp').gte('timestamp',new Date(Date.now()-28*3600000).toISOString()).order('timestamp',{ascending:false}).limit(200),
     sb.from('recepciones').select('producto,vencimiento').eq('estado','activo').not('vencimiento','is',null).lte('vencimiento',in7).order('vencimiento',{ascending:true}).limit(8),
     sb.from('registros_temperatura').select('fecha,hora,temp_armario_1,temp_armario_2,temp_armario_3,incidencia').order('fecha',{ascending:false}).order('hora',{ascending:false}).limit(1),
     sb.from('registros_appcc').select('fecha,hora,responsable,producto').order('fecha',{ascending:false}).order('hora',{ascending:false}).limit(1),
@@ -3323,13 +3323,15 @@ async function renderHomeDashboard(){
     sb.from('solicitudes_vacaciones').select('id,empleado_nombre,fecha_inicio,fecha_fin,motivo,created_at').eq('estado','pendiente').order('created_at',{ascending:true})
   ]);
   const activos={};
-  (fR.data||[]).filter(f=>new Date(f.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0]===todayStr).forEach(f=>{
+  // 28h window: pick last fichaje per person (data is desc order → first wins)
+  (fR.data||[]).forEach(f=>{
     if(!activos[f.empleado_nombre])activos[f.empleado_nombre]={tipo:f.tipo,ts:f.timestamp};
   });
   const _16hAgo=new Date(Date.now()-16*3600000);
   const enLocal=Object.entries(activos).filter(([,v])=>(v.tipo==='ingreso'||v.tipo==='vuelta')&&new Date(v.ts)>_16hAgo);
   const fuera=Object.entries(activos).filter(([,v])=>v.tipo==='egreso'||v.tipo==='pausa');
-  const totalHoy=Object.keys(activos).length;
+  // Count only fichajes whose Spanish date = today for the 'ficharon hoy' badge
+  const totalHoy=new Set((fR.data||[]).filter(f=>new Date(f.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0]===todayStr).map(f=>f.empleado_nombre)).size;
   const stock=sR.data||[];
   const temp=(tR.data||[])[0]||null;
   const appcc=(aR.data||[])[0]||null;
@@ -8072,10 +8074,11 @@ async function fkCheckPin(){
     _fkPin='';fkUpdateDots();
     return;
   }
-  const todayStr=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
+  // Use 28h window to handle midnight crossing (night shifts)
+  const since28h=new Date(Date.now()-28*3600000).toISOString();
   const{data}=await sb.from('fichajes').select('*')
     .eq('empleado_nombre',_fkEmp.nombre||_fkEmp.name)
-    .gte('timestamp',todayStr+'T00:00:00')
+    .gte('timestamp',since28h)
     .order('timestamp',{ascending:true});
   // Only active fichajes (ignore corrected/annulled)
   const todayFichs=(data||[]).filter(f=>!f.estado||f.estado==='activo');
