@@ -7210,10 +7210,9 @@ function calcNocturnidadFromFichajes(fichs){
   const sorted=(fichs||[]).filter(f=>!f.estado||f.estado==='activo').slice().sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
   let noct=0,lastIn=null;
   sorted.forEach(f=>{
-    if(f.tipo==='ingreso'){lastIn=new Date(f.timestamp);}
-    else if(f.tipo==='egreso'&&lastIn){
+    if(f.tipo==='ingreso'||f.tipo==='vuelta'){lastIn=new Date(f.timestamp);}
+    else if((f.tipo==='egreso'||f.tipo==='pausa')&&lastIn){
       const outMs=new Date(f.timestamp).getTime();
-      // Verificar minuto a minuto con hora España fiable (trick sv locale)
       for(let ms=lastIn.getTime();ms<outMs;ms+=60000){
         const h=new Date(new Date(ms).toLocaleString('sv',{timeZone:TZ_SPAIN})).getHours();
         if(h>=22||h<6)noct++;
@@ -7443,15 +7442,21 @@ async function renderEmpHoy(){
 
     const firstIn=actFs.find(f=>f.tipo==='ingreso');
     const lastEg=[...actFs].reverse().find(f=>f.tipo==='egreso');
+    const lastPausa=[...actFs].reverse().find(f=>f.tipo==='pausa');
+    const lastAct=actFs.length?actFs[actFs.length-1]:null;
     const netMins=calcNetMinutes(actFs);
     const noctMins=calcNocturnidadFromFichajes(actFs);
     const hasFicha=actFs.length>0;
-    const enTurno=firstIn&&!lastEg;
+    const enPausa=lastAct&&lastAct.tipo==='pausa';
+    const enTurno=firstIn&&!lastEg&&!enPausa;
     const completo=firstIn&&lastEg;
     const sinFichar=!hasFicha&&turno&&turno!=='OFF';
     const isAnomaly=completo&&(new Date(lastEg.timestamp)-new Date(firstIn.timestamp))<120000;
     const tardMin=firstIn&&firstIn.tardanza_min>0&&firstIn.tardanza_min<=120?firstIn.tardanza_min:0;
     const isNocturno=nocturnasHoras(turno)>0||noctMins>0;
+    // Pausa duration
+    const pausaDurMin=enPausa&&lastPausa?Math.round((Date.now()-new Date(lastPausa.timestamp))/60000):0;
+    const pausaDurStr=pausaDurMin>0?(Math.floor(pausaDurMin/60)?Math.floor(pausaDurMin/60)+'h ':'')+( pausaDurMin%60)+'m':'—';
 
     if(hasFicha)nFichados++;
     if(tardMin)nTardanzas++;
@@ -7463,13 +7468,14 @@ async function renderEmpHoy(){
     let statusLabel,statusBg,statusColor;
     if(isAnomaly){statusLabel='Revisar';statusBg='#ffeaea';statusColor='#c0392b';}
     else if(completo){statusLabel='Completó';statusBg='#eafaf1';statusColor='#196f3d';}
+    else if(enPausa){statusLabel='En pausa';statusBg='#fef9e7';statusColor='#9a7d0a';}
     else if(enTurno){statusLabel='En turno';statusBg='#f0f4ff';statusColor='#1a4f9f';}
-    else if(sinFichar){statusLabel='Sin fichar';statusBg='var(--bg)';statusColor:'var(--hint)';}
+    else if(sinFichar){statusLabel='Sin fichar';statusBg='var(--bg)';statusColor='var(--hint)';}
     else{statusLabel='—';statusBg='var(--bg)';statusColor='var(--hint)';}
 
     const fmtT=ts=>new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN});
     const ingresoStr=firstIn?fmtT(firstIn.timestamp):'—';
-    const egresoStr=lastEg?fmtT(lastEg.timestamp):'—';
+    const egresoStr=lastEg?fmtT(lastEg.timestamp):enPausa&&lastPausa?'⏸ '+fmtT(lastPausa.timestamp):'—';
     const netoStr=netMins>0?Math.floor(netMins/60)+'h'+(netMins%60?' '+(netMins%60)+'m':''):'—';
     const initials=(nombre.split(' ').map(w=>w[0]||'').join('').substring(0,2)).toUpperCase();
 
@@ -7499,7 +7505,7 @@ async function renderEmpHoy(){
           <div style="font-size:11px;color:${isAnomaly?'#c0392b':'var(--black)'}">${egresoStr}</div>
         </div>
       </div>
-      ${isNocturno||todayFestivo?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${isNocturno?'<span style="font-size:8px;padding:1px 6px;background:#f0f0fa;color:#5b5bd6">🌙 Nocturno</span>':''}${todayFestivo&&turno&&turno!=='OFF'?'<span style="font-size:8px;padding:1px 6px;background:#eafaf1;color:#196f3d">📅 Festivo</span>':''}</div>`:''}
+      ${isNocturno||todayFestivo||enPausa?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${isNocturno?'<span style="font-size:8px;padding:1px 6px;background:#f0f0fa;color:#5b5bd6">🌙 Nocturno</span>':''}${todayFestivo&&turno&&turno!=='OFF'?'<span style="font-size:8px;padding:1px 6px;background:#eafaf1;color:#196f3d">📅 Festivo</span>':''}</div>`:''}
       ${planHrs>0||completo?`<div style="height:2px;background:var(--bg);margin-bottom:3px"><div style="height:100%;width:${progressPct}%;background:${progColor}"></div></div><div style="font-size:8px;color:var(--hint)">${enTurno?'Lleva '+netoStr+' · '+progressPct+'%':'Total '+netoStr}</div>`:''}
     </div>`;
   });
