@@ -7191,7 +7191,8 @@ function renderEmpDashboard(){
 
 // ── ALEH hostelería utilities ──────────────────────────────────────
 // Net working minutes from fichaje array (ascending order, activos only)
-function calcNetMinutes(fichs){
+const MAX_TURNO_MIN=8*60; // cap: ningún turno supera 14h sin egreso
+function calcNetMinutes(fichs,capOpenShift=true){
   const sorted=(fichs||[]).filter(f=>!f.estado||f.estado==='activo').slice().sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
   let net=0,lastIn=null;
   sorted.forEach(f=>{
@@ -7201,7 +7202,10 @@ function calcNetMinutes(fichs){
       lastIn=null;
     }
   });
-  if(lastIn)net+=Math.max(0,Math.round((new Date()-lastIn)/60000));
+  if(lastIn){
+    const openMin=Math.max(0,Math.round((new Date()-lastIn)/60000));
+    net+=capOpenShift?Math.min(openMin,MAX_TURNO_MIN):openMin;
+  }
   return net;
 }
 
@@ -7310,7 +7314,9 @@ async function renderEmpFichajesHistorico(){
       const sorted=dayFs.slice().sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
       const firstIn=sorted.find(f=>f.tipo==='ingreso');
       const lastEg=[...sorted].reverse().find(f=>f.tipo==='egreso');
-      const mins=calcNetMinutes(sorted);
+      const lastActD=sorted.length?sorted[sorted.length-1]:null;
+      const sinEgreso=firstIn&&!lastEg&&lastActD&&(lastActD.tipo==='ingreso'||lastActD.tipo==='vuelta');
+      const mins=sinEgreso?0:calcNetMinutes(sorted);
       const noct=calcNocturnidadFromFichajes(sorted);
       const tard=firstIn&&firstIn.tardanza_min>0&&firstIn.tardanza_min<=120?firstIn.tardanza_min:0;
       const dayDate=new Date(dateStr+'T12:00:00Z');
@@ -7321,14 +7327,15 @@ async function renderEmpFichajesHistorico(){
       const fmtT=ts=>new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN});
       const[yy,mm,dd]=dateStr.split('-');
       let badge='';
-      if(isAnomaly)badge='<span style="font-size:8px;padding:1px 5px;background:#ffeaea;color:#c0392b">⚠ Revisar</span>';
+      if(sinEgreso)badge='<span style="font-size:8px;padding:1px 5px;background:#fef9e7;color:#9a7d0a">⚠ Sin egreso</span>';
+      else if(isAnomaly)badge='<span style="font-size:8px;padding:1px 5px;background:#ffeaea;color:#c0392b">⚠ Revisar</span>';
       else if(isFest&&firstIn)badge='<span style="font-size:8px;padding:1px 5px;background:#eafaf1;color:#196f3d">Festivo</span>';
       else if(noct>0)badge='<span style="font-size:8px;padding:1px 5px;background:#f0f0fa;color:#5b5bd6">Nocturno</span>';
       return `<tr style="border-top:.5px solid var(--border)">
         <td style="padding:5px 0;color:var(--muted);font-size:10px">${dd}/${mm}</td>
         <td style="text-align:center;font-size:10px;color:${tard?'#c0392b':'var(--black)'}">${firstIn?fmtT(firstIn.timestamp):'—'}${tard?` <span style="font-size:8px">+${tard}m</span>`:''}</td>
-        <td style="text-align:center;font-size:10px;color:${isAnomaly?'#c0392b':'var(--black)'}">${lastEg?fmtT(lastEg.timestamp):'—'}</td>
-        <td style="text-align:center;font-size:10px;font-weight:500">${mins>0?Math.floor(mins/60)+'h'+(mins%60?' '+(mins%60)+'m':''):'—'}</td>
+        <td style="text-align:center;font-size:10px;color:${isAnomaly?'#c0392b':'var(--black)'}">${lastEg?fmtT(lastEg.timestamp):sinEgreso?'⚠':'—'}</td>
+        <td style="text-align:center;font-size:10px;font-weight:500">${sinEgreso?'—':mins>0?Math.floor(mins/60)+'h'+(mins%60?' '+(mins%60)+'m':''):'—'}</td>
         <td style="text-align:right">${badge}</td>
       </tr>`;
     }).join('');
