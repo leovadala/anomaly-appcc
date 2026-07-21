@@ -6709,7 +6709,12 @@ function empSubTab(tab){
     const b=$('empstab-'+t);if(b)b.classList.toggle('on',t===tab);
   });
   $('emp-ficha-panel').style.display='none';
-  if(tab==='fichaje'){renderEmpHoy();renderEmpFichajesHistorico();const u=$('emp-fichaje-url');if(u)u.textContent=window.location.origin+'?fichaje=1';}
+  if(tab==='fichaje'){
+    renderEmpHoy();renderEmpFichajesHistorico();
+    const u=$('emp-fichaje-url');if(u)u.textContent=window.location.origin+'?fichaje=1';
+    if(window._fichajeRefreshTimer)clearInterval(window._fichajeRefreshTimer);
+    window._fichajeRefreshTimer=setInterval(()=>{if(_activeTab==='fichaje')renderEmpHoy();},60000);
+  } else if(window._fichajeRefreshTimer){clearInterval(window._fichajeRefreshTimer);window._fichajeRefreshTimer=null;}
   if(tab==='integrantes')renderEmpIntegrantes();
   if(tab==='planificacion')renderVacPlanificacion();
   if(tab==='altas')renderAltasPanel();
@@ -7440,7 +7445,14 @@ async function renderEmpHoy(){
     const emp=horEmpleados.find(e=>e.nombre===nombre)||{nombre};
     const turno=((horSchedules[wk]||{})[nombre]||{})[dayIdx]||'';
     const empFs=(byEmp[nombre]||[]).sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
-    const actFs=empFs.filter(f=>!f.estado||f.estado==='activo');
+    // Agrupar en turnos: cada turno empieza en ingreso y termina en egreso (o abierto)
+    const _shifts=[];let _cur=null;
+    empFs.filter(f=>!f.estado||f.estado==='activo').forEach(f=>{
+      if(f.tipo==='ingreso'){_cur=[f];_shifts.push(_cur);}
+      else if(_cur){_cur.push(f);if(f.tipo==='egreso')_cur=null;}
+    });
+    // Usar solo el turno más reciente (evita mezclar ayer y hoy)
+    const actFs=_shifts.length?_shifts[_shifts.length-1]:[];
 
     // Parsear turno
     const tm=turno.match(/^(\d+)A(\d+)/i);
