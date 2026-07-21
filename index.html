@@ -6712,9 +6712,19 @@ function empSubTab(tab){
   if(tab==='fichaje'){
     renderEmpHoy();renderEmpFichajesHistorico();
     const u=$('emp-fichaje-url');if(u)u.textContent=window.location.origin+'?fichaje=1';
+    // Supabase Realtime: actualización instantánea cuando alguien ficha
+    if(window._fichajeChannel)sb.removeChannel(window._fichajeChannel);
+    window._fichajeChannel=sb.channel('fichajes-live')
+      .on('postgres_changes',{event:'*',schema:'public',table:'fichajes'},()=>{
+        if(_activeTab==='fichaje')renderEmpHoy();
+      }).subscribe();
+    // Fallback poll cada 30s (por si Realtime falla)
     if(window._fichajeRefreshTimer)clearInterval(window._fichajeRefreshTimer);
-    window._fichajeRefreshTimer=setInterval(()=>{if(_activeTab==='fichaje')renderEmpHoy();},60000);
-  } else if(window._fichajeRefreshTimer){clearInterval(window._fichajeRefreshTimer);window._fichajeRefreshTimer=null;}
+    window._fichajeRefreshTimer=setInterval(()=>{if(_activeTab==='fichaje')renderEmpHoy();},30000);
+  } else {
+    if(window._fichajeChannel){sb.removeChannel(window._fichajeChannel);window._fichajeChannel=null;}
+    if(window._fichajeRefreshTimer){clearInterval(window._fichajeRefreshTimer);window._fichajeRefreshTimer=null;}
+  }
   if(tab==='integrantes')renderEmpIntegrantes();
   if(tab==='planificacion')renderVacPlanificacion();
   if(tab==='altas')renderAltasPanel();
