@@ -5078,8 +5078,9 @@ function dayLabel(d){const days=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];co
 
 async function loadHorariosSemana(wk, force=false){
   if(!force && horSchedules[wk]!==undefined)return;
-  horSchedules[wk]={};
+  // (horSchedules[wk] set after data loads to avoid race condition)
   const{data}=await sb.from('horarios').select('*').eq('week_key',wk);
+  horSchedules[wk]={}; // init AFTER query to avoid race
   (data||[]).forEach(r=>{
     if(!horSchedules[wk][r.empleado])horSchedules[wk][r.empleado]={};
     horSchedules[wk][r.empleado][r.day_index]=r.turno;
@@ -7429,7 +7430,7 @@ async function renderEmpHoy(){
 
   // Cargar horarios semana actual
   const wk=weekKey(0);
-  if(!horSchedules[wk])await loadHorariosSemana(wk);
+  await loadHorariosSemana(wk, true); // force-reload: evita caché vacío envenenado
 
   // Agrupar fichajes activos por empleado
   const byEmp={};
