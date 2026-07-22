@@ -2783,6 +2783,15 @@ const cajDenoms=[
 ];
 let _cajRecord=null;
 async function openCajaModal(){
+  // Select-all on focus para todos los inputs numéricos del modal (evita "01")
+  const _cm=$('caja-modal');
+  if(_cm&&!_cm._selFix){
+    _cm.addEventListener('focus',e=>{
+      if(e.target.tagName==='INPUT'&&(e.target.type==='number'||e.target.inputMode==='numeric'))
+        setTimeout(()=>e.target.select(),0);
+    },true);
+    _cm._selFix=true;
+  }
   cajDenoms.forEach(d=>{const el=$('caj-'+d.id);if(el)el.value=0;});
   calcCajaEfectivo();
   $('caj-square').value='';$('caj-datafono').value='';$('caj-notas').value='';
