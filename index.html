@@ -438,6 +438,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <button onclick="go(10)">Finanzas</button>
 <button onclick="go(11)">Equipo</button>
 <button onclick="openVacModal()">Vacaciones</button>
+<button onclick="openAyudaModal()">Ayuda</button>
 </div>
 <div id="home-dashboard" style="display:none;padding:0 16px 4px"></div>
 <div id="app-footer" style="display:none">
@@ -2654,6 +2655,27 @@ async function deleteRoturaItem(id){
   const{error}=await sb.from('hor_rotura_items').delete().eq('id',id);
   if(error){alert('Error: '+error.message);return;}
   await loadRoturaItems();
+}
+
+function openAyudaModal(){
+  const m=$('ayuda-modal');
+  if(m){m.style.display='flex';m.scrollTop=0;}
+  ayudaTab('caja');
+}
+function closeAyudaModal(){
+  const m=$('ayuda-modal');
+  if(m)m.style.display='none';
+}
+function ayudaTab(tab){
+  ['caja','ficha'].forEach(t=>{
+    const el=$('ayuda-'+t);
+    const btn=$('ayudatab-'+t);
+    if(el)el.style.display=t===tab?'block':'none';
+    if(btn){
+      btn.style.borderBottom=t===tab?'2px solid var(--black)':'2px solid transparent';
+      btn.style.color=t===tab?'var(--black)':'var(--muted)';
+    }
+  });
 }
 
 async function openVacModal(){
@@ -9324,6 +9346,155 @@ function _setupTempTouchDrag(){
         </div>
       </div>
       <button type="button" id="nov-save-btn" onclick="guardarNovedad()" style="width:100%;padding:11px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<div class="ocr-modal" id="ayuda-modal" style="display:none;align-items:flex-start;overflow-y:auto;padding:1rem 0" onclick="if(event.target===this)closeAyudaModal()">
+  <div style="background:var(--white,#fff);width:100%;max-width:480px;border-radius:10px;overflow:hidden;margin:auto;flex-shrink:0">
+    <div style="padding:1rem 1.2rem;display:flex;justify-content:space-between;align-items:center;border-bottom:.5px solid var(--border)">
+      <span style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Ayuda</span>
+      <button type="button" onclick="closeAyudaModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">&times;</button>
+    </div>
+    <!-- Tabs -->
+    <div style="display:flex;border-bottom:.5px solid var(--border)">
+      <button type="button" id="ayudatab-caja" onclick="ayudaTab('caja')" style="flex:1;padding:9px;border:none;background:transparent;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid var(--black);font-family:var(--font);color:var(--black)">Módulo Caja</button>
+      <button type="button" id="ayudatab-ficha" onclick="ayudaTab('ficha')" style="flex:1;padding:9px;border:none;background:transparent;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font);color:var(--muted)">Fichajes</button>
+    </div>
+
+    <!-- Caja tab -->
+    <div id="ayuda-caja" style="padding:1rem;display:block">
+
+      <!-- Pestañas del módulo -->
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem">Estructura del módulo</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:1.2rem">
+        <div style="background:var(--black,#111);color:#fff;padding:10px 12px;border-radius:4px">
+          <div style="font-size:10px;font-weight:600;letter-spacing:.5px">€ Cierre</div>
+          <div style="font-size:8px;color:rgba(255,255,255,.6);margin-top:3px">Conteo de efectivo al fin del turno</div>
+        </div>
+        <div style="border:.5px solid var(--border);padding:10px 12px;border-radius:4px">
+          <div style="font-size:10px;font-weight:600">✓ Control</div>
+          <div style="font-size:8px;color:var(--muted);margin-top:3px">Verificación del encargado. Requiere PIN.</div>
+        </div>
+        <div style="border:.5px solid var(--border);padding:10px 12px;border-radius:4px">
+          <div style="font-size:10px;font-weight:600">⬇ Depósito</div>
+          <div style="font-size:8px;color:var(--muted);margin-top:3px">Registro de depósito bancario. Requiere PIN.</div>
+        </div>
+        <div style="border:.5px solid var(--border);padding:10px 12px;border-radius:4px">
+          <div style="font-size:10px;font-weight:600">◷ Historial</div>
+          <div style="font-size:8px;color:var(--muted);margin-top:3px">Trazabilidad completa del mes.</div>
+        </div>
+      </div>
+
+      <!-- Pasos: Cierre -->
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem;margin-top:.2rem">1 · Cierre — al final del turno</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:1.2rem">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:var(--black,#111);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">1</div>
+          <div><div style="font-size:10px;font-weight:600">Abrir el módulo Caja</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Desde el Dashboard, tocar la tarjeta € Caja.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:var(--black,#111);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">2</div>
+          <div><div style="font-size:10px;font-weight:600">Contar el efectivo físico</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Ingresar billetes y monedas con + y −. El total se calcula solo.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:var(--black,#111);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">3</div>
+          <div><div style="font-size:10px;font-weight:600">Registrar Square y Datafono</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Ingresar los totales del TPV digital y datáfono del día.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:var(--black,#111);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">4</div>
+          <div><div style="font-size:10px;font-weight:600">Seleccionar responsable y guardar</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Elegir el nombre del responsable. Clic en Guardar cierre.</div></div>
+        </div>
+      </div>
+
+      <!-- Pasos: Control -->
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem;display:flex;align-items:center;gap:6px">
+        <span>2 · Control — encargado</span>
+        <span style="font-size:8px;background:#fff8e1;color:#9a7000;padding:2px 6px;border-radius:3px;letter-spacing:0">🔒 PIN</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:1.2rem">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:#555;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">1</div>
+          <div><div style="font-size:10px;font-weight:600">Ingresar PIN de supervisor</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Pestaña Control → ingresar el PIN para desbloquear.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:#555;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">2</div>
+          <div><div style="font-size:10px;font-weight:600">Reconteo independiente</div><div style="font-size:9px;color:var(--muted);margin-top:2px">La columna Contado arranca en 0. Contar de forma independiente — no copiar el cierre.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:#555;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">3</div>
+          <div><div style="font-size:10px;font-weight:600">Definir Fondo de apertura</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Separar el efectivo que queda en caja para el próximo turno.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:#555;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">4</div>
+          <div><div style="font-size:10px;font-weight:600">Guardar control</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Se registra la diferencia y el cierre queda marcado como controlado ✓.</div></div>
+        </div>
+      </div>
+
+      <!-- Depósito -->
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem;display:flex;align-items:center;gap:6px">
+        <span>3 · Depósito bancario</span>
+        <span style="font-size:8px;background:#fff8e1;color:#9a7000;padding:2px 6px;border-radius:3px;letter-spacing:0">🔒 PIN</span>
+      </div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:1.2rem;line-height:1.5">Pestaña Depósito → ingresar el importe depositado en banco. El sistema descuenta del saldo de caja fuerte y deja registro con fecha y referencia.</div>
+
+      <!-- Tips -->
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem">Buenas prácticas</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="border:.5px solid var(--border);padding:8px 10px;border-radius:4px;font-size:9px;color:var(--muted);line-height:1.5"><strong style="color:var(--black,#111)">Un cierre por jornada.</strong> No acumular días.</div>
+        <div style="border:.5px solid var(--border);padding:8px 10px;border-radius:4px;font-size:9px;color:var(--muted);line-height:1.5"><strong style="color:var(--black,#111)">Siempre fondo de apertura.</strong> Sin fondo, el próximo turno arranca sin suelto.</div>
+        <div style="border:.5px solid var(--border);padding:8px 10px;border-radius:4px;font-size:9px;color:var(--muted);line-height:1.5"><strong style="color:var(--black,#111)">Control siempre independiente.</strong> El encargado cuenta por separado, sin ver el cierre del empleado.</div>
+        <div style="border:.5px solid var(--border);padding:8px 10px;border-radius:4px;font-size:9px;color:var(--muted);line-height:1.5"><strong style="color:var(--black,#111)">Usar Notas.</strong> Registrar incidencias: billetes falsos, errores de cobro, devoluciones.</div>
+      </div>
+    </div>
+
+    <!-- Fichajes tab -->
+    <div id="ayuda-ficha" style="padding:1rem;display:none">
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem">Tipos de fichaje</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:1.2rem">
+        <div style="background:var(--black,#111);color:#fff;padding:10px 12px;border-radius:4px">
+          <div style="font-size:10px;font-weight:600">Ingreso</div>
+          <div style="font-size:8px;color:rgba(255,255,255,.6);margin-top:3px">Entrada al turno. Inicia el contador.</div>
+        </div>
+        <div style="border:.5px solid var(--border);padding:10px 12px;border-radius:4px">
+          <div style="font-size:10px;font-weight:600">⏸ Pausa</div>
+          <div style="font-size:8px;color:var(--muted);margin-top:3px">Inicio de descanso. Detiene el neto.</div>
+        </div>
+        <div style="border:.5px solid var(--border);padding:10px 12px;border-radius:4px">
+          <div style="font-size:10px;font-weight:600">▶ Vuelta</div>
+          <div style="font-size:8px;color:var(--muted);margin-top:3px">Regreso de pausa. Reactiva el neto.</div>
+        </div>
+        <div style="border:.5px solid var(--border);padding:10px 12px;border-radius:4px">
+          <div style="font-size:10px;font-weight:600">Egreso</div>
+          <div style="font-size:8px;color:var(--muted);margin-top:3px">Salida del turno. Cierra el período.</div>
+        </div>
+      </div>
+
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem">Flujo normal del turno</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:1.2rem">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:var(--black,#111);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">1</div>
+          <div><div style="font-size:10px;font-weight:600">Abrir kiosk de fichaje</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Desde la pantalla principal → tarjeta de fichaje, o botón inferior.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:var(--black,#111);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">2</div>
+          <div><div style="font-size:10px;font-weight:600">Seleccionar nombre</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Tocar el nombre en la lista. El sistema muestra el último fichaje.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:var(--black,#111);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">3</div>
+          <div><div style="font-size:10px;font-weight:600">Confirmar el tipo</div><div style="font-size:9px;color:var(--muted);margin-top:2px">El botón muestra la acción siguiente según el estado actual (Ingreso → Pausa → Vuelta → Egreso).</div></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="border:.5px solid var(--border);padding:8px 10px;border-radius:4px;font-size:9px;color:var(--muted);line-height:1.5"><strong style="color:var(--black,#111)">Antes de las 6:00.</strong> El sistema considera que seguís en el día laboral anterior.</div>
+        <div style="border:.5px solid var(--border);padding:8px 10px;border-radius:4px;font-size:9px;color:var(--muted);line-height:1.5"><strong style="color:var(--black,#111)">Pausa sin vuelta.</strong> El contador se detiene hasta que registres Vuelta.</div>
+        <div style="border:.5px solid var(--border);padding:8px 10px;border-radius:4px;font-size:9px;color:var(--muted);line-height:1.5"><strong style="color:var(--black,#111)">Dashboard · Activos.</strong> Muestra en tiempo real quién está en turno o vuelta.</div>
+      </div>
+    </div>
+
+    <div style="padding:.8rem 1rem;border-top:.5px solid var(--border);text-align:right">
+      <button type="button" onclick="closeAyudaModal()" style="background:var(--black,#111);color:#fff;border:none;padding:8px 20px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;font-family:var(--font);border-radius:3px">Cerrar</button>
     </div>
   </div>
 </div>
