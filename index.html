@@ -7418,7 +7418,6 @@ async function renderEmpHoy(){
 
   const todayStr=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
   const todayDate=new Date(todayStr+'T12:00:00Z');
-  const dayIdx=(todayDate.getDay()+6)%7; // 0=Lun, 6=Dom
   const todayFestivo=esFestivo(todayDate);
 
   // Fichajes en ventana de 28h para capturar nocturnos
@@ -7432,6 +7431,25 @@ async function renderEmpHoy(){
   const wk=weekKey(0);
   await loadHorariosSemana(wk, true); // force-reload: evita caché vacío envenenado
 
+  // ── DÍA LABORAL (hora Alicante) ─────────────────────────────────────────────
+  // Entre 00:00 y 06:00 el "día laboral" sigue siendo el de ayer
+  // (el restaurante cerró pasada la medianoche pero el cierre es del día anterior)
+  const LABOR_CUTOFF=6;
+  const nowSpainStr=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN});
+  const nowSpainH=parseInt(nowSpainStr.split(' ')[1]);
+  const isAfterMidnight=nowSpainH<LABOR_CUTOFF;
+  const laborDayStr=isAfterMidnight
+    ?new Date(Date.now()-86400000).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0]
+    :todayStr;
+  const laborDate=new Date(laborDayStr+'T12:00:00Z');
+  const laborDayIdx=(laborDate.getDay()+6)%7; // 0=Lun,6=Dom
+  // weekKey del día laboral (puede ser semana anterior si cruzó lunes)
+  const _lday=laborDate.getDay();
+  const _lmon=new Date(laborDate);_lmon.setDate(laborDate.getDate()-(_lday===0?6:_lday-1));
+  const laborWk=_lmon.getFullYear()+'-W'+String(_lmon.getDate()).padStart(2,'0')+String(_lmon.getMonth()).padStart(2,'0');
+  if(laborWk!==wk)await loadHorariosSemana(laborWk,true);
+  // ────────────────────────────────────────────────────────────────────────────
+
   // Agrupar fichajes activos por empleado
   const byEmp={};
   _empFichajeHoy.filter(f=>!f.estado||f.estado==='activo').forEach(f=>{
@@ -7439,34 +7457,35 @@ async function renderEmpHoy(){
     byEmp[f.empleado_nombre].push(f);
   });
 
-  // Empleados con turno hoy o con fichajes
-  const nowMs=Date.now();
-  const nowSpainH=new Date(new Date().toLocaleString('sv',{timeZone:TZ_SPAIN})).getHours();
-
-  // conTurno: empleados con turno hoy que ya empezó o empieza en <2h
+  // conTurno: empleados con turno en el día laboral que ya empezó
+  // (pasadas las 06:00 también incluye turnos que empiezan en las próximas 2h)
   const conTurno=new Set();
   horEmpleados.forEach(e=>{
-    const t=((horSchedules[wk]||{})[e.nombre]||{})[dayIdx]||'';
+    const t=((horSchedules[laborWk]||{})[e.nombre]||{})[laborDayIdx]||'';
     if(!t||t==='OFF'||t==='P')return;
-    const tm=t.match(/^(\d+)A(\d+)/i);
-    if(!tm)return;
-    const startH=parseInt(tm[1]);
-    // Mostrar si el turno ya empezó o empieza en las próximas 2h
-    // (manejar turnos nocturnos que cruzaron la medianoche)
-    const hoursUntilStart=(startH-nowSpainH+24)%24;
-    if(hoursUntilStart<=2||hoursUntilStart>=22)conTurno.add(e.nombre);
+    if(isAfterMidnight){
+      // Antes de las 06:00: mostrar todos los del día laboral (todos ya comenzaron)
+      conTurno.add(e.nombre);
+    } else {
+      const tm=t.match(/^(\d+)A(\d+)/i);if(!tm)return;
+      const startH=parseInt(tm[1]);
+      const hoursUntilStart=(startH-nowSpainH+24)%24;
+      if(hoursUntilStart<=2||hoursUntilStart>=22)conTurno.add(e.nombre);
+    }
   });
 
-  // byEmpFiltered: empleados con fichajes relevantes (turno abierto O fichaje de hoy)
-  // todayMidnight en hora España (CEST=+02:00 verano, CET=+01:00 invierno)
-  const todayMidnight=(()=>{const c=new Date(todayStr+'T00:00:00+02:00').getTime();if(new Date(c).toLocaleString('sv',{timeZone:TZ_SPAIN}).slice(11,19)==='00:00:00')return c;return new Date(todayStr+'T00:00:00+01:00').getTime();})();
+  // byEmpFiltered: empleados con ingreso en el día laboral (hora Alicante) o turno abierto
   const byEmpFiltered={};
   Object.entries(byEmp).forEach(([nombre,fichs])=>{
     const sorted=fichs.slice().sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
     const lastF=sorted[sorted.length-1];
     const isOpen=lastF&&(lastF.tipo==='ingreso'||lastF.tipo==='vuelta'||lastF.tipo==='pausa');
-    const isFromToday=lastF&&new Date(lastF.timestamp).getTime()>=todayMidnight;
-    if(isOpen||isFromToday)byEmpFiltered[nombre]=fichs;
+    // ¿Tiene algún ingreso en el día laboral (hora Alicante)?
+    const hasIngresoLaborDay=fichs.some(f=>
+      f.tipo==='ingreso'&&
+      new Date(f.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0]===laborDayStr
+    );
+    if(isOpen||hasIngresoLaborDay)byEmpFiltered[nombre]=fichs;
   });
 
   const todos=[...new Set([...conTurno,...Object.keys(byEmpFiltered)])].sort();
