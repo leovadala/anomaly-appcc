@@ -2385,10 +2385,13 @@ function initTurno(){
   loadTurnoFichaje();loadTurnoCaja();loadTurnoTemp();loadTurnoNovedades();
 }
 async function loadTurnoFichaje(){
-  const t=new Date().toISOString().slice(0,10);
-  const{data}=await sb.from('fichajes').select('empleado_nombre,tipo').gte('timestamp',t+'T00:00:00').order('timestamp',{ascending:false});
+  // Usar hora Alicante para el corte de día + ventana 28h para turnos nocturnos
+  const tSpain=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
+  const since28h=new Date(Date.now()-28*3600000).toISOString();
+  const{data}=await sb.from('fichajes').select('empleado_nombre,tipo').gte('timestamp',since28h).order('timestamp',{ascending:false});
+  // Tomar el último fichaje por empleado y ver si está activo (ingreso o vuelta)
   const activos=new Set(),seen=new Set();
-  (data||[]).forEach(f=>{if(!seen.has(f.empleado_nombre)){seen.add(f.empleado_nombre);if(f.tipo==='ingreso')activos.add(f.empleado_nombre);}});
+  (data||[]).forEach(f=>{if(!seen.has(f.empleado_nombre)){seen.add(f.empleado_nombre);if(f.tipo==='ingreso'||f.tipo==='vuelta')activos.add(f.empleado_nombre);}});
   const c=$('tur-card-fich');
   if(activos.size>0){c.className='tur-card t-ok';$('tur-fich-val').textContent=activos.size+' activos';$('tur-fich-sub').textContent=[...activos].join(', ');}
   else{c.className='tur-card t-warn';$('tur-fich-val').textContent='0 activos';$('tur-fich-sub').textContent='sin fichajes hoy';}
