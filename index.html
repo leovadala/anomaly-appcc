@@ -9410,11 +9410,13 @@ function _setupTempTouchDrag(){
         <button type="button" onclick="verifCajaPIN()" style="margin-top:14px;padding:9px 24px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px">Verificar</button>
       </div>
       <div id="caj-ctrl-content" style="display:none;flex-direction:column;gap:8px">
+        <!-- Nota explicativa -->
+        <div style="font-size:10px;color:var(--muted);background:var(--surface);border:.5px solid var(--border);padding:7px 10px;border-radius:4px;line-height:1.5">Contá el efectivo en <strong style="color:var(--black)">Contado</strong> · Separar lo que queda en caja para mañana en <strong style="color:#1a7a3d">Fondo apertura</strong> · El resto va a caja fuerte.</div>
         <!-- Encabezado de columnas -->
         <div class="ctrl-hdr">
           <span></span>
           <span style="color:var(--muted);border-bottom:2px solid var(--border);padding-bottom:3px">Contado</span>
-          <span style="color:#1a7a3d;border-bottom:2px solid #4caf7d;padding-bottom:3px">En caja</span>
+          <span style="color:#1a7a3d;border-bottom:2px solid #4caf7d;padding-bottom:3px">Fondo apertura</span>
         </div>
         <!-- Billetes -->
         <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:1px">Billetes</div>
