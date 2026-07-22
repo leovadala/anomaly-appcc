@@ -7458,7 +7458,8 @@ async function renderEmpHoy(){
   });
 
   // byEmpFiltered: empleados con fichajes relevantes (turno abierto O fichaje de hoy)
-  const todayMidnight=new Date(todayStr+'T00:00:00+02:00').getTime();
+  // todayMidnight en hora España (CEST=+02:00 verano, CET=+01:00 invierno)
+  const todayMidnight=(()=>{const c=new Date(todayStr+'T00:00:00+02:00').getTime();if(new Date(c).toLocaleString('sv',{timeZone:TZ_SPAIN}).slice(11,19)==='00:00:00')return c;return new Date(todayStr+'T00:00:00+01:00').getTime();})();
   const byEmpFiltered={};
   Object.entries(byEmp).forEach(([nombre,fichs])=>{
     const sorted=fichs.slice().sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
@@ -7477,7 +7478,6 @@ async function renderEmpHoy(){
 
   const cards=todos.map(nombre=>{
     const emp=horEmpleados.find(e=>e.nombre===nombre)||{nombre};
-    const turno=((horSchedules[wk]||{})[nombre]||{})[dayIdx]||'';
     const empFs=((byEmpFiltered[nombre]||byEmp[nombre])||[]).sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
     // Agrupar en turnos: cada turno empieza en ingreso y termina en egreso (o abierto)
     const _shifts=[];let _cur=null;
@@ -7487,6 +7487,20 @@ async function renderEmpHoy(){
     });
     // Usar solo el turno más reciente (evita mezclar ayer y hoy)
     const actFs=_shifts.length?_shifts[_shifts.length-1]:[];
+
+    // Determinar día/semana del turno en hora Alicante (España)
+    // Si el ingreso fue ayer (turno nocturno), mostramos el horario de ayer
+    const shiftIngreso=actFs.find(f=>f.tipo==='ingreso');
+    let shiftDayIdx=dayIdx,shiftWk=wk;
+    if(shiftIngreso){
+      const spStr=new Date(shiftIngreso.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
+      const spDate=new Date(spStr+'T12:00:00Z');
+      shiftDayIdx=(spDate.getDay()+6)%7; // 0=Lun,6=Dom
+      const spDay=spDate.getDay();
+      const spMon=new Date(spDate);spMon.setDate(spDate.getDate()-(spDay===0?6:spDay-1));
+      shiftWk=spMon.getFullYear()+'-W'+String(spMon.getDate()).padStart(2,'0')+String(spMon.getMonth()).padStart(2,'0');
+    }
+    const turno=((horSchedules[shiftWk]||horSchedules[wk]||{})[nombre]||{})[shiftDayIdx]||'';
 
     // Parsear turno
     const tm=turno.match(/^(\d+)A(\d+)/i);
