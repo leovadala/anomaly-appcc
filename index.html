@@ -7510,7 +7510,7 @@ async function renderEmpHoy(){
     // Determinar día/semana del turno en hora Alicante (España)
     // Si el ingreso fue ayer (turno nocturno), mostramos el horario de ayer
     const shiftIngreso=actFs.find(f=>f.tipo==='ingreso');
-    let shiftDayIdx=dayIdx,shiftWk=wk;
+    let shiftDayIdx=laborDayIdx,shiftWk=laborWk;
     if(shiftIngreso){
       const spStr=new Date(shiftIngreso.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];
       const spDate=new Date(spStr+'T12:00:00Z');
