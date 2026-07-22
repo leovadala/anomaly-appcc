@@ -7440,12 +7440,35 @@ async function renderEmpHoy(){
   });
 
   // Empleados con turno hoy o con fichajes
+  const nowMs=Date.now();
+  const nowSpainH=new Date(new Date().toLocaleString('sv',{timeZone:TZ_SPAIN})).getHours();
+
+  // conTurno: empleados con turno hoy que ya empezó o empieza en <2h
   const conTurno=new Set();
   horEmpleados.forEach(e=>{
     const t=((horSchedules[wk]||{})[e.nombre]||{})[dayIdx]||'';
-    if(t&&t!=='OFF')conTurno.add(e.nombre);
+    if(!t||t==='OFF'||t==='P')return;
+    const tm=t.match(/^(\d+)A(\d+)/i);
+    if(!tm)return;
+    const startH=parseInt(tm[1]);
+    // Mostrar si el turno ya empezó o empieza en las próximas 2h
+    // (manejar turnos nocturnos que cruzaron la medianoche)
+    const hoursUntilStart=(startH-nowSpainH+24)%24;
+    if(hoursUntilStart<=2||hoursUntilStart>=22)conTurno.add(e.nombre);
   });
-  const todos=[...new Set([...conTurno,...Object.keys(byEmp)])].sort();
+
+  // byEmpFiltered: empleados con fichajes relevantes (turno abierto O fichaje de hoy)
+  const todayMidnight=new Date(todayStr+'T00:00:00+02:00').getTime();
+  const byEmpFiltered={};
+  Object.entries(byEmp).forEach(([nombre,fichs])=>{
+    const sorted=fichs.slice().sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
+    const lastF=sorted[sorted.length-1];
+    const isOpen=lastF&&(lastF.tipo==='ingreso'||lastF.tipo==='vuelta'||lastF.tipo==='pausa');
+    const isFromToday=lastF&&new Date(lastF.timestamp).getTime()>=todayMidnight;
+    if(isOpen||isFromToday)byEmpFiltered[nombre]=fichs;
+  });
+
+  const todos=[...new Set([...conTurno,...Object.keys(byEmpFiltered)])].sort();
 
   if(!todos.length){el.innerHTML='<div style="color:var(--hint);font-size:11px;padding:.5rem">Sin turnos ni fichajes hoy</div>';return;}
 
@@ -7455,7 +7478,7 @@ async function renderEmpHoy(){
   const cards=todos.map(nombre=>{
     const emp=horEmpleados.find(e=>e.nombre===nombre)||{nombre};
     const turno=((horSchedules[wk]||{})[nombre]||{})[dayIdx]||'';
-    const empFs=(byEmp[nombre]||[]).sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
+    const empFs=((byEmpFiltered[nombre]||byEmp[nombre])||[]).sort((a,b)=>a.timestamp.localeCompare(b.timestamp));
     // Agrupar en turnos: cada turno empieza en ingreso y termina en egreso (o abierto)
     const _shifts=[];let _cur=null;
     empFs.filter(f=>!f.estado||f.estado==='activo').forEach(f=>{
