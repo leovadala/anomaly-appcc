@@ -342,6 +342,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
       <div class="tc-lbl">Fichaje</div>
       <div class="tc-val" id="tur-fich-val">—</div>
       <div class="tc-sub" id="tur-fich-sub">cargando</div>
+      <div id="tur-fich-next" style="font-size:8px;color:var(--hint);margin-top:3px;line-height:1.3"></div>
     </div>
     <div id="tur-card-caja" class="tur-card t-pend" onclick="openCajaModal()">
       <div class="tc-ico">€</div>
@@ -2395,6 +2396,38 @@ async function loadTurnoFichaje(){
   const c=$('tur-card-fich');
   if(activos.size>0){c.className='tur-card t-ok';$('tur-fich-val').textContent=activos.size+' activos';$('tur-fich-sub').textContent=[...activos].join(', ');}
   else{c.className='tur-card t-warn';$('tur-fich-val').textContent='0 activos';$('tur-fich-sub').textContent='sin fichajes hoy';}
+  // Próximo en ingresar
+  try{
+    if(!horEmpleados.length)await loadHorEmpleados();
+    const _ns=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN});
+    const _nh=parseInt(_ns.split(' ')[1]),_nm=parseInt(_ns.split(' ')[1].split(':')[1]);
+    const _nowMin=_nh*60+_nm;
+    const _labStr=_nh<6?new Date(Date.now()-86400000).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0]:_ns.split(' ')[0];
+    const _labDate=new Date(_labStr+'T12:00:00Z');
+    const _lday=_labDate.getDay(),_lmon=new Date(_labDate);
+    _lmon.setDate(_labDate.getDate()-(_lday===0?6:_lday-1));
+    const _labWk=_lmon.getFullYear()+'-W'+String(_lmon.getDate()).padStart(2,'0')+String(_lmon.getMonth()).padStart(2,'0');
+    const _labIdx=(_labDate.getDay()+6)%7;
+    if(!horSchedules[_labWk])await loadHorariosSemana(_labWk,false);
+    const _cands=[];
+    horEmpleados.forEach(e=>{
+      if(activos.has(e.nombre))return;
+      const t=((horSchedules[_labWk]||{})[e.nombre]||{})[_labIdx]||'';
+      if(!t||t==='OFF'||t==='P')return;
+      const tm=t.match(/^(\d+)A(\d+)/i);if(!tm)return;
+      const sh=parseInt(tm[1]),sMin=sh*60;
+      let until=sMin-_nowMin;if(until<0)until+=1440;
+      if(until>0&&until<=8*60)_cands.push({nombre:e.nombre,sh,until});
+    });
+    _cands.sort((a,b)=>a.until-b.until);
+    const _nxt=$('tur-fich-next');
+    if(_nxt){
+      if(_cands.length){
+        const p=_cands[0],hh=String(p.sh%24).padStart(2,'0');
+        _nxt.textContent='Próx: '+p.nombre.split(' ')[0]+' '+hh+':00'+(p.until<60?' (en '+p.until+'m)':'');
+      } else {_nxt.textContent='';}
+    }
+  }catch(e){console.warn('próximo:',e);}
 }
 async function loadTurnoCaja(){
   const t=new Date().toISOString().slice(0,10);
