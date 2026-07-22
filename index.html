@@ -6721,7 +6721,7 @@ function empSubTab(tab){
       }).subscribe();
     // Fallback poll cada 30s (por si Realtime falla)
     if(window._fichajeRefreshTimer)clearInterval(window._fichajeRefreshTimer);
-    window._fichajeRefreshTimer=setInterval(()=>{if(_activeTab==='fichaje')renderEmpHoy();},30000);
+    window._fichajeRefreshTimer=setInterval(()=>{if(_activeTab==='fichaje')renderEmpHoy();},15000);
   } else {
     if(window._fichajeChannel){sb.removeChannel(window._fichajeChannel);window._fichajeChannel=null;}
     if(window._fichajeRefreshTimer){clearInterval(window._fichajeRefreshTimer);window._fichajeRefreshTimer=null;}
@@ -7591,8 +7591,8 @@ async function renderEmpHoy(){
           <div style="font-size:11px;color:${isAnomaly?'#c0392b':'var(--black)'}">${egresoStr}</div>
         </div>
       </div>
-      ${isNocturno||todayFestivo||enPausa?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${isNocturno?'<span style="font-size:8px;padding:1px 6px;background:#f0f0fa;color:#5b5bd6">🌙 Nocturno</span>':''}${todayFestivo&&turno&&turno!=='OFF'?'<span style="font-size:8px;padding:1px 6px;background:#eafaf1;color:#196f3d">📅 Festivo</span>':''}</div>`:''}
-      ${planHrs>0||completo?`<div style="height:2px;background:var(--bg);margin-bottom:3px"><div style="height:100%;width:${progressPct}%;background:${progColor}"></div></div><div style="font-size:8px;color:var(--hint)">${enTurno?'Lleva '+netoStr+' · '+progressPct+'%':'Total '+netoStr}</div>`:''}
+      ${isNocturno||todayFestivo||enPausa?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${isNocturno?'<span style="font-size:8px;padding:1px 6px;background:#f0f0fa;color:#5b5bd6">🌙 Nocturno</span>':''}${todayFestivo&&turno&&turno!=='OFF'?'<span style="font-size:8px;padding:1px 6px;background:#eafaf1;color:#196f3d">📅 Festivo</span>':''}${enPausa?`<span style="font-size:8px;padding:1px 6px;background:#fef3cd;color:#856404">⏸ Pausa${pausaDurMin>0?' · '+pausaDurStr:''}</span>`:''}</div>`:''}
+      ${planHrs>0||completo||enPausa?`<div style="height:2px;background:var(--bg);margin-bottom:3px"><div style="height:100%;width:${progressPct}%;background:${progColor}"></div></div><div style="font-size:8px;color:var(--hint)">${enTurno?'Lleva '+netoStr+' · '+progressPct+'%':enPausa?'Trabajado: '+netoStr+(pausaDurMin>0?' · Pausa: '+pausaDurStr:''):'Total '+netoStr}</div>`:''}
     </div>`;
   });
 
@@ -8362,8 +8362,19 @@ async function fkCheckPin(){
     .gte('timestamp',since28h)
     .order('timestamp',{ascending:true});
   // Only active fichajes (ignore corrected/annulled)
-  const todayFichs=(data||[]).filter(f=>!f.estado||f.estado==='activo');
-  const lastFich=todayFichs.length?todayFichs[todayFichs.length-1]:null;
+  const allFichs=(data||[]).filter(f=>!f.estado||f.estado==='activo');
+  // Determinar día laboral en hora Alicante (antes de las 06:00 → día anterior)
+  const _fkNowSpain=new Date().toLocaleString('sv',{timeZone:TZ_SPAIN});
+  const _fkNowH=parseInt(_fkNowSpain.split(' ')[1]);
+  const _fkLaborStr=_fkNowH<6
+    ?new Date(Date.now()-86400000).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0]
+    :_fkNowSpain.split(' ')[0];
+  // Usar solo fichajes del día laboral para calcular horas (evita sumar turno de ayer)
+  const todayFichs=allFichs.filter(f=>
+    new Date(f.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0]===_fkLaborStr
+  );
+  // lastFich: del total de fichajes activos (para determinar estado real)
+  const lastFich=allFichs.length?allFichs[allFichs.length-1]:null;
   const lastTipo=lastFich?lastFich.tipo:null;
   const nombre=_fkEmp.nombre||_fkEmp.name;
   $('fk-emp-name').textContent=nombre;
