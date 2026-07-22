@@ -2987,15 +2987,18 @@ async function verifCajaPIN(){
   const{data}=await sb.from('cajas').select('*').eq('fecha',t).limit(1);
   _cajRecord=(data||[])[0]||null;
   const r=_cajRecord;
+  // Reset siempre a 0 — el encargado debe contar de forma independiente
+  cajDenoms.forEach(d=>{
+    const elC=$('caj-ct-cnt-'+d.id);if(elC)elC.value=0;
+    const elF=$('caj-ct-fdo-'+d.id);if(elF)elF.value=0;
+  });
   if(r){
-    // Pre-cargar columna "Contado" con el cierre del empleado (verificación independiente)
-    cajDenoms.forEach(d=>{
-      const elC=$('caj-ct-cnt-'+d.id);if(elC)elC.value=r[d.col]||0;
-      const elF=$('caj-ct-fdo-'+d.id);if(elF)elF.value=0;
-    });
+    // Mostrar el total del cierre del empleado como referencia (solo lectura)
+    const empRef=$('ctrl-emp-ref');
+    if(empRef)empRef.textContent='Cierre empleado: €'+(r.total_efectivo||0).toFixed(2);
     if(r.notas_control)$('caj-ctrl-notas').value=r.notas_control;
-    calcCtrlTotals();
   }
+  calcCtrlTotals();
   $('caj-ctrl-content').style.display='flex';
 }
 function ctrlCntSync(id){const el=$('caj-ct-cnt-'+id);if(!el)return;const fdo=$('caj-ct-fdo-'+id);if(fdo)fdo.value=el.value;calcCtrlTotals();}
@@ -9442,7 +9445,7 @@ function _setupTempTouchDrag(){
         </div>
         <!-- Vs empleado -->
         <div id="ctrl-diff-box" style="padding:8px 12px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;border:.5px solid var(--border);background:var(--surface)">
-          <span style="font-size:11px;color:var(--muted);font-family:var(--font)">Vs. cierre empleado</span>
+          <span style="font-size:11px;color:var(--muted);font-family:var(--font)">Vs. cierre empleado<span id="ctrl-emp-ref" style="display:block;font-size:9px;letter-spacing:.3px;margin-top:1px"></span></span>
           <span id="ctrl-diff-val" style="font-size:13px;font-weight:600;font-family:var(--font)">&mdash;</span>
         </div>
         <!-- A caja fuerte -->
