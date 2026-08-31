@@ -1414,9 +1414,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
           <button type="button" data-cont="libre" class="pesar-cont-btn" onclick="seleccionarContenedor('libre')" style="padding:10px 8px;border:.5px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;text-align:left;line-height:1.4">Sin tara<br><span style="font-size:9px">peso directo</span></button>
         </div>
       </div>
+      <div>
+        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Unidad</div>
+        <div style="display:flex;gap:6px">
+          <button type="button" data-unit="gr" class="pesar-unit-btn" onclick="seleccionarUnidad('gr')" style="padding:6px 14px;border:.5px solid var(--border);background:var(--black);color:#fff;font-size:11px;cursor:pointer;transition:all .15s">gr</button>
+          <button type="button" data-unit="kg" class="pesar-unit-btn" onclick="seleccionarUnidad('kg')" style="padding:6px 14px;border:.5px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;transition:all .15s">kg</button>
+          <button type="button" data-unit="L" class="pesar-unit-btn" onclick="seleccionarUnidad('L')" style="padding:6px 14px;border:.5px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;transition:all .15s">L</button>
+          <button type="button" data-unit="uds" class="pesar-unit-btn" onclick="seleccionarUnidad('uds')" style="padding:6px 14px;border:.5px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;transition:all .15s">uds</button>
+        </div>
+      </div>
       <div class="r2">
-        <div class="f"><label style="font-size:9px">Peso bruto (g) — lo que marca la balanza</label><input type="number" id="pesar-bruto" placeholder="gramos" min="0" oninput="calcPesoNeto()" style="font-size:22px;font-weight:500"></div>
-        <div class="f"><label style="font-size:9px">Tara descontada</label><div id="pesar-tara-display" style="font-size:14px;padding:6px 0;color:var(--muted)">0 g</div></div>
+        <div class="f"><label id="pesar-bruto-label" style="font-size:9px">Peso bruto (g) — lo que marca la balanza</label><input type="number" id="pesar-bruto" placeholder="gramos" min="0" step="any" oninput="calcPesoNeto()" style="font-size:22px;font-weight:500"></div>
+        <div id="pesar-tara-wrap" class="f"><label style="font-size:9px">Tara descontada</label><div id="pesar-tara-display" style="font-size:14px;padding:6px 0;color:var(--muted)">0 g</div></div>
       </div>
       <div style="background:var(--surface,#eee);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border:.5px solid var(--border)">
         <span style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted)">Peso neto</span>
@@ -6458,6 +6467,7 @@ function applyAllEgOcr(){
 // (CONTEO_TARA/CATS/CONT_DEFAULT declarados al inicio)
 var _conteo=null,_conteoLineas=[],_conteoTab='Helado',_pesarProd={nombre:'',categoria:''};
 var _pesarContenedor='plastico';
+var _pesarUnidad='gr';
 
 function mapConteoCategoria(cat){
   if(!cat)return'Helado';
@@ -6617,11 +6627,32 @@ function abrirPesar(nombre,categoria,defaultCont){
   var brutoEl=$('pesar-bruto');if(brutoEl)brutoEl.value='';
   var notasEl=$('pesar-notas');if(notasEl)notasEl.value='';
   $('pesar-neto-display').textContent='\u2014';
+  seleccionarUnidad('gr');
   seleccionarContenedor(defaultCont||'libre');
   $('pesar-modal').style.display='flex';
   setTimeout(function(){var el=$('pesar-bruto');if(el)el.focus();},150);
 }
 function abrirPesarLibre(categoria,defaultCont){abrirPesar('',categoria,defaultCont);}
+
+function seleccionarUnidad(u){
+  _pesarUnidad=u;
+  const usaTara=(u==='gr'||u==='kg');
+  document.querySelectorAll('.pesar-unit-btn').forEach(b=>{
+    const active=b.dataset.unit===u;
+    b.style.background=active?'var(--black)':'transparent';
+    b.style.color=active?'#fff':'var(--muted)';
+    b.style.borderColor=active?'var(--black)':'var(--border)';
+  });
+  const taraWrap=$('pesar-tara-wrap');
+  if(taraWrap)taraWrap.style.display=usaTara?'':'none';
+  const lbl=$('pesar-bruto-label');
+  const ph=$('pesar-bruto');
+  const labels={gr:'Peso bruto (g) — lo que marca la balanza',kg:'Peso bruto (kg) — lo que marca la balanza',L:'Cantidad (litros)',uds:'Cantidad (unidades)'};
+  const placeholders={gr:'gramos',kg:'kilogramos',L:'litros',uds:'unidades'};
+  if(lbl)lbl.textContent=labels[u]||u;
+  if(ph)ph.placeholder=placeholders[u]||u;
+  calcPesoNeto();
+}
 
 function seleccionarContenedor(tipo){
   _pesarContenedor=tipo;
@@ -6638,9 +6669,22 @@ function seleccionarContenedor(tipo){
 
 function calcPesoNeto(){
   const bruto=parseFloat($('pesar-bruto').value)||0;
-  const tara=CONTEO_TARA[_pesarContenedor]||0;
-  const neto=Math.max(0,bruto-tara);
-  $('pesar-neto-display').textContent=bruto?(neto.toLocaleString('es')+' g'):'—';
+  const u=_pesarUnidad||'gr';
+  if(!bruto){$('pesar-neto-display').textContent='—';return;}
+  if(u==='gr'){
+    const tara=CONTEO_TARA[_pesarContenedor]||0;
+    const neto=Math.max(0,bruto-tara);
+    $('pesar-neto-display').textContent=neto.toLocaleString('es')+' g';
+  }else if(u==='kg'){
+    const taraG=CONTEO_TARA[_pesarContenedor]||0;
+    const brutoG=bruto*1000;
+    const netoG=Math.max(0,brutoG-taraG);
+    $('pesar-neto-display').textContent=(netoG/1000).toLocaleString('es',{minimumFractionDigits:3})+' kg';
+  }else if(u==='L'){
+    $('pesar-neto-display').textContent=bruto.toLocaleString('es')+' L';
+  }else{
+    $('pesar-neto-display').textContent=Math.round(bruto).toLocaleString('es')+' uds';
+  }
 }
 
 function agregarAlBorrador(){
@@ -6648,19 +6692,30 @@ function agregarAlBorrador(){
   var nombre=_pesarProd.nombre||(liInput?liInput.value.trim():'');
   if(!nombre){alert('Ingresá el nombre del producto');return}
   var bruto=parseFloat($('pesar-bruto').value);
-  if(!bruto||bruto<=0){alert('Ingresá el peso bruto');return}
-  var tara=CONTEO_TARA[_pesarContenedor]||0;
-  var neto=Math.max(0,bruto-tara);
+  if(!bruto||bruto<=0){alert('Ingresá el valor');return}
+  var u=_pesarUnidad||'gr';
   var catSel=$('pesar-cat-select');
   var cat=catSel?catSel.value:(_pesarProd.categoria||_conteoTab);
   var provSel=$('pesar-proveedor');
   var prov=(provSel&&provSel.value)||null;
+  var tara=0,pesoBrutoG=null,taraG=0,pesoNetoG=null,cantidad=null;
+  if(u==='gr'){
+    tara=CONTEO_TARA[_pesarContenedor]||0;
+    pesoBrutoG=bruto;taraG=tara;pesoNetoG=Math.max(0,bruto-tara);
+  }else if(u==='kg'){
+    tara=CONTEO_TARA[_pesarContenedor]||0;
+    pesoBrutoG=Math.round(bruto*1000);taraG=tara;pesoNetoG=Math.max(0,pesoBrutoG-tara);
+  }else{
+    // L o uds — sin tara, sin conversión a gramos
+    cantidad=bruto;
+  }
   _conteoLineas.push({
     categoria:cat,
     producto:nombre,
     proveedor:prov,
-    tipo_contenedor:_pesarContenedor,
-    peso_bruto_g:bruto,tara_g:tara,peso_neto_g:neto,
+    tipo_contenedor:u==='L'||u==='uds'?'libre':_pesarContenedor,
+    peso_bruto_g:pesoBrutoG,tara_g:taraG,peso_neto_g:pesoNetoG,
+    cantidad:cantidad,unidad:u,
     notas:($('pesar-notas').value||'').trim()||null
   });
   $('pesar-modal').style.display='none';
@@ -6679,25 +6734,35 @@ function renderBorrador(){
   const cats={};
   _conteoLineas.forEach((l,i)=>{if(!cats[l.categoria])cats[l.categoria]=[];cats[l.categoria].push({...l,_i:i});});
   const contNombre={plastico:'Carapina Plástico',acero:'Carapina Acero',cubeta:'Cubeta Acero',libre:'Sin tara'};
-  const totalNeto=_conteoLineas.reduce((s,l)=>s+l.peso_neto_g,0);
+  const totalNetoG=_conteoLineas.reduce((s,l)=>s+(l.peso_neto_g||0),0);
+  function fmtLinea(l){
+    const u=l.unidad||'gr';
+    if(u==='L')return`<strong>${(l.cantidad||0).toLocaleString('es')} L</strong>`;
+    if(u==='uds')return`<strong>${Math.round(l.cantidad||0).toLocaleString('es')} uds</strong>`;
+    if(u==='kg'){const kg=(l.peso_neto_g/1000);return`${(l.peso_bruto_g/1000).toLocaleString('es')} kg − ${(l.tara_g/1000).toLocaleString('es')} kg = <strong>${kg.toLocaleString('es',{minimumFractionDigits:3})} kg</strong>`;}
+    return`${l.peso_bruto_g}g − ${l.tara_g}g = <strong>${(l.peso_neto_g||0).toLocaleString('es')} g</strong>`;
+  }
+  function fmtSubtotal(items){
+    const pesoG=items.reduce((s,l)=>s+(l.peso_neto_g||0),0);
+    return pesoG?(pesoG/1000).toFixed(2)+' kg neto':'—';
+  }
   let html='';
   Object.entries(cats).forEach(([cat,items])=>{
-    const sub=items.reduce((s,l)=>s+l.peso_neto_g,0);
     html+=`<div style="margin-bottom:12px">
       <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding:5px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
-        <span>${cat}</span><span>${(sub/1000).toFixed(2)} kg neto</span>
+        <span>${cat}</span><span>${fmtSubtotal(items)}</span>
       </div>
       ${items.map(l=>`<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border,#eee)">
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.producto}</div>
-          <div style="font-size:10px;color:var(--muted)">${contNombre[l.tipo_contenedor]||l.tipo_contenedor} · ${l.peso_bruto_g}g − ${l.tara_g}g = <strong>${l.peso_neto_g.toLocaleString('es')} g</strong></div>
+          <div style="font-size:10px;color:var(--muted)">${contNombre[l.tipo_contenedor]||l.tipo_contenedor} · ${fmtLinea(l)}</div>
           ${l.notas?`<div style="font-size:10px;color:var(--hint)">${l.notas}</div>`:''}
         </div>
         <button type="button" onclick="quitarDelBorrador(${l._i})" style="background:none;border:none;color:#b33;cursor:pointer;font-size:16px;flex-shrink:0">✕</button>
       </div>`).join('')}
     </div>`;
   });
-  html+=`<div style="padding:10px 0;font-size:12px;display:flex;justify-content:space-between;color:var(--muted)"><span>Total neto acumulado</span><strong>${(totalNeto/1000).toFixed(3)} kg</strong></div>`;
+  html+=`<div style="padding:10px 0;font-size:12px;display:flex;justify-content:space-between;color:var(--muted)"><span>Total neto acumulado (g→kg)</span><strong>${(totalNetoG/1000).toFixed(3)} kg</strong></div>`;
   if(el)el.innerHTML=html;
 }
 
