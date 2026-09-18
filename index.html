@@ -1439,6 +1439,21 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     </div>
   </div>
 </div>
+<div id="detalle-conteo-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.65);z-index:1900;align-items:flex-start;justify-content:center;padding:16px;box-sizing:border-box;overflow-y:auto" onclick="if(event.target===this)closeDetalleConteo()">
+  <div style="background:var(--bg,#f8f8f6);max-width:520px;width:100%;border:.5px solid var(--border);margin:auto">
+    <div style="padding:14px 18px;border-bottom:.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--bg,#f8f8f6);z-index:1">
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--hint)">Detalle de conteo</div>
+        <div id="detalle-conteo-fecha" style="font-size:13px;font-weight:500;margin-top:2px"></div>
+      </div>
+      <button type="button" onclick="closeDetalleConteo()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);line-height:1">✕</button>
+    </div>
+    <div id="detalle-conteo-body" style="padding:16px 18px;display:flex;flex-direction:column;gap:12px"></div>
+    <div style="padding:12px 18px;border-top:.5px solid var(--border)">
+      <button type="button" class="btn-d" onclick="closeDetalleConteo()" style="width:100%">Cerrar</button>
+    </div>
+  </div>
+</div>
 <div id="fin-pin-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.65);z-index:2000;align-items:center;justify-content:center">
   <div style="background:var(--surface);border:.5px solid var(--border);padding:2rem 1.5rem;width:280px;text-align:center">
     <div style="font-size:10px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--hint);margin-bottom:1.5rem">Finanzas — Acceso restringido</div>
@@ -6806,23 +6821,59 @@ async function reanudarConteo(id,fecha,responsable){
   renderBorrador();
 }
 
-async function verDetalleConteo(id){
-  const{data,error}=await sb.from('conteo_lineas').select('*').eq('conteo_id',id).order('categoria').order('producto');
-  if(error||!data||!data.length){alert('Sin líneas registradas');return}
-  const contNombre={plastico:'Carapina Plástico',acero:'Carapina Acero',cubeta:'Cubeta Acero',libre:'Sin tara'};
-  const totalNeto=data.reduce((s,l)=>s+(l.peso_neto_g||0),0);
-  let txt=`Conteo ${id.slice(0,8)}...\n\n`;
-  const cats={};
-  data.forEach(l=>{if(!cats[l.categoria])cats[l.categoria]=[];cats[l.categoria].push(l);});
-  Object.entries(cats).forEach(([cat,items])=>{
-    const sub=items.reduce((s,l)=>s+(l.peso_neto_g||0),0);
-    txt+=`--- ${cat} (${(sub/1000).toFixed(2)} kg) ---\n`;
-    items.forEach(l=>txt+=`${l.producto}: ${l.peso_bruto_g}g − ${l.tara_g}g = ${l.peso_neto_g}g neto\n`);
-    txt+='\n';
-  });
-  txt+=`TOTAL NETO: ${(totalNeto/1000).toFixed(3)} kg`;
-  alert(txt);
+function closeDetalleConteo(){
+  var m=$('detalle-conteo-modal');if(m)m.style.display='none';
 }
+async function verDetalleConteo(id){
+  var res=await sb.from('conteo_lineas').select('*').eq('conteo_id',id).order('categoria').order('producto');
+  var data=res.data,error=res.error;
+  if(error||!data||!data.length){alert('Sin l\u00edneas registradas');return}
+  function fmtValor(l){
+    var u=l.unidad||'gr';
+    if(u==='L')return'<strong>'+(l.cantidad||0)+' L</strong>';
+    if(u==='uds')return'<strong>'+Math.round(l.cantidad||0)+' uds</strong>';
+    if(u==='kg'){
+      var kg=((l.peso_neto_g||0)/1000).toFixed(3);
+      return((l.peso_bruto_g||0)/1000).toFixed(3)+' kg \u2212 '+((l.tara_g||0)/1000).toFixed(3)+' kg = <strong>'+kg+' kg</strong>';
+    }
+    var bg=l.peso_bruto_g!=null?l.peso_bruto_g:'\u2014';
+    var tg=l.tara_g||0;
+    var ng=l.peso_neto_g!=null?(l.peso_neto_g).toLocaleString('es'):'\u2014';
+    return bg+'g \u2212 '+tg+'g = <strong>'+ng+' g</strong>';
+  }
+  var contNombre={plastico:'Carapina Pl\u00e1stico',acero:'Carapina Acero',cubeta:'Cubeta Acero',libre:'Sin tara'};
+  var totalNetoG=data.reduce(function(s,l){return s+(l.peso_neto_g||0);},0);
+  var cats={};
+  data.forEach(function(l){if(!cats[l.categoria])cats[l.categoria]=[];cats[l.categoria].push(l);});
+  // fetch fecha/responsable
+  var fechaStr='';
+  try{
+    var cr=await sb.from('conteos_inventario').select('fecha,responsable').eq('id',id).single();
+    if(cr.data)fechaStr=(cr.data.fecha||'')+' \u00b7 '+(cr.data.responsable||'\u2014');
+  }catch(e){fechaStr=id.slice(0,8)+'...';}
+  var fechaEl=$('detalle-conteo-fecha');
+  if(fechaEl)fechaEl.textContent=fechaStr;
+  var html='';
+  Object.entries(cats).forEach(function([cat,items]){
+    var subG=items.reduce(function(s,l){return s+(l.peso_neto_g||0);},0);
+    var subLbl=subG?(subG/1000).toFixed(2)+' kg':'\u2014';
+    html+='<div>';
+    html+='<div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);padding:5px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;margin-bottom:4px"><span>'+cat+'</span><span>'+subLbl+' neto</span></div>';
+    items.forEach(function(l){
+      html+='<div style="padding:8px 0;border-bottom:.5px solid var(--border,#eee)">';
+      html+='<div style="font-size:12px;font-weight:500;margin-bottom:3px">'+l.producto+'</div>';
+      html+='<div style="font-size:10px;color:var(--muted)">'+(contNombre[l.tipo_contenedor]||l.tipo_contenedor||'Sin tara')+' &nbsp;\u00b7&nbsp; '+fmtValor(l)+(l.notas?'&nbsp;\u00b7&nbsp;<span style=\"color:var(--hint)\">'+l.notas+'</span>':'')+'</div>';
+      html+='</div>';
+    });
+    html+='</div>';
+  });
+  html+='<div style="padding:10px 0;display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--muted)">Total neto acumulado</span><strong style="font-family:var(--mono)">'+(totalNetoG/1000).toFixed(3)+' kg</strong></div>';
+  var body=$('detalle-conteo-body');
+  if(body)body.innerHTML=html;
+  var m=$('detalle-conteo-modal');
+  if(m){m.style.display='flex';m.scrollTop=0;}
+}
+
 
 
 // ═══════════════════════════════════════════════════════════════════
