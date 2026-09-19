@@ -1040,7 +1040,13 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   <button type="button" class="btn" onclick="abrirConteo()" style="width:100%;margin-top:10px">⚖ Iniciar conteo físico</button>
 </div>
 <div class="sec">
-  <div class="sec-t">Historial de conteos</div>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+    <div class="sec-t" style="margin-bottom:0">Historial de conteos</div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input type="month" id="conteo-mes-filtro" style="font-size:11px;border:.5px solid var(--border);background:var(--bg);color:var(--text);padding:4px 8px;cursor:pointer;outline:none" onchange="renderHistorialConteos()">
+      <button type="button" class="btn-s" id="btn-descarga-conteo" onclick="descargarConteoCSV()" style="font-size:10px;display:none">⬇ CSV</button>
+    </div>
+  </div>
   <div id="conteos-historial"><div class="empty">Cargando...</div></div>
 </div>
 <div class="sec" style="margin-top:16px">
@@ -3545,7 +3551,7 @@ function go(n){
   if(n===5){initHorarios()};
   if(n===7)renderDashboard();
   if(n===8)initEgresos();
-  if(n===9)renderInventario();
+  if(n===9){renderInventario();renderHistorialConteos();}
   if(n===10){if(!_finUnlocked){showFinanzasPin();return;}initFinanzas();}
   if(n===11){empSubTab('integrantes');initEmpleados();}
   window.scrollTo(0,0);
@@ -6795,15 +6801,87 @@ async function confirmarConteo(){
   alert('✓ Conteo confirmado y guardado.');
 }
 
+var _conteoHistorialData=[];
 async function renderHistorialConteos(){
   const el=$('conteos-historial');if(!el)return;
-  const{data,error}=await sb.from('conteos_inventario').select('*').order('fecha',{ascending:false}).limit(10);
-  if(error||!data||!data.length){el.innerHTML='<div class="empty">Sin conteos registrados</div>';return}
-  el.innerHTML=data.map(co=>{
-    const badge=co.estado==='confirmado'?'<span class="badge" style="background:#27ae60;color:#fff">Confirmado</span>':'<span class="badge" style="background:#e67e22;color:#fff">Borrador</span>';
-    const reanBtn=co.estado==='borrador'?`<button type="button" class="btn-s" onclick="reanudarConteo('${co.id}','${co.fecha}','${co.responsable||''}')" style="font-size:10px">Reanudar</button>`:'';
-    return`<div class="card"><div class="card-top"><span class="card-nm">${co.fecha}</span><div style="display:flex;gap:6px;align-items:center">${badge}${reanBtn}<button type="button" class="btn-s" onclick="verDetalleConteo('${co.id}')" style="font-size:10px">Ver</button></div></div><div style="font-size:11px;color:var(--muted)">${co.responsable||'—'}</div></div>`;
+  el.innerHTML='<div class="empty">Cargando...</div>';
+  // Init month filter to current month if empty
+  var filtroEl=$('conteo-mes-filtro');
+  if(filtroEl&&!filtroEl.value){
+    var now=new Date();
+    filtroEl.value=now.getFullYear()+'-'+(String(now.getMonth()+1).padStart(2,'0'));
+  }
+  var mes=filtroEl?filtroEl.value:'';
+  var query=sb.from('conteos_inventario').select('*').order('fecha',{ascending:false});
+  if(mes){
+    var [yr,mo]=mes.split('-');
+    var desde=yr+'-'+mo+'-01';
+    var lastDay=new Date(parseInt(yr),parseInt(mo),0).getDate();
+    var hasta=yr+'-'+mo+'-'+String(lastDay).padStart(2,'0');
+    query=query.gte('fecha',desde).lte('fecha',hasta);
+  }
+  var{data,error}=await query;
+  _conteoHistorialData=data||[];
+  var btnDesc=$('btn-descarga-conteo');
+  if(btnDesc)btnDesc.style.display=_conteoHistorialData.length?'':'none';
+  if(error||!_conteoHistorialData.length){
+    el.innerHTML='<div class="empty">Sin conteos para este mes</div>';return;
+  }
+  el.innerHTML=_conteoHistorialData.map(function(co){
+    var badge=co.estado==='confirmado'
+      ?'<span class="badge" style="background:#27ae60;color:#fff;padding:2px 8px;font-size:9px">Confirmado</span>'
+      :'<span class="badge" style="background:#e67e22;color:#fff;padding:2px 8px;font-size:9px">Borrador</span>';
+    var reanBtn=co.estado==='borrador'
+      ?'<button type="button" class="btn-s" onclick="reanudarConteo(''+co.id+'',''+co.fecha+'',''+( co.responsable||'')+'') " style="font-size:10px">Reanudar</button>'
+      :'';
+    return'<div class="card"><div class="card-top"><span class="card-nm">'+co.fecha+'</span>'
+      +'<div style="display:flex;gap:6px;align-items:center">'+badge+reanBtn
+      +'<button type="button" class="btn-s" onclick="verDetalleConteo(''+co.id+'')" style="font-size:10px">Ver</button>'
+      +'</div></div><div style="font-size:11px;color:var(--muted)">'+(co.responsable||'—')+'</div></div>';
   }).join('');
+}
+
+async function descargarConteoCSV(){
+  if(!_conteoHistorialData.length){alert('Sin datos para descargar');return}
+  var btn=$('btn-descarga-conteo');if(btn){btn.disabled=true;btn.textContent='Preparando...';}
+  try{
+    var ids=_conteoHistorialData.map(function(c){return c.id;});
+    var{data:lineas,error}=await sb.from('conteo_lineas').select('*').in('conteo_id',ids).order('conteo_id').order('categoria').order('producto');
+    if(error||!lineas||!lineas.length){alert('Sin líneas para exportar');return;}
+    // build lookup for conteo meta
+    var meta={};
+    _conteoHistorialData.forEach(function(c){meta[c.id]={fecha:c.fecha,responsable:c.responsable||'',estado:c.estado};});
+    // CSV header
+    var rows=['Fecha,Responsable,Estado,Categoría,Producto,Proveedor,Tipo Contenedor,Peso Bruto,Tara,Peso Neto,Cantidad,Unidad,Notas'];
+    lineas.forEach(function(l){
+      var m=meta[l.conteo_id]||{};
+      var u=l.unidad||'gr';
+      function esc(s){return'"'+(s||'').toString().replace(/"/g,'""')+'"';}
+      rows.push([
+        m.fecha||'',m.responsable||'',m.estado||'',
+        esc(l.categoria),esc(l.producto),esc(l.proveedor||''),
+        esc(l.tipo_contenedor||''),
+        l.peso_bruto_g!=null?l.peso_bruto_g:'',
+        l.tara_g!=null?l.tara_g:'',
+        l.peso_neto_g!=null?l.peso_neto_g:'',
+        l.cantidad!=null?l.cantidad:'',
+        u,
+        esc(l.notas||'')
+      ].join(','));
+    });
+    var csv=rows.join('
+');
+    var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    var filtroEl=$('conteo-mes-filtro');
+    var mes=filtroEl?filtroEl.value:'conteos';
+    a.href=url;a.download='conteos-'+mes+'.csv';
+    document.body.appendChild(a);a.click();
+    setTimeout(function(){URL.revokeObjectURL(url);a.remove();},1000);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='⬇ CSV';}
+  }
 }
 
 async function reanudarConteo(id,fecha,responsable){
