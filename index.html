@@ -6827,18 +6827,22 @@ async function renderHistorialConteos(){
   if(error||!_conteoHistorialData.length){
     el.innerHTML='<div class="empty">Sin conteos para este mes</div>';return;
   }
-  el.innerHTML=_conteoHistorialData.map(function(co){
+  // Store conteos data for onclick access
+  window._histCo=_conteoHistorialData;
+  el.innerHTML=_conteoHistorialData.map(function(co,idx){
     var badge=co.estado==='confirmado'
       ?'<span class="badge" style="background:#27ae60;color:#fff;padding:2px 8px;font-size:9px">Confirmado</span>'
       :'<span class="badge" style="background:#e67e22;color:#fff;padding:2px 8px;font-size:9px">Borrador</span>';
     var reanBtn=co.estado==='borrador'
-      ?'<button type="button" class="btn-s" onclick="reanudarConteo(''+co.id+'',''+co.fecha+'',''+( co.responsable||'')+'') " style="font-size:10px">Reanudar</button>'
+      ?'<button type="button" class="btn-s" onclick="_histRean('+idx+')" style="font-size:10px">Reanudar</button>'
       :'';
     return'<div class="card"><div class="card-top"><span class="card-nm">'+co.fecha+'</span>'
       +'<div style="display:flex;gap:6px;align-items:center">'+badge+reanBtn
-      +'<button type="button" class="btn-s" onclick="verDetalleConteo(''+co.id+'')" style="font-size:10px">Ver</button>'
-      +'</div></div><div style="font-size:11px;color:var(--muted)">'+(co.responsable||'—')+'</div></div>';
+      +'<button type="button" class="btn-s" onclick="verDetalleConteo(_histCo['+idx+'].id)" style="font-size:10px">Ver</button>'
+      +'</div></div><div style="font-size:11px;color:var(--muted)">'+(co.responsable||'\u2014')+'</div></div>';
   }).join('');
+  // Helper to avoid quote issues in onclick
+  window._histRean=function(i){var co=_histCo[i];if(co)reanudarConteo(co.id,co.fecha,co.responsable||'');};
 }
 
 async function descargarConteoCSV(){
@@ -6869,8 +6873,7 @@ async function descargarConteoCSV(){
         esc(l.notas||'')
       ].join(','));
     });
-    var csv=rows.join('
-');
+    var csv=rows.join('\r\n');
     var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
     var url=URL.createObjectURL(blob);
     var a=document.createElement('a');
