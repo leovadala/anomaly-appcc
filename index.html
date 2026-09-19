@@ -6512,18 +6512,11 @@ function abrirConteo(){
   $('conteo-start-modal').style.display='flex';
 }
 
-async function crearConteo(){
+function crearConteo(){
   var fecha=$('conteo-start-fecha').value||hoy;
   var resp=($('conteo-start-resp').value||'').trim();
-  var res=await sb.from('conteos_inventario').insert({fecha:fecha,responsable:resp||null,estado:'borrador'}).select();
-  if(res.error){alert('Error al crear conteo: '+res.error.message);return}
-  var fila=res.data&&res.data.length?res.data[0]:null;
-  if(!fila){
-    var res2=await sb.from('conteos_inventario').select('id').eq('fecha',fecha).order('created_at',{ascending:false}).limit(1).maybeSingle();
-    if(res2.error||!res2.data){alert('No se pudo obtener el conteo. Intentá de nuevo.');return}
-    fila=res2.data;
-  }
-  _conteo={id:fila.id,fecha:fecha,responsable:resp};
+  // Creación lazy: el registro en DB se crea solo al agregar el primer producto
+  _conteo={id:null,fecha:fecha,responsable:resp};
   _conteoLineas=[];
   $('conteo-start-modal').style.display='none';
   $('conteo-header-info').textContent=fecha+(resp?' · '+resp:'');
@@ -6708,12 +6701,20 @@ function calcPesoNeto(){
   }
 }
 
-function agregarAlBorrador(){
+async function agregarAlBorrador(){
   var liInput=$('pesar-libre-input');
   var nombre=_pesarProd.nombre||(liInput?liInput.value.trim():'');
   if(!nombre){alert('Ingresá el nombre del producto');return}
   var bruto=parseFloat($('pesar-bruto').value);
   if(!bruto||bruto<=0){alert('Ingresá el valor');return}
+  // Creación lazy: si aún no hay registro en DB, crearlo ahora con el primer producto
+  if(_conteo&&_conteo.id===null){
+    var rC=await sb.from('conteos_inventario').insert({fecha:_conteo.fecha,responsable:_conteo.responsable||null,estado:'borrador'}).select();
+    if(rC.error){alert('Error al crear conteo: '+rC.error.message);return}
+    var filaC=rC.data&&rC.data.length?rC.data[0]:null;
+    if(!filaC){alert('No se pudo crear el conteo. Intentá de nuevo.');return}
+    _conteo.id=filaC.id;
+  }
   var u=_pesarUnidad||'gr';
   var catSel=$('pesar-cat-select');
   var cat=catSel?catSel.value:(_pesarProd.categoria||_conteoTab);
@@ -6788,7 +6789,7 @@ function renderBorrador(){
 }
 
 async function confirmarConteo(){
-  if(!_conteo||!_conteoLineas.length)return;
+  if(!_conteo||!_conteo.id||!_conteoLineas.length)return;
   if(!confirm(`¿Confirmar el conteo con ${_conteoLineas.length} producto${_conteoLineas.length!==1?'s':''}?\nEsta acción no se puede deshacer.`))return;
   const rows=_conteoLineas.map(l=>({...l,conteo_id:_conteo.id}));
   const{error:e1}=await sb.from('conteo_lineas').insert(rows);
