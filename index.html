@@ -3754,6 +3754,29 @@ function openOcrModal(){
   window._ocrMode='recepcion';
   $('ocr-input').onchange=handleOcrImage;
   $('ocr-input-file').onchange=handleOcrImage;
+  // Iniciar auto-guardado mientras el modal esté abierto
+  if(_ocrAutoSaveInt)clearInterval(_ocrAutoSaveInt);
+  _ocrAutoSaveInt=setInterval(_saveOcrDraft,5000);
+  // Recuperar borrador no confirmado
+  try{
+    var draft=localStorage.getItem('_ocrAlbaranDraft');
+    if(draft){
+      var dd=JSON.parse(draft);
+      if(dd&&dd.d&&dd.d.lineas&&dd.d.lineas.length){
+        var minAgo=Math.round((Date.now()-(dd.ts||0))/60000);
+        var msg='Hay un albarán sin confirmar ('+dd.d.lineas.length+' producto'+(dd.d.lineas.length!==1?'s':'')+(minAgo>1?', hace ~'+minAgo+' min':'')+').  ¿Recuperar?';
+        if(confirm(msg)){
+          window._ocrAlbaran=dd.d;
+          window._ocrTipo=dd.t||'albaran';
+          window._ocrEstadoPago=dd.ep||null;
+          renderOcrResults(window._ocrAlbaran);
+          return;
+        }else{
+          _clearOcrDraft();
+        }
+      }
+    }
+  }catch(e){}
 }
 
 function handleOcrImage(e){
@@ -4173,6 +4196,7 @@ function parseOcrDate(str){
 function renderOcrResults(textOrData){
   const data=(textOrData&&typeof textOrData==='object'&&textOrData.cabecera)?textOrData:parseOcrText(textOrData||'');
   window._ocrAlbaran=data;
+  _saveOcrDraft();
   const c=data.cabecera,ls=data.lineas;
   const _rawText=(typeof textOrData==='string')?textOrData:JSON.stringify(textOrData,null,2);
   const rawHtml=`<details style="margin-top:1rem"><summary style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer">Ver datos extraídos</summary><pre style="font-size:10px;white-space:pre-wrap;margin-top:.5rem;padding:.5rem;border:.5px dashed var(--border);max-height:150px;overflow-y:auto">${_rawText.replace(/</g,'&lt;')}</pre></details>`;
@@ -4318,12 +4342,14 @@ function renderOcrLineas(){
 function ocrDelLinea(i){
   if(!window._ocrAlbaran)return;
   window._ocrAlbaran.lineas.splice(i,1);
+  _saveOcrDraft();
   renderOcrLineas();
 }
 
 function ocrAddLinea(){
   if(!window._ocrAlbaran){window._ocrAlbaran={cabecera:{},lineas:[]};}
   window._ocrAlbaran.lineas.push({descripcion:'',lote:'',vencimiento:'',unidades:null,precio_unitario:null,importe:null,requiere_frio:false,temperatura:null});
+  _saveOcrDraft();
   renderOcrLineas();
   setTimeout(()=>{const el=$('ocr-lineas-tabla');if(!el)return;const inputs=el.querySelectorAll('input');if(inputs.length)inputs[inputs.length-4].focus();},50);
 }
@@ -4419,6 +4445,7 @@ async function saveAlbaranRecepcion(){
     if(egData&&egData[0])Egresos.unshift(egData[0]);
   }
   rRH();rS();rPL();
+  _clearOcrDraft();
   closeOcrModal();
   const tipoLabel=window._ocrTipo==='factura'?'Factura':'Albarán';
   const egMsg=window._ocrTipo==='factura'?` — egreso ${window._ocrEstadoPago==='pendiente'?'pendiente de pago':'registrado'}`:''
@@ -6328,12 +6355,24 @@ async function saveEditElabModal(){
   setTimeout(()=>{$('elab-edit-modal').style.display='none';renderAppccList();},1400);
 }
 
+var _ocrAutoSaveInt=null;
+function _saveOcrDraft(){
+  try{
+    if(window._ocrAlbaran&&window._ocrAlbaran.lineas&&window._ocrAlbaran.lineas.length){
+      localStorage.setItem('_ocrAlbaranDraft',JSON.stringify({d:window._ocrAlbaran,t:window._ocrTipo||'albaran',ep:window._ocrEstadoPago||null,ts:Date.now()}));
+    }
+  }catch(e){}
+}
+function _clearOcrDraft(){
+  try{localStorage.removeItem('_ocrAlbaranDraft');}catch(e){}
+}
 function closeOcrModal(e){
   if(!e||e.target===$('ocr-modal')){
     $('ocr-modal').style.display='none';
     window._ocrMode=null;
     // restore original handler
     $('ocr-input').onchange=handleOcrImage;
+    if(_ocrAutoSaveInt){clearInterval(_ocrAutoSaveInt);_ocrAutoSaveInt=null;}
   }
 }
 
