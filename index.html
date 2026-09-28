@@ -2293,7 +2293,7 @@ async function loadAll(){
   const[t,p,s,h,sab,cfg,alb,pp]=await Promise.all([
     sb.from('team').select('*').order('created_at'),
     sb.from('proveedores').select('*').order('created_at'),
-    sb.from('recepciones').select('*').order('created_at'),
+    sb.from('recepciones').select('*').order('created_at').range(0,4999),
     sb.from('registros_appcc').select('*').order('created_at'),
     sb.from('sabores').select('*').order('nombre'),
     sb.from('config').select('*'),
