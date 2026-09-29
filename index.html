@@ -2290,10 +2290,11 @@ const hoy=new Date().toISOString().split('T')[0];
 const $=id=>document.getElementById(id);
 
 async function loadAll(){
-  const[t,p,s,h,sab,cfg,alb,pp]=await Promise.all([
+  const[t,p,sA,sArch,h,sab,cfg,alb,pp]=await Promise.all([
     sb.from('team').select('*').order('created_at'),
     sb.from('proveedores').select('*').order('created_at'),
-    sb.from('recepciones').select('*').order('created_at').range(0,4999),
+    sb.from('recepciones').select('*').eq('estado','activo').order('created_at'),
+    sb.from('recepciones').select('*').neq('estado','activo').order('created_at'),
     sb.from('registros_appcc').select('*').order('created_at'),
     sb.from('sabores').select('*').order('nombre'),
     sb.from('config').select('*'),
@@ -2302,8 +2303,8 @@ async function loadAll(){
   ]);
   team=(t.data||[]).map(r=>({id:r.id,nombre:r.nombre,pin:r.pin||'',horas_contrato:r.horas_contrato||0,tipo_contrato:r.tipo_contrato||'parcial',dias_vacaciones:r.dias_vacaciones||22}));
   P=(p.data||[]).map(r=>({id:r.id,nombre:r.nombre,cif:r.cif||'',tel:r.telefono||'',rs:r.registro_sanitario||'',productos:r.productos||[],notas:r.notas||'',pdfs:[]}));
-  const allRec=(s.data||[]).map(r=>({id:r.id,producto:r.producto,lote:r.lote,temp:r.temperatura,proveedor:r.proveedor||'',vencimiento:r.vencimiento||'',frio:r.requiere_frio,cantidad:r.cantidad||'',obs:r.observaciones||'',albaran:r.nro_albaran||'',fecha:r.fecha,hora:(r.hora||'').slice(0,5),estado:r.estado||'activo',fecha_salida:r.fecha_salida||'',motivo_salida:r.motivo_salida||'',precio_unitario:r.precio_unitario||null,importe:r.importe||null,categoria:r.categoria||'',fecha_ingreso:r.fecha_ingreso||r.fecha}));
-  S=allRec.filter(r=>r.estado==='activo');SH=allRec.filter(r=>r.estado!=='activo');
+  const mapRec=r=>({id:r.id,producto:r.producto,lote:r.lote,temp:r.temperatura,proveedor:r.proveedor||'',vencimiento:r.vencimiento||'',frio:r.requiere_frio,cantidad:r.cantidad||'',obs:r.observaciones||'',albaran:r.nro_albaran||'',fecha:r.fecha,hora:(r.hora||'').slice(0,5),estado:r.estado||'activo',fecha_salida:r.fecha_salida||'',motivo_salida:r.motivo_salida||'',precio_unitario:r.precio_unitario||null,importe:r.importe||null,categoria:r.categoria||'',fecha_ingreso:r.fecha_ingreso||r.fecha});
+  S=(sA.data||[]).map(mapRec);SH=(sArch.data||[]).map(mapRec);
   AB=(alb.data||[]).map(r=>({id:r.id,proveedor_nombre:r.proveedor_nombre,proveedor_id:r.proveedor_id,num_albaran:r.num_albaran,fecha:r.fecha,forma_pago:r.forma_pago||'',n_bultos:r.n_bultos,total:r.total}));
   PP=(pp.data||[]).map(r=>({id:r.id,proveedor_id:r.proveedor_id,ref:r.ref||'',descripcion:r.descripcion,ultimo_precio:r.ultimo_precio,ultima_fecha:r.ultima_fecha}));
   H=(h.data||[]).map(r=>({id:r.id,fecha:r.fecha,hora:(r.hora||'').slice(0,5),responsable:r.responsable,producto:r.producto,ingredientes:r.ingredientes||'',lote_prov:r.lote_proveedor||'',proveedor:r.proveedor||'',cant:r.cantidad_pesada||'',rehe:r.doc_rehe||'',obs:r.observaciones||'',pcc1:{t:r.pcc1_temp,m:r.pcc1_tiempo},roh1:{t:r.roh1_temp,v:r.roh1_vida_util||'',m:r.roh1_tiempo||''},roh3:{t:r.roh3_temp,m:r.roh3_tiempo||''},lote:r.lote_final||'',baldes:r.baldes,kg:r.kg??r.peso_real,roh4:{i:r.roh4_identificacion||'',c:r.roh4_cantidad||''},roh5:{c:r.roh5_camara||'',t:r.roh5_temp,m:r.roh5_tiempo,e:(r.roh5_hora_entrada||'').slice(0,5),s:(r.roh5_hora_salida||'').slice(0,5)},litros:r.litros_final,pac:r.nro_pac||'',temps:{a1:r.temp_armario_1,a2:r.temp_armario_2,a3:r.temp_armario_3,p1:r.temp_pozzetti_1,p2:r.temp_pozzetti_2,p3:r.temp_pozzetti_3},ver:{e:r.verificacion_etapa||'',d:r.verificacion_descripcion||'',r:r.verificacion_resultado||''}}));
