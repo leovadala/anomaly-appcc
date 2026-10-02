@@ -640,6 +640,27 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   </div>
 </div>
 
+
+<!-- Eliminar integrante — modal con PIN supervisor -->
+<div class="ocr-modal" id="delete-team-modal" style="display:none;align-items:center;padding:20px;box-sizing:border-box">
+  <div style="background:var(--white,#fff);width:100%;max-width:380px;padding:1.8rem 1.4rem;border-radius:8px;border:.5px solid var(--border);text-align:center">
+    <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:1rem">Confirmar eliminación</div>
+    <div id="del-team-name" style="font-size:18px;font-weight:600;margin-bottom:.4rem;color:var(--black)"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:1.4rem">Esta acción no se puede deshacer</div>
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.5rem">PIN Supervisor</div>
+    <input id="del-team-pin" type="password" maxlength="4" inputmode="numeric" placeholder="••••"
+      style="width:100px;font-family:var(--mono);letter-spacing:6px;font-size:20px;text-align:center;border:none;border-bottom:1.5px solid var(--black);background:transparent;padding:4px 0;margin-bottom:.3rem;display:block;margin-left:auto;margin-right:auto;outline:none"
+      onkeydown="if(event.key==='Enter')confirmDeleteTeam()">
+    <div id="del-team-err" style="min-height:16px;font-size:10px;color:#c0392b;margin-bottom:.8rem"></div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button type="button" onclick="closeDeleteTeamModal()" style="padding:10px 20px;border:.5px solid var(--border);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:4px">Cancelar</button>
+      <button type="button" onclick="confirmDeleteTeam()" style="padding:10px 20px;border:none;background:#c0392b;color:#fff;font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:4px">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast notificación -->
+
 <!-- Nuevo sabor modal -->
 <div class="ocr-modal" id="new-sabor-modal" style="display:none;align-items:center;padding:16px;box-sizing:border-box" onclick="closeSaborModal(event)">
   <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:12px 12px 0 0">
@@ -3366,11 +3387,38 @@ function openSaborModal(title){
 function closeSaborModal(e){
   if(!e||e.target===$('new-sabor-modal'))$('new-sabor-modal').style.display='none';
 }
-async function addTeam(){const n=$('cfg-name').value.trim(),p=$('cfg-pin').value.trim(),h=parseInt($('cfg-horas').value)||0,tp=$('cfg-tipo').value;if(!n){alert('Nombre requerido');return}if(p&&!/^\d{4}$/.test(p)){alert('PIN debe ser 4 dígitos');return}if(editingTeamIdx!==null){const id=team[editingTeamIdx].id;const row={nombre:n,horas_contrato:h||null,tipo_contrato:tp};if(p)row.pin=p;const{error}=await sb.from('team').update(row).eq('id',id);if(error){alert('Error: '+error.message);return}team[editingTeamIdx].nombre=n;if(p)team[editingTeamIdx].pin=p;team[editingTeamIdx].horas_contrato=h;team[editingTeamIdx].tipo_contrato=tp;cancelEditTeam()}else{const{data}=await sb.from('team').insert({nombre:n,pin:p||null,horas_contrato:h||null,tipo_contrato:tp}).select();if(data&&data[0])team.push({id:data[0].id,nombre:n,pin:p||'',horas_contrato:h,tipo_contrato:tp});$('cfg-name').value='';$('cfg-pin').value='';$('cfg-horas').value='';$('cfg-tipo').value='parcial';$('new-team-modal').style.display='none';}renderTeam();renderTeamSelect()}
-async function rmTeam(i){if(!confirm('¿Eliminar a '+team[i].nombre+'?'))return;await sb.from('team').delete().eq('id',team[i].id);team.splice(i,1);renderTeam();renderTeamSelect()}
+async function addTeam(){const n=$('cfg-name').value.trim(),p=$('cfg-pin').value.trim(),h=parseInt($('cfg-horas').value)||0,tp=$('cfg-tipo').value;if(!n){alert('Nombre requerido');return}if(p&&!/^\d{4}$/.test(p)){alert('PIN debe ser 4 dígitos');return}if(editingTeamIdx!==null){const id=team[editingTeamIdx].id;const row={nombre:n,horas_contrato:h||null,tipo_contrato:tp};if(p)row.pin=p;const{error}=await sb.from('team').update(row).eq('id',id);if(error){alert('Error: '+error.message);return}team[editingTeamIdx].nombre=n;if(p)team[editingTeamIdx].pin=p;team[editingTeamIdx].horas_contrato=h;team[editingTeamIdx].tipo_contrato=tp;cancelEditTeam();showToast('✓ Integrante actualizado/a');}else{const{data}=await sb.from('team').insert({nombre:n,pin:p||null,horas_contrato:h||null,tipo_contrato:tp}).select();if(data&&data[0])team.push({id:data[0].id,nombre:n,pin:p||'',horas_contrato:h,tipo_contrato:tp});$('cfg-name').value='';$('cfg-pin').value='';$('cfg-horas').value='';$('cfg-tipo').value='parcial';$('new-team-modal').style.display='none';showToast('✓ '+n+' agregado/a al equipo');}renderTeam();renderTeamSelect()}
+let _delTeamIdx=null;
+function openDeleteTeamModal(i){
+  _delTeamIdx=i;
+  const el=$('del-team-name');if(el)el.textContent=team[i].nombre;
+  const errEl=$('del-team-err');if(errEl)errEl.textContent='';
+  const pin=$('del-team-pin');if(pin){pin.value='';setTimeout(()=>pin.focus(),80);}
+  $('delete-team-modal').style.display='flex';
+}
+function closeDeleteTeamModal(){
+  $('delete-team-modal').style.display='none';
+  _delTeamIdx=null;
+  const pin=$('del-team-pin');if(pin)pin.value='';
+  const errEl=$('del-team-err');if(errEl)errEl.textContent='';
+}
+async function confirmDeleteTeam(){
+  const pin=($('del-team-pin').value||'').trim();
+  if(pin!==pinSupervisor){$('del-team-err').textContent='PIN incorrecto';$('del-team-pin').value='';$('del-team-pin').focus();return;}
+  if(_delTeamIdx===null)return;
+  const nombre=team[_delTeamIdx].nombre;
+  const {error}=await sb.from('team').delete().eq('id',team[_delTeamIdx].id);
+  if(error){$('del-team-err').textContent='Error: '+error.message;return;}
+  team.splice(_delTeamIdx,1);
+  closeDeleteTeamModal();
+  renderTeam();renderTeamSelect();
+  showToast('✓ '+nombre+' eliminado/a del equipo');
+}
+async function rmTeam(i){openDeleteTeamModal(i);}
 function editTeam(i){editingTeamIdx=i;$('cfg-name').value=team[i].nombre;$('cfg-pin').value='';$('cfg-pin').placeholder='Nuevo PIN (dejar vacío = no cambiar)';$('cfg-horas').value=team[i].horas_contrato||'';$('cfg-tipo').value=team[i].tipo_contrato||'parcial';$('btn-team').textContent='Actualizar';$('btn-team-cancel').style.display='block';$('team-modal-title').textContent='Editar integrante';$('new-team-modal').style.display='flex';setTimeout(()=>$('cfg-name').focus(),100);}
 function cancelEditTeam(){editingTeamIdx=null;$('cfg-name').value='';$('cfg-pin').value='';$('cfg-pin').placeholder='••••';$('cfg-horas').value='';$('cfg-tipo').value='parcial';$('btn-team').textContent='Agregar integrante';$('btn-team-cancel').style.display='none';$('new-team-modal').style.display='none';}
-function renderTeam(){$('team-list').innerHTML=team.length?team.map((n,i)=>`<div class="team-item"><span>${n.nombre}${n.pin?' <span style="font-size:10px;color:var(--hint);font-family:var(--mono)">PIN ✓</span>':' <span style="font-size:10px;color:#b00;font-family:var(--mono)">Sin PIN</span>'} ${n.horas_contrato?'<span style="font-size:10px;color:var(--muted);font-family:var(--mono)">· '+n.horas_contrato+'h/sem</span>':''}</span><div style="display:flex;gap:6px"><button type="button" class="btn-d" onclick="editTeam(${i})">Editar</button><button type="button" class="btn-d" onclick="rmTeam(${i})">Eliminar</button></div></div>`).join(''):'<div class="empty">Sin integrantes</div>'}
+function renderTeam(){$('team-list').innerHTML=team.length?team.map((n,i)=>`<div class="team-item"><span>${n.nombre}${n.pin?' <span style="font-size:10px;color:var(--hint);font-family:var(--mono)">PIN ✓</span>':' <span style="font-size:10px;color:#b00;font-family:var(--mono)">Sin PIN</span>'} ${n.horas_contrato?'<span style="font-size:10px;color:var(--muted);font-family:var(--mono)">· '+n.horas_contrato+'h/sem</span>':''}</span><div style="display:flex;gap:10px;align-items:center"><button type="button" class="btn-d" onclick="editTeam(${i})" style="padding:6px 14px">Editar</button><button type="button" onclick="rmTeam(${i})" style="padding:6px 14px;border:none;background:transparent;color:#c0392b;font-family:var(--font);font-size:10px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;border:.5px solid #c0392b;border-radius:3px" title="Requiere PIN supervisor">Eliminar</button></div></div>`).join(''):'<div class="empty">Sin integrantes</div>'}
+
 
 
 function showFinanzasPin(){
