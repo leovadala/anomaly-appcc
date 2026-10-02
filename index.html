@@ -691,6 +691,49 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   </div>
 </div>
 
+
+<!-- Modal: agregar/editar integrante desde INTEGRANTES ──────────────────── -->
+<div class="ocr-modal" id="integrante-modal" style="display:none;align-items:center;padding:16px;box-sizing:border-box">
+  <div style="background:var(--white,#fff);width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:1.6rem 1.2rem 2rem;border-radius:8px;border:.5px solid var(--border)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4rem">
+      <span id="integrante-modal-title" style="font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase">Nuevo integrante</span>
+      <button type="button" onclick="closeIntegranteModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:0">✕</button>
+    </div>
+    <div class="r2">
+      <div class="f" style="grid-column:1/3"><label>Nombre completo</label><input id="inm-nombre" placeholder="Ej: Sofía García"></div>
+    </div>
+    <div class="r2">
+      <div class="f"><label>Cargo</label><input id="inm-cargo" placeholder="Ej: Encargada · Turno 1"></div>
+      <div class="f"><label>Horas / semana</label><input id="inm-horas" type="number" min="0" max="40" step="1" placeholder="Ej: 32"></div>
+    </div>
+    <div class="r2">
+      <div class="f"><label>Tipo contrato</label><select id="inm-tipo"><option value="parcial">Parcial</option><option value="completa">Jornada completa</option></select></div>
+      <div class="f"><label>PIN fichaje (4 dígitos)</label><input id="inm-pin" type="password" maxlength="4" inputmode="numeric" placeholder="••••" style="font-family:var(--mono);letter-spacing:4px;text-align:center"></div>
+    </div>
+    <div id="inm-err" style="min-height:14px;font-size:10px;color:#c0392b;margin-bottom:6px"></div>
+    <button type="button" class="btn" id="btn-inm-save" onclick="saveIntegrante()" style="width:100%">Agregar integrante</button>
+    <button type="button" class="btn-d" id="btn-inm-cancel" onclick="closeIntegranteModal()" style="display:none;margin-top:8px;width:100%;padding:10px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase">Cancelar</button>
+  </div>
+</div>
+
+<!-- Modal: confirmar eliminar integrante ──────────────────────────────────── -->
+<div class="ocr-modal" id="delete-integrante-modal" style="display:none;align-items:center;padding:20px;box-sizing:border-box">
+  <div style="background:var(--white,#fff);width:100%;max-width:360px;padding:1.8rem 1.4rem;border-radius:8px;border:.5px solid var(--border);text-align:center">
+    <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:1rem">Confirmar eliminación</div>
+    <div id="del-integrante-name" style="font-size:18px;font-weight:600;margin-bottom:.4rem;color:var(--black)"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:1.4rem">Esta acción no se puede deshacer</div>
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.5rem">PIN Supervisor</div>
+    <input id="del-integrante-pin" type="password" maxlength="4" inputmode="numeric" placeholder="••••"
+      style="width:100px;font-family:var(--mono);letter-spacing:6px;font-size:20px;text-align:center;border:none;border-bottom:1.5px solid var(--black);background:transparent;padding:4px 0;margin-bottom:.3rem;display:block;margin-left:auto;margin-right:auto;outline:none"
+      onkeydown="if(event.key==='Enter')confirmDeleteIntegrante()">
+    <div id="del-integrante-err" style="min-height:16px;font-size:10px;color:#c0392b;margin-bottom:.8rem"></div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button type="button" onclick="closeDeleteIntegranteModal()" style="padding:10px 20px;border:.5px solid var(--border);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:4px">Cancelar</button>
+      <button type="button" onclick="confirmDeleteIntegrante()" style="padding:10px 20px;border:none;background:#c0392b;color:#fff;font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:4px">Eliminar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Registrar nómina modal -->
 <div class="ocr-modal" id="new-nomina-modal" style="display:none" onclick="closeNominaModal(event)">
   <div style="background:var(--white,#fff);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;padding:1.5rem 1.2rem 2rem;border-radius:12px 12px 0 0">
@@ -8225,22 +8268,115 @@ async function exportFichajesCSV(){
 
 function renderEmpIntegrantes(){
   const el=$('emp-panel-integrantes');if(!el)return;
+  const addBtn=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button type="button" onclick="openAddIntegranteModal()" style="padding:7px 16px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:3px">+ Agregar integrante</button></div>`;
   if(!horEmpleados.length){
-    el.innerHTML='<div style="color:var(--hint);font-size:11px;padding:1rem 0">Sin integrantes. Configurá en Configuración → Empleados.</div>';
+    el.innerHTML=addBtn+'<div style="color:var(--hint);font-size:11px;padding:1rem 0">Sin integrantes todavía.</div>';
     return;
   }
-  el.innerHTML=horEmpleados.map(e=>{
+  el.innerHTML=addBtn+horEmpleados.map((e,i)=>{
     const initials=(e.nombre||'?').split(' ').map(w=>w[0]||'').join('').substring(0,2).toUpperCase();
     const pinOk=e.pin_fichaje&&e.pin_fichaje.length===4;
-    return `<div onclick="openEmpFicha('${e.nombre.replace(/'/g,"\'")}')" style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:.5px solid var(--border);cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
-      <div style="width:36px;height:36px;border-radius:50%;background:var(--surface);border:.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--hint);flex-shrink:0">${initials}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:500;color:var(--black)">${e.nombre}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">${e.cargo||'Sin cargo'} · ${e.horas_contrato||0}h/sem</div>
+    const nm=e.nombre.replace(/'/g,"\'");
+    return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:.5px solid var(--border)">
+      <div onclick="openEmpFicha('${nm}')" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--surface);border:.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--hint);flex-shrink:0">${initials}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;color:var(--black)">${e.nombre}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${e.cargo||'Sin cargo'} · ${e.horas_contrato||0}h/sem</div>
+        </div>
+        <div style="font-size:9px;letter-spacing:.5px;color:${pinOk?'#1D9E75':'var(--hint)'};flex-shrink:0;margin-right:8px">${pinOk?'PIN ✓':'sin PIN'}</div>
       </div>
-      <div style="font-size:9px;letter-spacing:.5px;color:${pinOk?'#1D9E75':'var(--hint)'};">${pinOk?'PIN ✓':'sin PIN'}</div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button type="button" onclick="editIntegrante(${i})" style="padding:5px 12px;border:.5px solid var(--border);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;border-radius:3px">Editar</button>
+        <button type="button" onclick="openDeleteIntegranteModal(${i})" style="padding:5px 12px;border:.5px solid #c0392b;background:transparent;color:#c0392b;font-family:var(--font);font-size:10px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;border-radius:3px">Eliminar</button>
+      </div>
     </div>`;
   }).join('');
+}
+
+let _intEditIdx=null;
+function openAddIntegranteModal(){
+  _intEditIdx=null;
+  $('integrante-modal-title').textContent='Nuevo integrante';
+  $('btn-inm-save').textContent='Agregar integrante';
+  $('btn-inm-cancel').style.display='none';
+  ['inm-nombre','inm-cargo','inm-horas','inm-pin'].forEach(id=>{$(id).value='';});
+  $('inm-tipo').value='parcial';$('inm-err').textContent='';
+  $('integrante-modal').style.display='flex';
+  setTimeout(()=>$('inm-nombre').focus(),80);
+}
+function editIntegrante(i){
+  _intEditIdx=i;const e=horEmpleados[i];
+  $('integrante-modal-title').textContent='Editar integrante';
+  $('btn-inm-save').textContent='Actualizar';
+  $('btn-inm-cancel').style.display='block';
+  $('inm-nombre').value=e.nombre||'';
+  $('inm-cargo').value=e.cargo||'';
+  $('inm-horas').value=e.horas_contrato||'';
+  $('inm-tipo').value=e.tipo_contrato||'parcial';
+  $('inm-pin').value='';$('inm-pin').placeholder='Nuevo PIN (dejar vacío = no cambiar)';
+  $('inm-err').textContent='';
+  $('integrante-modal').style.display='flex';
+  setTimeout(()=>$('inm-nombre').focus(),80);
+}
+function closeIntegranteModal(){
+  $('integrante-modal').style.display='none';
+  _intEditIdx=null;$('inm-pin').placeholder='••••';
+}
+async function saveIntegrante(){
+  const nombre=($('inm-nombre').value||'').trim();
+  const cargo=($('inm-cargo').value||'').trim();
+  const horas=parseInt($('inm-horas').value)||0;
+  const tipo=$('inm-tipo').value;
+  const pin=($('inm-pin').value||'').trim();
+  $('inm-err').textContent='';
+  if(!nombre){$('inm-err').textContent='Nombre requerido';return;}
+  if(pin&&!/^\d{4}$/.test(pin)){$('inm-err').textContent='PIN debe ser exactamente 4 dígitos';return;}
+  if(_intEditIdx!==null){
+    const id=horEmpleados[_intEditIdx].id;
+    const row={nombre,cargo,horas_contrato:horas||null,tipo_contrato:tipo};
+    if(pin)row.pin_fichaje=pin;
+    const{error}=await sb.from('hor_empleados').update(row).eq('id',id);
+    if(error){$('inm-err').textContent='Error: '+error.message;return;}
+    Object.assign(horEmpleados[_intEditIdx],{nombre,cargo,horas_contrato:horas,tipo_contrato:tipo});
+    if(pin)horEmpleados[_intEditIdx].pin_fichaje=pin;
+    closeIntegranteModal();showToast('✓ '+nombre+' actualizado/a');
+  } else {
+    if(!pin){$('inm-err').textContent='PIN fichaje requerido para nuevo integrante';return;}
+    const row={nombre,cargo,horas_contrato:horas||null,tipo_contrato:tipo,pin_fichaje:pin,salario_hora:0,noct_pct:25,fest_pct:75,dias_vacaciones:22};
+    const{data,error}=await sb.from('hor_empleados').insert(row).select();
+    if(error){$('inm-err').textContent='Error: '+error.message;return;}
+    if(data&&data[0])horEmpleados.push({id:data[0].id,...row});
+    closeIntegranteModal();showToast('✓ '+nombre+' agregado/a al equipo');
+  }
+  renderEmpIntegrantes();
+}
+let _delIntIdx=null;
+function openDeleteIntegranteModal(i){
+  _delIntIdx=i;
+  $('del-integrante-name').textContent=horEmpleados[i].nombre;
+  $('del-integrante-err').textContent='';
+  $('del-integrante-pin').value='';
+  $('delete-integrante-modal').style.display='flex';
+  setTimeout(()=>$('del-integrante-pin').focus(),80);
+}
+function closeDeleteIntegranteModal(){
+  $('delete-integrante-modal').style.display='none';
+  _delIntIdx=null;
+  $('del-integrante-pin').value='';
+  $('del-integrante-err').textContent='';
+}
+async function confirmDeleteIntegrante(){
+  const pin=($('del-integrante-pin').value||'').trim();
+  if(pin!==pinSupervisor){$('del-integrante-err').textContent='PIN incorrecto';$('del-integrante-pin').value='';$('del-integrante-pin').focus();return;}
+  if(_delIntIdx===null)return;
+  const nombre=horEmpleados[_delIntIdx].nombre;
+  const{error}=await sb.from('hor_empleados').delete().eq('id',horEmpleados[_delIntIdx].id);
+  if(error){$('del-integrante-err').textContent='Error: '+error.message;return;}
+  horEmpleados.splice(_delIntIdx,1);
+  closeDeleteIntegranteModal();
+  renderEmpIntegrantes();renderHempList();renderHorGrilla();renderHorSummary();
+  showToast('✓ '+nombre+' eliminado/a del equipo');
 }
 
 function empFichaTab(btn,panelId){
