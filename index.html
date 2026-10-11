@@ -375,7 +375,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <select id="ob-user" style="display:none"><option value="">Seleccionar...</option></select>
 <button class="enter" onclick="openAppPinModal()">Ingresar</button>
 <div style="margin-top:3rem;font-size:10px;color:var(--hint)">
-<span style="cursor:pointer;border-bottom:.5px solid var(--hint)" onclick="goConfig()">Configurar equipo</span>
+<span style="cursor:pointer;border-bottom:.5px solid var(--hint)" onclick="goConfigGated()">Configurar equipo</span>
 </div>
 </div>
 
@@ -730,6 +730,24 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     <div style="display:flex;gap:8px;justify-content:center">
       <button type="button" onclick="closeDeleteIntegranteModal()" style="padding:10px 20px;border:.5px solid var(--border);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:4px">Cancelar</button>
       <button type="button" onclick="confirmDeleteIntegrante()" style="padding:10px 20px;border:none;background:#c0392b;color:#fff;font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:4px">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Config PIN modal (acceso a "Configurar equipo") -->
+<div class="ocr-modal" id="config-pin-modal" style="display:none;align-items:center;padding:20px;box-sizing:border-box">
+  <div style="background:var(--white,#fff);width:100%;max-width:360px;padding:1.8rem 1.4rem;border-radius:8px;border:.5px solid var(--border);text-align:center">
+    <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:1rem">Acceso restringido</div>
+    <div style="font-size:15px;font-weight:600;margin-bottom:.4rem;color:var(--black)">Configurar equipo</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:1.4rem">Solo encargados y administradores</div>
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.5rem">PIN Supervisor</div>
+    <input id="config-pin-input" type="password" maxlength="4" inputmode="numeric" placeholder="••••"
+      style="width:100px;font-family:var(--mono);letter-spacing:6px;font-size:20px;text-align:center;border:none;border-bottom:1.5px solid var(--black);background:transparent;padding:4px 0;margin-bottom:.3rem;display:block;margin-left:auto;margin-right:auto;outline:none"
+      onkeydown="if(event.key==='Enter')confirmConfigPin()">
+    <div id="config-pin-err" style="min-height:16px;font-size:10px;color:#c0392b;margin-bottom:.8rem"></div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button type="button" onclick="closeConfigPinModal()" style="padding:10px 20px;border:.5px solid var(--border);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:4px">Cancelar</button>
+      <button type="button" onclick="confirmConfigPin()" style="padding:10px 20px;border:none;background:var(--black);color:var(--bg);font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:4px">Ingresar</button>
     </div>
   </div>
 </div>
@@ -2469,6 +2487,27 @@ $('ap').addEventListener('change',e=>{
 $('ab').addEventListener('input',uLF);
 $('rd1').value=hoy;$('rd2').value=hoy;
 
+function goConfigGated(){
+  $('config-pin-input').value='';
+  $('config-pin-err').textContent='';
+  $('config-pin-modal').style.display='flex';
+  setTimeout(()=>{try{$('config-pin-input').focus();}catch(e){}},80);
+}
+function closeConfigPinModal(){
+  $('config-pin-modal').style.display='none';
+}
+function confirmConfigPin(){
+  const pin=($('config-pin-input').value||'').trim();
+  if(!pin){$('config-pin-err').textContent='Ingresá el PIN';return;}
+  if(pin!==pinSupervisor){
+    $('config-pin-err').textContent='PIN incorrecto';
+    $('config-pin-input').value='';
+    setTimeout(()=>{try{$('config-pin-input').focus();}catch(e){}},50);
+    return;
+  }
+  closeConfigPinModal();
+  goConfig();
+}
 function goConfig(){$('onboard').style.display='none';$('main').style.display='block';go(5)}
 function startClock(){const dy=['dom','lun','mar','mi\u00e9','jue','vie','s\u00e1b'],mo=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'],wdMap={'Sun':0,'Mon':1,'Tue':2,'Wed':3,'Thu':4,'Fri':5,'Sat':6};function _t(){const n=new Date(),sv=n.toLocaleString('sv',{timeZone:TZ_SPAIN}),wd=new Intl.DateTimeFormat('en-US',{timeZone:TZ_SPAIN,weekday:'short'}).format(n),[dt,tm]=sv.split(' '),[yr,mn2,dd]=dt.split('-').map(Number),el=$('af-clock');if(el)el.textContent=tm+' \u00b7 '+dy[wdMap[wd]]+' '+dd+' '+mo[mn2-1]+' '+yr;}_t();setInterval(_t,1000);}
 function loadLastIngreso(){const el=$('af-ingreso');if(!el)return;try{const raw=localStorage.getItem('anomaly_last_login');if(raw){const{user,time}=JSON.parse(raw),d=new Date(time),dd=String(d.getDate()).padStart(2,'0'),mm=String(d.getMonth()+1).padStart(2,'0'),hh=String(d.getHours()).padStart(2,'0'),mn=String(d.getMinutes()).padStart(2,'0');el.textContent='\u00falt. ingreso: '+user+' \u00b7 '+dd+'/'+mm+' '+hh+':'+mn;}}catch(e){}}
