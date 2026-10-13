@@ -7184,7 +7184,7 @@ function empSubTab(tab){
   }
   if(tab==='integrantes')renderEmpIntegrantes();
   if(tab==='planificacion')renderVacPlanificacion();
-  if(tab==='altas')renderAltasPanel();
+  if(tab==='altas'){loadAltas().then(function(){renderAltasPanel();});}
 }
 
 // ─── PLANIFICACIÓN DE VACACIONES ──────────────────────────────────────────────
@@ -9006,9 +9006,8 @@ function genToken(){
   return Date.now().toString(36)+Math.random().toString(36).slice(2);
 }
 
-async function renderAltasPanel(){
+function renderAltasPanel(){
   const el=$('emp-panel-altas');if(!el)return;
-  await loadAltas();
   const SC={pendiente:'#e67e22',completo:'#27ae60',enviado:'#3498db'};
   function cardHtml(a){
     const sc=SC[a.status]||'#888';
