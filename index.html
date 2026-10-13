@@ -734,6 +734,24 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   </div>
 </div>
 
+<!-- Delete Alta modal -->
+<div class="ocr-modal" id="delete-alta-modal" style="display:none;align-items:center;padding:20px;box-sizing:border-box">
+  <div style="background:var(--white,#fff);width:100%;max-width:360px;padding:1.8rem 1.4rem;border-radius:8px;border:.5px solid var(--border);text-align:center">
+    <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:1rem">Eliminar alta</div>
+    <div id="del-alta-desc" style="font-size:14px;font-weight:600;margin-bottom:.3rem;color:var(--black)"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:1.4rem">Esta acción no se puede deshacer</div>
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.5rem">PIN Finanzas</div>
+    <input id="del-alta-pin" type="password" maxlength="4" inputmode="numeric" placeholder="••••"
+      style="width:100px;font-family:var(--mono);letter-spacing:6px;font-size:20px;text-align:center;border:none;border-bottom:1.5px solid var(--black);background:transparent;padding:4px 0;margin-bottom:.3rem;display:block;margin-left:auto;margin-right:auto;outline:none"
+      onkeydown="if(event.key==='Enter')confirmDeleteAlta()">
+    <div id="del-alta-err" style="min-height:16px;font-size:10px;color:#c0392b;margin-bottom:.8rem"></div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button type="button" onclick="closeDeleteAltaModal()" style="padding:10px 20px;border:.5px solid var(--border);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:4px">Cancelar</button>
+      <button type="button" onclick="confirmDeleteAlta()" style="padding:10px 20px;border:none;background:#c0392b;color:#fff;font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:4px">Eliminar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Config PIN modal (acceso a "Configurar equipo") -->
 <div class="ocr-modal" id="config-pin-modal" style="display:none;align-items:center;padding:20px;box-sizing:border-box">
   <div style="background:var(--white,#fff);width:100%;max-width:360px;padding:1.8rem 1.4rem;border-radius:8px;border:.5px solid var(--border);text-align:center">
@@ -9170,11 +9188,37 @@ function sendAltaAsesor(id){
   });
 }
 
-async function deleteAlta(id){
-  if(!confirm('¿Eliminar este registro?'))return;
-  await sb.from('hor_altas').delete().eq('id',id);
-  _altasList=_altasList.filter(function(x){return x.id!==id;});
+let _delAltaId=null;
+function deleteAlta(id){
+  const a=_altasList.find(function(x){return x.id===id;});
+  if(!a)return;
+  _delAltaId=id;
+  $('del-alta-desc').textContent=(a.puesto||'Alta')+(a.tipo_contrato?' · '+a.tipo_contrato:'');
+  $('del-alta-pin').value='';
+  $('del-alta-err').textContent='';
+  $('delete-alta-modal').style.display='flex';
+  setTimeout(function(){try{$('del-alta-pin').focus();}catch(e){}},80);
+}
+function closeDeleteAltaModal(){
+  $('delete-alta-modal').style.display='none';
+  _delAltaId=null;
+}
+async function confirmDeleteAlta(){
+  const pin=($('del-alta-pin').value||'').trim();
+  if(!pin){$('del-alta-err').textContent='Ingresá el PIN';return;}
+  const ok=pinFinanzas?pin===pinFinanzas:pin===pinSupervisor;
+  if(!ok){
+    $('del-alta-err').textContent='PIN incorrecto';
+    $('del-alta-pin').value='';
+    setTimeout(function(){try{$('del-alta-pin').focus();}catch(e){}},50);
+    return;
+  }
+  const{error}=await sb.from('hor_altas').delete().eq('id',_delAltaId);
+  if(error){$('del-alta-err').textContent='Error al eliminar';return;}
+  _altasList=_altasList.filter(function(x){return x.id!==_delAltaId;});
+  closeDeleteAltaModal();
   renderAltasPanel();
+  showToast('Alta eliminada');
 }
 
 (function(){
