@@ -6054,7 +6054,7 @@ function renderHorGrilla(){
     const esch=sch[nombre]||{};
     const contrato=emp.horas_contrato||0;
     let totalH=0;
-    let rowHTML=`<tr><td class="ht-emp" title="${nombre}${emp.cargo?' · '+emp.cargo:''}"><span style="display:flex;align-items:center;justify-content:space-between;gap:2px"><span>${nombre}${emp.cargo?`<span style="display:block;font-size:8px;font-weight:400;color:var(--hint);letter-spacing:.3px">${emp.cargo}</span>`:''}</span><span onclick="editHorEmpleadoFromGrilla(${activeTeam.indexOf(emp)})" style="cursor:pointer;font-size:9px;opacity:.5;flex-shrink:0;padding:1px 3px;border-radius:3px;line-height:1" title="Editar empleado">✏</span></span></td>`;
+    let rowHTML=`<tr><td class="ht-emp" title="${nombre}${emp.cargo?' · '+emp.cargo:''}"><span style="display:flex;align-items:flex-start;justify-content:space-between;gap:2px;width:100%"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">${nombre}${emp.cargo?`<span style="display:block;font-size:8px;font-weight:400;color:var(--hint);letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${emp.cargo}</span>`:''}</span><span onclick="editHorEmpleadoFromGrilla(${activeTeam.indexOf(emp)})" style="cursor:pointer;font-size:10px;opacity:.45;flex-shrink:0;padding:1px 3px;border-radius:3px;line-height:1;margin-top:1px" title="Editar empleado">✏</span></span></td>`;
     days.forEach((d,i)=>{
       const s=esch[i]||'';totalH+=parseShiftHours(s);
       const noct=nocturnasHoras(s)>0;const festDay=esFestivo(d);const fest=festDay&&s&&s!=='OFF';
