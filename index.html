@@ -2801,7 +2801,7 @@ function closeAyudaModal(){
   if(m)m.style.display='none';
 }
 function ayudaTab(tab){
-  ['caja','ficha'].forEach(t=>{
+  ['caja','ficha','altas'].forEach(t=>{
     const el=$('ayuda-'+t);
     const btn=$('ayudatab-'+t);
     if(el)el.style.display=t===tab?'block':'none';
@@ -9821,6 +9821,7 @@ function _setupTempTouchDrag(){
     <div style="display:flex;border-bottom:.5px solid var(--border)">
       <button type="button" id="ayudatab-caja" onclick="ayudaTab('caja')" style="flex:1;padding:9px;border:none;background:transparent;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid var(--black);font-family:var(--font);color:var(--black)">Módulo Caja</button>
       <button type="button" id="ayudatab-ficha" onclick="ayudaTab('ficha')" style="flex:1;padding:9px;border:none;background:transparent;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font);color:var(--muted)">Fichajes</button>
+      <button type="button" id="ayudatab-altas" onclick="ayudaTab('altas')" style="flex:1;padding:9px;border:none;background:transparent;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font);color:var(--muted)">Altas</button>
     </div>
 
     <!-- Caja tab -->
@@ -9954,6 +9955,50 @@ function _setupTempTouchDrag(){
       </div>
     </div>
 
+
+    <!-- Altas tab -->
+    <div id="ayuda-altas" style="padding:1rem;display:none">
+
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem">¿Para qué sirve?</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:1.2rem;line-height:1.5">Registrar la incorporación de un nuevo empleado y enviarle un link para que complete sus datos personales. El alta queda en estado <strong style="color:#b45309">Pendiente</strong> hasta que el empleado responde.</div>
+
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem">Parte 1 — Encargada</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:1.2rem">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:var(--black,#111);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">1</div>
+          <div><div style="font-size:10px;font-weight:600">Ir a la pestaña Altas</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Menú superior → Altas. Aparece el formulario Nueva Alta.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:var(--black,#111);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">2</div>
+          <div><div style="font-size:10px;font-weight:600">Completar los datos del puesto</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Puesto, tipo de contrato, tipo de jornada (obligatorios). Opcionalmente: fecha de alta, horario y observaciones.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:var(--black,#111);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">3</div>
+          <div><div style="font-size:10px;font-weight:600">Crear alta y generar link</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Tocar <em>"+ Crear alta y generar link"</em>. El alta queda registrada como Pendiente.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:var(--black,#111);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">4</div>
+          <div><div style="font-size:10px;font-weight:600">Copiar y enviar el link</div><div style="font-size:9px;color:var(--muted);margin-top:2px">En Altas registradas → <em>"Copiar link"</em>. Enviarlo por WhatsApp o email al empleado.</div></div>
+        </div>
+      </div>
+
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem">Parte 2 — Empleado</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:1.2rem">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:#555;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">5</div>
+          <div><div style="font-size:10px;font-weight:600">Abrir el link recibido</div><div style="font-size:9px;color:var(--muted);margin-top:2px">Sin necesidad de tener la app. Completa sus datos personales y confirma.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="min-width:20px;height:20px;background:#555;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">6</div>
+          <div><div style="font-size:10px;font-weight:600">Alta completada</div><div style="font-size:9px;color:var(--muted);margin-top:2px">El estado cambia a <strong style="color:#059669">Completada</strong>. La encargada puede proceder al alta definitiva en Integrantes.</div></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="border:.5px solid var(--border);padding:8px 10px;border-radius:4px;font-size:9px;color:var(--muted);line-height:1.5"><strong style="color:var(--black,#111)">Link vencido o no recibido.</strong> Buscá el alta en el listado y copiá el link de nuevo. No hace falta crear una nueva alta.</div>
+        <div style="border:.5px solid var(--border);padding:8px 10px;border-radius:4px;font-size:9px;color:var(--muted);line-height:1.5"><strong style="color:var(--black,#111)">Link único.</strong> Cada alta genera su propio link. No compartir con otras personas.</div>
+      </div>
+    </div>
     <div style="padding:.8rem 1rem;border-top:.5px solid var(--border);text-align:right">
       <button type="button" onclick="closeAyudaModal()" style="background:var(--black,#111);color:#fff;border:none;padding:8px 20px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;font-family:var(--font);border-radius:3px">Cerrar</button>
     </div>
