@@ -5358,8 +5358,11 @@ async function loadHorariosSemana(wk, force=false){
   const{data}=await sb.from('horarios').select('*').eq('week_key',wk);
   horSchedules[wk]={}; // init AFTER query to avoid race
   (data||[]).forEach(r=>{
-    if(!horSchedules[wk][r.empleado])horSchedules[wk][r.empleado]={};
-    horSchedules[wk][r.empleado][r.day_index]=r.turno;
+    // Normalize to canonical name from horEmpleados (case-insensitive match)
+    const canonical=horEmpleados.find(function(e){return e.nombre.toLowerCase()===r.empleado.toLowerCase();});
+    const empName=canonical?canonical.nombre:r.empleado;
+    if(!horSchedules[wk][empName])horSchedules[wk][empName]={};
+    horSchedules[wk][empName][r.day_index]=r.turno;
   });
   // Load real (actual) hours for this week
   const realKey='real-'+wk;
