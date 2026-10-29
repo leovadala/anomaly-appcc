@@ -9028,6 +9028,7 @@ function renderAltasPanel(){
       +'<div style="font-size:10px;color:var(--hint);margin-bottom:10px">'+fecha+'</div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
         +'<button type="button" class="btn-d" onclick="copyAltaLink(\''+a.token+'\')" style="font-size:10px;padding:5px 10px">&#128203; Copiar link</button>'
+        +'<button type="button" class="btn-d" onclick="verAltaDetalles(\''+a.id+'\')" style="font-size:10px;padding:5px 10px">&#128269; Ver detalles</button>'
         +envBtn
         +fichaBtn
         +'<button type="button" class="btn-d" onclick="deleteAlta(\''+a.id+'\')" style="font-size:10px;padding:5px 10px;margin-left:auto">&times;</button>'
@@ -9472,6 +9473,58 @@ PROTECCIÓN DE DATOS: Sus datos personales serán tratados por WORDCREAM SL con 
   const w=window.open('','_blank','width=850,height=1100,scrollbars=yes');
   if(w){w.document.write(html);w.document.close();}
   else{alert('El navegador bloqueó la ventana emergente. Permite popups para este sitio.');}
+}
+
+function verAltaDetalles(id){
+  const a=_altasList.find(function(x){return x.id===id;});if(!a)return;
+  const f=function(v){return v||'—';};
+  const bool=function(v){return v===true?'Sí':v===false?'No':'—';};
+  const rows=[
+    ['Puesto',f(a.puesto)],
+    ['Tipo de contrato',f(a.tipo_contrato)],
+    ['Tipo de jornada',f(a.tipo_jornada)],
+    ['Horario',f(a.horario)],
+    ['Fecha de alta',f(a.fecha_alta)],
+    ['Fecha de baja',f(a.fecha_baja)],
+    ['Categoría / Grupo profesional',f(a.categoria_profesional)],
+    ['Descripción de funciones',f(a.descripcion_funciones)],
+    ['Salario bruto anual',f(a.salario_bruto_anual)],
+    ['N° de pagas',f(a.num_pagas)],
+    ['Observaciones',f(a.observaciones_empresa)],
+  ];
+  const empRows=a.nombre_trabajador?[
+    ['Nombre trabajador',f(a.nombre_trabajador)],
+    ['DNI/NIE',f(a.dni)],
+    ['Fecha de nacimiento',f(a.fecha_nacimiento)],
+    ['Dirección',f(a.direccion)],
+    ['Municipio',f(a.municipio)],
+    ['Sexo',f(a.sexo)],
+    ['Teléfono',f(a.telefono_trabajador)],
+    ['Email',f(a.email_trabajador)],
+    ['Nº afiliación SS',f(a.num_afiliacion)],
+    ['Demandante de empleo',bool(a.demandante_empleo)],
+    ['Discapacidad ≥33%',f(a.discapacidad)],
+    ['Trabajó antes aquí',bool(a.trabajo_previo_empresa)],
+  ]:[];
+  const tr=function(pair){return '<tr><td style="padding:5px 10px;font-size:11px;color:#888;white-space:nowrap;border-bottom:.5px solid #f0ede8">'+pair[0]+'</td><td style="padding:5px 10px;font-size:11px;font-weight:500;border-bottom:.5px solid #f0ede8">'+pair[1]+'</td></tr>';};
+  const estado=a.status==='completo'?'<span style="font-size:9px;padding:2px 9px;border-radius:12px;background:#27ae6022;color:#27ae60;border:.5px solid #27ae6055;letter-spacing:1px">COMPLETO</span>':'<span style="font-size:9px;padding:2px 9px;border-radius:12px;background:#e67e2222;color:#e67e22;border:.5px solid #e67e2255;letter-spacing:1px">PENDIENTE</span>';
+  const html='<div id="alta-modal-overlay" onclick="if(event.target===this)this.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px">'
+    +'<div style="background:#fff;border-radius:10px;max-width:520px;width:100%;max-height:85vh;overflow-y:auto;padding:20px;position:relative">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+        +'<div>'
+          +'<div style="font-size:13px;font-weight:600">'+(a.puesto||'Sin puesto')+'</div>'
+          +'<div style="font-size:10px;color:#aaa;margin-top:2px">'+(a.created_at?new Date(a.created_at).toLocaleDateString('es-ES'):'')+' &nbsp;'+estado+'</div>'
+        +'</div>'
+        +'<button onclick="document.getElementById(\'alta-modal-overlay\').remove()" style="font-size:16px;background:none;border:none;cursor:pointer;color:#888;padding:4px 8px">&times;</button>'
+      +'</div>'
+      +'<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#bbb;margin-bottom:6px">Datos del alta (empresa)</div>'
+      +'<table style="width:100%;border-collapse:collapse;margin-bottom:14px">'+rows.map(tr).join('')+'</table>'
+      +(empRows.length?'<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#bbb;margin-bottom:6px">Datos del trabajador</div><table style="width:100%;border-collapse:collapse">'+empRows.map(tr).join('')+'</table>':'<div style="font-size:11px;color:#bbb;text-align:center;padding:10px 0">El empleado aún no completó el formulario.</div>')
+    +'</div>'
+  +'</div>';
+  var el=document.createElement('div');el.id='alta-modal-wrapper';el.innerHTML=html;
+  document.getElementById('alta-modal-wrapper')&&document.getElementById('alta-modal-wrapper').remove();
+  document.body.appendChild(el);
 }
 
 function copyAltaLink(token,justCreated){
