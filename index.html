@@ -9196,7 +9196,10 @@ function generarFichaAlta(id){
   table{width:100%;border-collapse:collapse;font-size:8.5pt}
   th,td{border:.5px solid #ccc;padding:3px 5px}
   th{background:#f4f4f4;font-size:7pt;text-transform:uppercase;letter-spacing:.3px}
-  @media print{body{padding:10mm 12mm}button{display:none}}
+  [contenteditable]:focus{outline:2px solid #4a90d9;background:#eef6ff !important}
+  [contenteditable]:hover{background:#f5fde8 !important}
+  .print-note{font-size:7pt;color:#888;font-style:italic;margin-bottom:6px}
+  @media print{body{padding:10mm 12mm}button{display:none}.print-note{display:none}[contenteditable]{outline:none !important}}
 </style>
 </head>
 <body>
@@ -9306,15 +9309,52 @@ function generarFichaAlta(id){
 <!-- SECCIÓN 7: TIEMPO DE TRABAJO -->
 <div class="section">
 <h2>7. Tiempo de trabajo</h2>
-<div class="field"><span class="field-label">Horario pactado</span><span class="field-value">${f(a.horario)}</span></div>
-<table style="margin-top:6px">
-  <thead><tr><th>Día</th><th>Turno mañana</th><th>Turno tarde/noche</th><th>Total horas</th></tr></thead>
+<div style="display:flex;align-items:stretch;gap:0;margin-bottom:6px">
+  <div class="field" style="flex:1"><span class="field-label">Descripción del horario</span><span class="field-value">${f(a.horario)||'Según cuadrante semanal'}</span></div>
+  <div class="field" style="flex:0 0 auto;padding:4px 10px;background:#fff8e1;border-left:none;display:flex;align-items:center;gap:5px">
+    <span style="font-size:10pt">🔄</span>
+    <span style="font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#b8860b">Horario rotativo</span>
+  </div>
+</div>
+<div style="font-size:7pt;color:#555;background:#fff8e1;border:.5px solid #f0d060;border-radius:3px;padding:5px 8px;margin-bottom:6px;line-height:1.5">
+  <strong>NOTA:</strong> La persona trabajadora presta sus servicios en <strong>régimen de horario rotativo</strong>. Los turnos concretos de cada semana se comunicarán mediante cuadrante semanal con la antelación prevista en el convenio colectivo aplicable. La distribución indicada en la tabla siguiente corresponde a un ejemplo de semana tipo, pudiendo variar según necesidades organizativas.
+</div>
+<div style="font-size:7pt;color:#666;margin-bottom:4px">
+  ✏️ <em>Complete la tabla con el horario de ejemplo o la semana de referencia. Las celdas son editables antes de imprimir.</em>
+</div>
+<table style="margin-top:2px">
+  <thead>
+    <tr>
+      <th style="width:14%">Día</th>
+      <th style="width:22%">Entrada mañana</th>
+      <th style="width:22%">Salida mañana</th>
+      <th style="width:22%">Entrada tarde/noche</th>
+      <th style="width:22%">Salida tarde/noche</th>
+      <th style="width:10%">Total h.</th>
+      <th style="width:10%">Descanso</th>
+    </tr>
+  </thead>
   <tbody>
     ${['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'].map(function(d){
-      return '<tr><td>'+d+'</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>';
+      return '<tr><td style="font-weight:600;background:#f9f9f9">'+d+'</td>'
+        +'<td contenteditable="true" style="min-width:60px;cursor:text;background:#fdfff5" title="Haga clic para editar">&nbsp;</td>'
+        +'<td contenteditable="true" style="min-width:60px;cursor:text;background:#fdfff5" title="Haga clic para editar">&nbsp;</td>'
+        +'<td contenteditable="true" style="min-width:60px;cursor:text;background:#fdfff5" title="Haga clic para editar">&nbsp;</td>'
+        +'<td contenteditable="true" style="min-width:60px;cursor:text;background:#fdfff5" title="Haga clic para editar">&nbsp;</td>'
+        +'<td contenteditable="true" style="min-width:40px;cursor:text;background:#fdfff5" title="Haga clic para editar">&nbsp;</td>'
+        +'<td contenteditable="true" style="min-width:40px;cursor:text;background:#fdfff5" title="Haga clic para editar">&nbsp;</td>'
+        +'</tr>';
     }).join('')}
+    <tr style="background:#f4f4f4;font-weight:700">
+      <td colspan="5" style="text-align:right;font-size:7.5pt;padding-right:8px">TOTAL SEMANAL:</td>
+      <td contenteditable="true" style="cursor:text;background:#fefdf0" title="Haga clic para editar">&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
   </tbody>
 </table>
+<div style="font-size:6.5pt;color:#888;margin-top:4px;line-height:1.5">
+  * Esta tabla representa una semana de referencia. El horario efectivo se comunica semanalmente mediante cuadrante. Las celdas marcadas en verde claro son editables — haga clic para completar antes de imprimir.
+</div>
 </div>
 
 <!-- SECCIÓN 12: DOCUMENTACIÓN -->
