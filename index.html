@@ -9036,7 +9036,52 @@ function renderAltasPanel(){
   }
   const listHtml=_altasList.length?_altasList.map(cardHtml).join(''):'<div style="font-size:11px;color:var(--hint);padding:.5rem 0">Sin altas registradas.</div>';
   el.innerHTML=
-    '<div class="sec-t" style="margin-bottom:1.2rem">Nueva alta</div>'
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem">'
+      +'<div class="sec-t" style="margin:0">Nueva alta</div>'
+      +'<button type="button" onclick="toggleAltasHelp()" style="font-size:10px;padding:4px 10px;border:.5px solid var(--border);border-radius:20px;background:var(--surface);color:var(--muted);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;letter-spacing:.5px">&#10067; Cómo usar</button>'
+    +'</div>'
+    +'<div id="altas-help-panel" style="display:none;background:#f8f7f2;border:.5px solid #d8d4c8;border-radius:8px;padding:16px;margin-bottom:1.5rem;font-size:11px;line-height:1.7;color:var(--black)">'
+      +'<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#aaa;margin-bottom:12px;font-weight:600">📋 Guía rápida — Alta de nuevo empleado</div>'
+      +'<div style="display:grid;gap:10px">'
+        // PASO 1
+        +'<div style="display:flex;gap:10px;align-items:flex-start">'
+          +'<span style="background:#1a1a1a;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px">1</span>'
+          +'<div><strong>Completá el formulario de alta</strong><br>Ingresá el puesto, tipo de contrato, jornada, fechas y horario. También podés cargar la categoría, salario y descripción de funciones si ya los tenés. Los campos con <strong>*</strong> son obligatorios.</div>'
+        +'</div>'
+        // PASO 2
+        +'<div style="display:flex;gap:10px;align-items:flex-start">'
+          +'<span style="background:#1a1a1a;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px">2</span>'
+          +'<div><strong>Hacé click en "Crear alta y generar link"</strong><br>El sistema crea el alta y copia automáticamente el link al portapapeles. El alta queda en estado <span style="color:#e67e22;font-weight:600">PENDIENTE</span>.</div>'
+        +'</div>'
+        // PASO 3
+        +'<div style="display:flex;gap:10px;align-items:flex-start">'
+          +'<span style="background:#1a1a1a;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px">3</span>'
+          +'<div><strong>Enviá el link al nuevo empleado</strong><br>Pegá el link en WhatsApp, email o como prefieras. El empleado puede abrirlo desde el celular. No necesita contraseña ni cuenta.</div>'
+        +'</div>'
+        // PASO 4
+        +'<div style="display:flex;gap:10px;align-items:flex-start">'
+          +'<span style="background:#1a1a1a;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px">4</span>'
+          +'<div><strong>El empleado completa sus datos</strong><br>Nombre, DNI, fecha de nacimiento, número de SS, domicilio, teléfono, email, IBAN y más. Al terminar hace click en "Enviar datos" y el alta pasa a <span style="color:#27ae60;font-weight:600">COMPLETO</span>.</div>'
+        +'</div>'
+        // PASO 5
+        +'<div style="display:flex;gap:10px;align-items:flex-start">'
+          +'<span style="background:#1a1a1a;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px">5</span>'
+          +'<div><strong>Generá la planilla oficial</strong><br>Hacé click en <strong>"📝 Generar planilla"</strong>. Se abre la Ficha de Alta completa con todos los datos cargados. Podés revisar todo, completar la tabla de horarios rotativos haciendo click en cada celda, y editar lo que haga falta.</div>'
+        +'</div>'
+        // PASO 6
+        +'<div style="display:flex;gap:10px;align-items:flex-start">'
+          +'<span style="background:#1a1a1a;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px">6</span>'
+          +'<div><strong>Imprimí o guardá como PDF</strong><br>Hacé click en el botón <strong>"Imprimir / Guardar PDF"</strong> dentro de la planilla. Se abre el diálogo de impresión del navegador. Para guardar como PDF elegí la opción "Guardar como PDF" o "Microsoft Print to PDF". El documento incluye todas las páginas completo.<br><span style="color:#888;font-size:10px">💡 Tip: si la tabla de horarios queda cortada entre páginas, activá "Más opciones" en el diálogo de impresión y aumentá los márgenes.</span></div>'
+        +'</div>'
+        // PASO 7
+        +'<div style="display:flex;gap:10px;align-items:flex-start">'
+          +'<span style="background:#1a1a1a;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px">7</span>'
+          +'<div><strong>Firma y envío al asesor</strong><br>Imprimí la planilla, el empleado firma en papel. Luego podés hacer click en <strong>"✉️ Enviar al asesor"</strong> para generar un email con todos los datos estructurados para Vilanova Tributación.</div>'
+        +'</div>'
+      +'</div>'
+      +'<div style="margin-top:12px;padding-top:10px;border-top:.5px solid #d0ccc0;font-size:10px;color:#999">El link de cada alta se puede copiar nuevamente en cualquier momento haciendo click en "📋 Copiar link". El empleado puede completar el formulario desde cualquier dispositivo.</div>'
+    +'</div>'
+    +'<div class="sec-t" style="margin-bottom:.75rem">Nueva alta</div>'
     +'<div style="display:grid;gap:14px;padding:14px;border:.5px solid var(--border);border-radius:8px;margin-bottom:1.5rem">'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
         +'<div class="f" style="margin:0"><label>Puesto *</label>'
@@ -9106,6 +9151,12 @@ function renderAltasPanel(){
     +'</div>'
     +'<div class="sec-t" style="margin-bottom:.75rem">Altas registradas</div>'
     +'<div id="altas-list">'+listHtml+'</div>';
+}
+
+function toggleAltasHelp(){
+  var p=document.getElementById('altas-help-panel');if(!p)return;
+  var open=p.style.display==='none';
+  p.style.display=open?'block':'none';
 }
 
 function altPuestoChange(){
@@ -9199,7 +9250,18 @@ function generarFichaAlta(id){
   [contenteditable]:focus{outline:2px solid #4a90d9;background:#eef6ff !important}
   [contenteditable]:hover{background:#f5fde8 !important}
   .print-note{font-size:7pt;color:#888;font-style:italic;margin-bottom:6px}
-  @media print{body{padding:10mm 12mm}button{display:none}.print-note{display:none}[contenteditable]{outline:none !important}}
+  @media print{
+    body{padding:8mm 10mm;font-size:8.5pt}
+    button,.print-note,[style*="✏️"]{display:none !important}
+    [contenteditable]{outline:none !important;background:#fff !important}
+    .section{page-break-inside:avoid}
+    h2{page-break-after:avoid}
+    table{page-break-inside:auto}
+    tr{page-break-inside:avoid}
+    .header{page-break-after:avoid}
+    .sig-grid{page-break-inside:avoid;margin-top:8mm}
+    .nota{page-break-inside:avoid}
+  }
 </style>
 </head>
 <body>
