@@ -9017,6 +9017,7 @@ function renderAltasPanel(){
     const fecha=a.created_at?new Date(a.created_at).toLocaleDateString('es-ES'):'';
     const nombreLine=a.nombre_trabajador?'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">&#128100; '+a.nombre_trabajador+'</div>':'';
     const envBtn=a.status==='completo'?'<button type="button" class="btn-d" onclick="sendAltaAsesor(\''+a.id+'\')" style="font-size:10px;padding:5px 10px;background:var(--black);color:#fff;border-color:var(--black)">&#9993; Enviar al asesor</button>':'';
+    const fichaBtn=a.status==='completo'?'<button type="button" class="btn-d" onclick="generarFichaAlta(\''+a.id+'\')" style="font-size:10px;padding:5px 10px">&#128221; Generar planilla</button>':'';
     return '<div style="background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:14px;margin-bottom:8px">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">'
         +'<div><span style="font-size:12px;font-weight:500">'+(a.puesto||'Sin puesto')+'</span>'
@@ -9028,6 +9029,7 @@ function renderAltasPanel(){
       +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
         +'<button type="button" class="btn-d" onclick="copyAltaLink(\''+a.token+'\')" style="font-size:10px;padding:5px 10px">&#128203; Copiar link</button>'
         +envBtn
+        +fichaBtn
         +'<button type="button" class="btn-d" onclick="deleteAlta(\''+a.id+'\')" style="font-size:10px;padding:5px 10px;margin-left:auto">&times;</button>'
       +'</div>'
     +'</div>';
@@ -9091,6 +9093,14 @@ function renderAltasPanel(){
         +'<div style="font-size:10px;color:var(--hint);letter-spacing:.3px">&#8594; <span id="alt-horario-preview" style="color:var(--muted)">Seleccioná días y horario</span></div>'
         +'<input type="hidden" id="alt-horario">'
       +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        +'<div class="f" style="margin:0"><label>Categoría / Grupo profesional</label><input id="alt-categoria" placeholder="Ej: Grupo II, Camarero/a..."></div>'
+        +'<div class="f" style="margin:0"><label>Salario bruto anual</label><input id="alt-salario" placeholder="Ej: 18.000 €"></div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        +'<div class="f" style="margin:0"><label>Descripción de funciones</label><input id="alt-funciones" placeholder="Breve descripción del puesto..."></div>'
+        +'<div class="f" style="margin:0"><label>N° de pagas</label><select id="alt-pagas"><option value="">Seleccionar...</option><option>12</option><option>14</option><option>16</option></select></div>'
+      +'</div>'
       +'<div class="f" style="margin:0"><label>Observaciones</label><input id="alt-obs" placeholder="Notas adicionales..."></div>'
       +'<button type="button" class="btn-d" onclick="saveNuevaAlta()" style="align-self:start;margin-top:4px">+ Crear alta y generar link</button>'
     +'</div>'
@@ -9139,13 +9149,220 @@ async function saveNuevaAlta(){
     fecha_alta:v('fecha-alta')||null,
     fecha_baja:v('fecha-baja')||null,
     observaciones_empresa:v('obs')||null,
+    categoria_profesional:v('categoria')||null,
+    descripcion_funciones:v('funciones')||null,
+    salario_bruto_anual:v('salario')||null,
+    num_pagas:v('pagas')||null,
     status:'pendiente'};
   const{error}=await sb.from('hor_altas').insert(row);
   if(error){alert('Error: '+error.message);return;}
-  ['puesto','contrato','jornada','horario','fecha-alta','fecha-baja','obs'].forEach(function(id){var el=$('alt-'+id);if(el)el.value='';});
+  ['puesto','contrato','jornada','horario','fecha-alta','fecha-baja','obs','categoria','funciones','salario','pagas'].forEach(function(id){var el=$('alt-'+id);if(el)el.value='';});
   await loadAltas();
   renderAltasPanel();
   copyAltaLink(token,true);
+}
+
+function generarFichaAlta(id){
+  const a=_altasList.find(function(x){return x.id===id;});if(!a)return;
+  const f=function(v){return v||'';};
+  const fb=function(v){return v===true?'Sí':v===false?'No':'';};
+  const fd=function(v){if(!v)return '';try{return new Date(v+'T00:00:00').toLocaleDateString('es-ES');}catch(e){return v;}};
+  // Build printable HTML
+  const html=`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Ficha Alta Nueva Contratación — ${f(a.nombre_trabajador)||'Trabajador/a'}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:9pt;color:#111;background:#fff;padding:18mm 16mm}
+  h1{font-size:11pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+  h2{font-size:8.5pt;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#444;border-bottom:1px solid #ccc;padding-bottom:2px;margin:12px 0 6px}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:10px}
+  .empresa-name{font-size:13pt;font-weight:700;letter-spacing:2px;text-transform:uppercase}
+  .subtitle{font-size:7pt;color:#666;letter-spacing:1px;text-transform:uppercase}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0}
+  .field{border:.5px solid #ccc;padding:4px 6px;min-height:20px}
+  .field-label{font-size:6.5pt;color:#666;letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:1px}
+  .field-value{font-size:9pt;font-weight:500}
+  .section{margin-bottom:10px}
+  .check-row{display:flex;gap:16px;flex-wrap:wrap;padding:4px 6px;border:.5px solid #ccc}
+  .check-item{display:flex;align-items:center;gap:4px;font-size:8.5pt}
+  .box{width:10px;height:10px;border:1px solid #333;display:inline-block;text-align:center;line-height:10px;font-size:7pt}
+  .sig-area{border:.5px solid #ccc;height:50px;margin-top:4px}
+  .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  .nota{font-size:6.5pt;color:#666;line-height:1.5;border-top:1px solid #ccc;margin-top:10px;padding-top:6px}
+  table{width:100%;border-collapse:collapse;font-size:8.5pt}
+  th,td{border:.5px solid #ccc;padding:3px 5px}
+  th{background:#f4f4f4;font-size:7pt;text-transform:uppercase;letter-spacing:.3px}
+  @media print{body{padding:10mm 12mm}button{display:none}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="empresa-name">WORDCREAM SL</div>
+    <div class="subtitle">Ficha de Alta — Nueva Contratación</div>
+    <div style="font-size:7pt;color:#888;margin-top:2px">Adaptada al Real Decreto 723/2026 — Vilanova Tributación y Consulting S.L.</div>
+  </div>
+  <div style="text-align:right;font-size:7.5pt;color:#555">
+    <div>Fecha de impresión: ${new Date().toLocaleDateString('es-ES')}</div>
+    <div style="margin-top:2px">Ref. interna: ${id.slice(0,8).toUpperCase()}</div>
+  </div>
+</div>
+
+<!-- SECCIÓN 1: EMPRESA -->
+<div class="section">
+<h2>1. Datos de la empresa</h2>
+<div class="grid3">
+  <div class="field"><span class="field-label">Razón social</span><span class="field-value">WORDCREAM SL</span></div>
+  <div class="field"><span class="field-label">CIF</span><span class="field-value">&nbsp;</span></div>
+  <div class="field"><span class="field-label">Cód. Cuenta Cotización (CCC)</span><span class="field-value">&nbsp;</span></div>
+</div>
+<div class="grid3">
+  <div class="field"><span class="field-label">Convenio colectivo</span><span class="field-value">Hostelería</span></div>
+  <div class="field"><span class="field-label">Mutua colaboradora</span><span class="field-value">&nbsp;</span></div>
+  <div class="field"><span class="field-label">Plan de igualdad</span><span class="field-value">&nbsp;</span></div>
+</div>
+</div>
+
+<!-- SECCIÓN 2: TRABAJADOR -->
+<div class="section">
+<h2>2. Datos de la persona trabajadora</h2>
+<div class="grid2">
+  <div class="field"><span class="field-label">Nombre y apellidos</span><span class="field-value">${f(a.nombre_trabajador)}</span></div>
+  <div class="field"><span class="field-label">DNI / NIE / Pasaporte</span><span class="field-value">${f(a.dni_nie)}</span></div>
+</div>
+<div class="grid3">
+  <div class="field"><span class="field-label">Fecha de nacimiento</span><span class="field-value">${fd(a.fecha_nacimiento)}</span></div>
+  <div class="field"><span class="field-label">Sexo</span><span class="field-value">${f(a.sexo)}</span></div>
+  <div class="field"><span class="field-label">Nº Afiliación Seg. Social</span><span class="field-value">${f(a.num_ss)}</span></div>
+</div>
+<div class="grid3">
+  <div class="field"><span class="field-label">Nacionalidad</span><span class="field-value">${f(a.nacionalidad)}</span></div>
+  <div class="field"><span class="field-label">Autorización de trabajo</span><span class="field-value">&nbsp;</span></div>
+  <div class="field"><span class="field-label">Nivel de estudios</span><span class="field-value">${f(a.nivel_estudios)}</span></div>
+</div>
+<div class="field"><span class="field-label">Domicilio</span><span class="field-value">${f(a.domicilio)}</span></div>
+<div class="grid3">
+  <div class="field"><span class="field-label">Teléfono</span><span class="field-value">${f(a.telefono_trabajador)}</span></div>
+  <div class="field"><span class="field-label">Email</span><span class="field-value">${f(a.email_trabajador)}</span></div>
+  <div class="field"><span class="field-label">IBAN</span><span class="field-value">${f(a.cuenta_bancaria)}</span></div>
+</div>
+<div class="grid3">
+  <div class="field"><span class="field-label">Demandante de empleo</span><span class="field-value">${a.demandante_empleo===true?'Sí':a.demandante_empleo===false?'No':''}</span></div>
+  <div class="field"><span class="field-label">Discapacidad reconocida (≥33%)</span><span class="field-value">${f(a.discapacidad)==='si'?'Sí':f(a.discapacidad)==='no'?'No':f(a.discapacidad)}</span></div>
+  <div class="field"><span class="field-label">¿Trabajó antes en esta empresa?</span><span class="field-value">${a.trabajo_previo_empresa===true?'Sí':a.trabajo_previo_empresa===false?'No':''}</span></div>
+</div>
+</div>
+
+<!-- SECCIÓN 3: CONTRATO -->
+<div class="section">
+<h2>3. Tipo de contrato y duración</h2>
+<div class="check-row">
+  ${['Indefinido ordinario','Fijo discontinuo','Temporal circunstancias producción','Temporal sustitución','Formativo alternancia','Formativo prácticas profesionales'].map(function(t){
+    var sel=f(a.tipo_contrato).toLowerCase().includes(t.toLowerCase().split(' ')[0].toLowerCase());
+    return '<span class="check-item"><span class="box">'+(sel?'✓':'')+'</span> '+t+'</span>';
+  }).join('')}
+</div>
+<div class="grid3" style="margin-top:6px">
+  <div class="field"><span class="field-label">Tipo de jornada</span><span class="field-value">${f(a.tipo_jornada)}</span></div>
+  <div class="field"><span class="field-label">Fecha de inicio</span><span class="field-value">${fd(a.fecha_alta)}</span></div>
+  <div class="field"><span class="field-label">Fecha de fin (si temporal)</span><span class="field-value">${fd(a.fecha_baja)}</span></div>
+</div>
+</div>
+
+<!-- SECCIÓN 4: LUGAR DE TRABAJO -->
+<div class="section">
+<h2>4. Lugar de trabajo</h2>
+<div class="grid3">
+  <div class="field"><span class="field-label">Centro habitual</span><span class="field-value">&nbsp;</span></div>
+  <div class="field"><span class="field-label">Teletrabajo</span><span class="field-value">No</span></div>
+  <div class="field"><span class="field-label">Itinerante</span><span class="field-value">No</span></div>
+</div>
+</div>
+
+<!-- SECCIÓN 5: PUESTO -->
+<div class="section">
+<h2>5. Puesto de trabajo</h2>
+<div class="grid2">
+  <div class="field"><span class="field-label">Puesto</span><span class="field-value">${f(a.puesto)}</span></div>
+  <div class="field"><span class="field-label">Categoría / Grupo profesional</span><span class="field-value">${f(a.categoria_profesional)}</span></div>
+</div>
+<div class="field"><span class="field-label">Descripción de funciones</span><span class="field-value">${f(a.descripcion_funciones)}</span></div>
+</div>
+
+<!-- SECCIÓN 6: SALARIO -->
+<div class="section">
+<h2>6. Retribución</h2>
+<div class="grid3">
+  <div class="field"><span class="field-label">Salario bruto anual</span><span class="field-value">${f(a.salario_bruto_anual)}</span></div>
+  <div class="field"><span class="field-label">Nº de pagas</span><span class="field-value">${f(a.num_pagas)}</span></div>
+  <div class="field"><span class="field-label">Periodicidad de pago</span><span class="field-value">Mensual</span></div>
+</div>
+</div>
+
+<!-- SECCIÓN 7: TIEMPO DE TRABAJO -->
+<div class="section">
+<h2>7. Tiempo de trabajo</h2>
+<div class="field"><span class="field-label">Horario pactado</span><span class="field-value">${f(a.horario)}</span></div>
+<table style="margin-top:6px">
+  <thead><tr><th>Día</th><th>Turno mañana</th><th>Turno tarde/noche</th><th>Total horas</th></tr></thead>
+  <tbody>
+    ${['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'].map(function(d){
+      return '<tr><td>'+d+'</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>';
+    }).join('')}
+  </tbody>
+</table>
+</div>
+
+<!-- SECCIÓN 12: DOCUMENTACIÓN -->
+<div class="section">
+<h2>12. Documentación entregada</h2>
+<div class="check-row">
+  <span class="check-item"><span class="box">&nbsp;</span> DNI / NIE</span>
+  <span class="check-item"><span class="box">&nbsp;</span> Nº afiliación SS</span>
+  <span class="check-item"><span class="box">&nbsp;</span> Autorización trabajo</span>
+  <span class="check-item"><span class="box">&nbsp;</span> Modelo 145 IRPF</span>
+  <span class="check-item"><span class="box">&nbsp;</span> Cuenta bancaria (IBAN)</span>
+  <span class="check-item"><span class="box">&nbsp;</span> Título estudios</span>
+  <span class="check-item"><span class="box">&nbsp;</span> Certif. discapacidad</span>
+</div>
+</div>
+
+<!-- SECCIÓN 13: OBSERVACIONES -->
+<div class="section">
+<h2>13. Observaciones</h2>
+<div class="field" style="min-height:40px"><span class="field-value">${f(a.observaciones_empresa)}</span></div>
+</div>
+
+<!-- FIRMAS -->
+<div class="sig-grid">
+  <div>
+    <div style="font-size:7.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Empresa (sello y firma)</div>
+    <div class="sig-area"></div>
+    <div style="font-size:7pt;color:#666;margin-top:4px">WORDCREAM SL — Fecha: ___/___/______</div>
+  </div>
+  <div>
+    <div style="font-size:7.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Persona trabajadora (firma)</div>
+    <div class="sig-area"></div>
+    <div style="font-size:7pt;color:#666;margin-top:4px">${f(a.nombre_trabajador)||'Nombre'} — Fecha: ___/___/______</div>
+  </div>
+</div>
+
+<div class="nota">
+PROTECCIÓN DE DATOS: Sus datos personales serán tratados por WORDCREAM SL con la finalidad de gestionar su relación laboral y cumplir las obligaciones legales, con base jurídica en el art. 6.1.b) y 6.1.c) del RGPD 679/2016 y la LO 3/2018 (LOPDGDD). Puede ejercer sus derechos de acceso, rectificación, supresión, limitación, portabilidad y oposición enviando un escrito a la dirección del centro de trabajo.
+</div>
+
+<div style="margin-top:12px;text-align:center">
+  <button onclick="window.print()" style="padding:8px 24px;background:#111;color:#fff;border:none;border-radius:4px;font-size:10pt;cursor:pointer;font-family:inherit">Imprimir / Guardar PDF</button>
+</div>
+</body>
+</html>`;
+  const w=window.open('','_blank','width=850,height=1100,scrollbars=yes');
+  if(w){w.document.write(html);w.document.close();}
+  else{alert('El navegador bloqueó la ventana emergente. Permite popups para este sitio.');}
 }
 
 function copyAltaLink(token,justCreated){
@@ -9279,6 +9496,12 @@ async function submitAltaPublic(){
     nacionalidad:nac,domicilio:dom,
     nivel_estudios:g('ap-estudios')||null,
     cuenta_bancaria:g('ap-banco')||null,
+    sexo:g('ap-sexo')||null,
+    telefono_trabajador:g('ap-tel')||null,
+    email_trabajador:g('ap-email')||null,
+    demandante_empleo:g('ap-demandante')==='si'?true:(g('ap-demandante')==='no'?false:null),
+    discapacidad:g('ap-discap')||null,
+    trabajo_previo_empresa:g('ap-trabajo-previo')==='si'?true:(g('ap-trabajo-previo')==='no'?false:null),
     status:'completo'
   }).eq('token',_altaPublicToken);
   if(res.error){
@@ -10412,8 +10635,14 @@ function _setupTempTouchDrag(){
           <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">N&uacute;mero de Seguridad Social *</label><input id="ap-ss" type="text" autocomplete="off" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
           <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Nacionalidad *</label><input id="ap-nac" type="text" autocomplete="country-name" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
           <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Domicilio *</label><input id="ap-dom" type="text" autocomplete="street-address" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Sexo</label><select id="ap-sexo" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"><option value="">Seleccionar...</option><option>Hombre</option><option>Mujer</option><option>No especificado</option></select></div>
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Teléfono</label><input id="ap-tel" type="tel" autocomplete="tel" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Email</label><input id="ap-email" type="email" autocomplete="email" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
           <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Nivel de estudios</label><input id="ap-estudios" type="text" placeholder="Ej: Bachillerato, FP, Universitario..." style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
-          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Cuenta bancaria (si procede)</label><input id="ap-banco" type="text" autocomplete="off" placeholder="IBAN" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Cuenta bancaria (IBAN)</label><input id="ap-banco" type="text" autocomplete="off" placeholder="ES00 0000 0000 00 0000000000" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"></div>
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">¿Está inscrito como demandante de empleo?</label><select id="ap-demandante" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"><option value="">Seleccionar...</option><option value="si">Sí</option><option value="no">No</option></select></div>
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">Discapacidad reconocida (≥33%)</label><select id="ap-discap" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"><option value="">Seleccionar...</option><option value="no">No</option><option value="si">Sí</option></select></div>
+          <div><label style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;display:block;margin-bottom:5px">¿Ha trabajado antes en esta empresa?</label><select id="ap-trabajo-previo" style="width:100%;padding:10px 12px;border:.5px solid #d0cdc8;border-radius:4px;font-size:13px;background:#fafaf8;font-family:inherit;box-sizing:border-box"><option value="">Seleccionar...</option><option value="no">No</option><option value="si">Sí</option></select></div>
         </div>
       </div>
       <button onclick="submitAltaPublic()" style="width:100%;padding:14px;background:#1a1a1a;color:#fff;border:none;border-radius:4px;font-size:11px;font-weight:500;letter-spacing:3px;text-transform:uppercase;cursor:pointer;font-family:inherit">Enviar datos</button>
