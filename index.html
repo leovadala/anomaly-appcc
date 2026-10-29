@@ -9081,7 +9081,6 @@ function renderAltasPanel(){
       +'</div>'
       +'<div style="margin-top:12px;padding-top:10px;border-top:.5px solid #d0ccc0;font-size:10px;color:#999">El link de cada alta se puede copiar nuevamente en cualquier momento haciendo click en "📋 Copiar link". El empleado puede completar el formulario desde cualquier dispositivo.</div>'
     +'</div>'
-    +'<div class="sec-t" style="margin-bottom:.75rem">Nueva alta</div>'
     +'<div style="display:grid;gap:14px;padding:14px;border:.5px solid var(--border);border-radius:8px;margin-bottom:1.5rem">'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
         +'<div class="f" style="margin:0"><label>Puesto *</label>'
@@ -9120,22 +9119,26 @@ function renderAltasPanel(){
         +'<div class="f" style="margin:0"><label>Fecha de baja</label><input id="alt-fecha-baja" type="date"></div>'
         +'<div></div>'
       +'</div>'
-      +'<div class="f" style="margin:0"><label>Horario</label>'
-        +'<div style="display:flex;gap:5px;margin:6px 0 8px">'
-          +'<button type="button" class="alt-day-btn" data-day="L" onclick="altDayToggle(this)" style="width:30px;height:30px;border-radius:4px;border:.5px solid #d0cdc8;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">L</button>'
-          +'<button type="button" class="alt-day-btn" data-day="M" onclick="altDayToggle(this)" style="width:30px;height:30px;border-radius:4px;border:.5px solid #d0cdc8;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">M</button>'
-          +'<button type="button" class="alt-day-btn" data-day="X" onclick="altDayToggle(this)" style="width:30px;height:30px;border-radius:4px;border:.5px solid #d0cdc8;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">X</button>'
-          +'<button type="button" class="alt-day-btn" data-day="J" onclick="altDayToggle(this)" style="width:30px;height:30px;border-radius:4px;border:.5px solid #d0cdc8;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">J</button>'
-          +'<button type="button" class="alt-day-btn" data-day="V" onclick="altDayToggle(this)" style="width:30px;height:30px;border-radius:4px;border:.5px solid #d0cdc8;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">V</button>'
-          +'<button type="button" class="alt-day-btn" data-day="S" onclick="altDayToggle(this)" style="width:30px;height:30px;border-radius:4px;border:.5px solid #d0cdc8;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">S</button>'
-          +'<button type="button" class="alt-day-btn" data-day="D" onclick="altDayToggle(this)" style="width:30px;height:30px;border-radius:4px;border:.5px solid #d0cdc8;background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">D</button>'
+      +'<div class="f" style="margin:0"><label>Horario semanal (rotativos)</label>'
+        +'<div style="border:.5px solid #d0cdc8;border-radius:6px;overflow:hidden;margin-top:6px">'
+          +['L','M','X','J','V','S','D'].map(function(d,i){
+            var names=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+            var bg=i%2===0?'background:var(--surface)':'background:#fafaf8';
+            return '<div style="display:grid;grid-template-columns:90px 28px 1fr;align-items:center;gap:0;border-bottom:.5px solid #ece9e2;'+bg+'">'
+              +'<label style="font-size:11px;padding:7px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none">'
+                +'<input type="checkbox" id="alt-ck-'+d+'" data-day="'+d+'" onchange="altUpdateHorario()" style="cursor:pointer;accent-color:#1a1a1a;width:13px;height:13px">'
+                +'<span style="font-weight:500">'+names[i]+'</span>'
+              +'</label>'
+              +'<div style="width:.5px;height:100%;background:#ece9e2"></div>'
+              +'<div style="display:flex;align-items:center;gap:6px;padding:6px 10px">'
+                +'<input type="time" id="alt-e-'+d+'" value="09:00" onchange="altUpdateHorario()" disabled style="border:none;border-bottom:.5px solid #d0cdc8;background:transparent;font-size:12px;font-family:inherit;outline:none;color:var(--muted);width:80px;opacity:.4;transition:opacity .15s">'
+                +'<span style="font-size:9px;color:var(--hint);letter-spacing:.3px">–</span>'
+                +'<input type="time" id="alt-s-'+d+'" value="17:00" onchange="altUpdateHorario()" disabled style="border:none;border-bottom:.5px solid #d0cdc8;background:transparent;font-size:12px;font-family:inherit;outline:none;color:var(--muted);width:80px;opacity:.4;transition:opacity .15s">'
+              +'</div>'
+            +'</div>';
+          }).join('')
+          +'<div style="background:#f5f3ee;padding:6px 10px;font-size:10px;color:var(--hint)">&#8594; <span id="alt-horario-preview">Seleccioná los días y asigná horario a cada uno</span></div>'
         +'</div>'
-        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
-          +'<input id="alt-h-entrada" type="time" value="09:00" oninput="altUpdateHorario()" style="padding:4px 6px;border:none;border-bottom:.5px solid var(--border);background:transparent;font-size:13px;font-family:inherit;outline:none;color:var(--black)">'
-          +'<span style="color:var(--hint);font-size:10px;letter-spacing:.5px">HASTA</span>'
-          +'<input id="alt-h-salida" type="time" value="17:00" oninput="altUpdateHorario()" style="padding:4px 6px;border:none;border-bottom:.5px solid var(--border);background:transparent;font-size:13px;font-family:inherit;outline:none;color:var(--black)">'
-        +'</div>'
-        +'<div style="font-size:10px;color:var(--hint);letter-spacing:.3px">&#8594; <span id="alt-horario-preview" style="color:var(--muted)">Seleccioná días y horario</span></div>'
         +'<input type="hidden" id="alt-horario">'
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
@@ -9165,29 +9168,31 @@ function altPuestoChange(){
   otro.style.display=sel.value==='_otro'?'block':'none';
   if(sel.value!=='_otro')otro.value='';
 }
-function altDayToggle(btn){
-  var active=btn.classList.toggle('active');
-  btn.style.background=active?'var(--black)':'transparent';
-  btn.style.color=active?'#fff':'var(--muted)';
-  btn.style.borderColor=active?'var(--black)':'#d0cdc8';
-  altUpdateHorario();
-}
+function altDayToggle(btn){/* legacy, not used */}
 function altUpdateHorario(){
-  var order=['L','M','X','J','V','S','D'];
-  var sel=order.filter(function(d){var b=document.querySelector('.alt-day-btn[data-day="'+d+'"]');return b&&b.classList.contains('active');});
-  var entrada=($('alt-h-entrada')||{}).value||'';
-  var salida=($('alt-h-salida')||{}).value||'';
-  var str='';
-  if(sel.length){
-    // Compact consecutive days: L,M,X,J,V → L-V
-    var idx=sel.map(function(d){return order.indexOf(d);}).sort(function(a,b){return a-b;});
-    var consecutive=idx.every(function(_,i){return i===0||idx[i]===idx[i-1]+1;});
-    str=(consecutive&&sel.length>=3)?order[idx[0]]+'-'+order[idx[idx.length-1]]:sel.join(', ');
-    if(entrada&&salida)str+=' '+entrada+'-'+salida;
-    else if(entrada)str+=' desde '+entrada;
-  }
-  var h=$('alt-horario');if(h)h.value=str;
-  var p=$('alt-horario-preview');if(p)p.textContent=str||'Seleccioná días y horario';
+  var days=['L','M','X','J','V','S','D'];
+  var names={L:'Lun',M:'Mar',X:'Mié',J:'Jue',V:'Vie',S:'Sáb',D:'Dom'};
+  var parts=[];
+  days.forEach(function(d){
+    var ck=document.getElementById('alt-ck-'+d);
+    var ei=document.getElementById('alt-e-'+d);
+    var si=document.getElementById('alt-s-'+d);
+    if(!ck)return;
+    var active=ck.checked;
+    // Enable/disable time inputs
+    if(ei){ei.disabled=!active;ei.style.opacity=active?'1':'.35';ei.style.color=active?'var(--black)':'var(--muted)';}
+    if(si){si.disabled=!active;si.style.opacity=active?'1':'.35';si.style.color=active?'var(--black)':'var(--muted)';}
+    if(active){
+      var e=(ei&&ei.value)||'';
+      var s=(si&&si.value)||'';
+      var t=names[d];
+      if(e&&s)t+=' '+e+'–'+s;
+      parts.push(t);
+    }
+  });
+  var str=parts.join(' / ');
+  var h=document.getElementById('alt-horario');if(h)h.value=str;
+  var p=document.getElementById('alt-horario-preview');if(p)p.textContent=str||'Seleccioná los días y asigná horario a cada uno';
 }
 async function saveNuevaAlta(){
   const v=function(id){var el=$('alt-'+id);return el?el.value.trim():'';};
@@ -9208,6 +9213,8 @@ async function saveNuevaAlta(){
   const{error}=await sb.from('hor_altas').insert(row);
   if(error){alert('Error: '+error.message);return;}
   ['puesto','contrato','jornada','horario','fecha-alta','fecha-baja','obs','categoria','funciones','salario','pagas'].forEach(function(id){var el=$('alt-'+id);if(el)el.value='';});
+  ['L','M','X','J','V','S','D'].forEach(function(d){var ck=document.getElementById('alt-ck-'+d);if(ck){ck.checked=false;}var ei=document.getElementById('alt-e-'+d);if(ei){ei.value='09:00';ei.disabled=true;ei.style.opacity='.35';}var si=document.getElementById('alt-s-'+d);if(si){si.value='17:00';si.disabled=true;si.style.opacity='.35';}});
+  var p=document.getElementById('alt-horario-preview');if(p)p.textContent='Seleccioná los días y asigná horario a cada uno';
   await loadAltas();
   renderAltasPanel();
   copyAltaLink(token,true);
