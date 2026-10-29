@@ -9151,12 +9151,96 @@ function renderAltasPanel(){
         +'<div class="f" style="margin:0"><label>N° de pagas</label><select id="alt-pagas"><option value="">Seleccionar...</option><option>12</option><option>14</option><option>16</option></select></div>'
       +'</div>'
       +'<div class="f" style="margin:0"><label>Observaciones</label><input id="alt-obs" placeholder="Notas adicionales..."></div>'
+
+      // ── SECCIÓN EMPRESA (colapsable) ──
+      +'<div style="border:.5px solid var(--border);border-radius:8px;overflow:hidden;margin-top:4px">'
+        +'<button type="button" onclick="toggleAltaSection(\'sec-empresa\')" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border:none;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">'
+          +'<span>Datos empresa</span><span id="sec-empresa-icon" style="font-size:12px">＋</span>'
+        +'</button>'
+        +'<div id="sec-empresa" style="display:none;padding:14px;display:none;gap:10px;flex-direction:column">'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+            +'<div class="f" style="margin:0"><label>CCC (Cta. cotización SS)</label><input id="alt-ccc" placeholder="Ej: 28012345678"></div>'
+            +'<div class="f" style="margin:0"><label>Mutua colaboradora SS</label><input id="alt-mutua" placeholder="Ej: Fremap, Asepeyo..."></div>'
+          +'</div>'
+          +'<div class="f" style="margin:0"><label>Convenio colectivo aplicable</label><input id="alt-convenio" placeholder="Ej: Hostelería de la Comunidad de Madrid"></div>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+            +'<div class="f" style="margin:0"><label>Plan de igualdad</label><select id="alt-plan-igualdad"><option value="">—</option><option>Sí</option><option>No</option><option>En elaboración</option></select></div>'
+            +'<div class="f" style="margin:0"><label>Protocolo acoso sexual</label><select id="alt-protocolo-acoso"><option value="">—</option><option>Sí</option><option>No</option></select></div>'
+          +'</div>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+            +'<div class="f" style="margin:0"><label>Política de conciliación</label><select id="alt-conciliacion"><option value="">—</option><option>Sí</option><option>No</option></select></div>'
+            +'<div class="f" style="margin:0"><label>Medidas LGTBI</label><select id="alt-lgtbi"><option value="">—</option><option>Sí</option><option>No</option></select></div>'
+          +'</div>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+            +'<div class="f" style="margin:0"><label>Mejoras voluntarias SS</label><select id="alt-mejoras-ss"><option value="">—</option><option>Sí</option><option>No</option></select></div>'
+            +'<div class="f" style="margin:0"><label>Sistemas algorítmicos</label><select id="alt-sistemas-alg"><option value="">—</option><option>No</option><option>Sí</option></select></div>'
+          +'</div>'
+        +'</div>'
+      +'</div>'
+
+      // ── SECCIÓN LUGAR Y PUESTO (colapsable) ──
+      +'<div style="border:.5px solid var(--border);border-radius:8px;overflow:hidden">'
+        +'<button type="button" onclick="toggleAltaSection(\'sec-lugar\')" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border:none;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">'
+          +'<span>Lugar y puesto</span><span id="sec-lugar-icon" style="font-size:12px">＋</span>'
+        +'</button>'
+        +'<div id="sec-lugar" style="display:none;padding:14px;display:none;gap:10px;flex-direction:column">'
+          +'<div class="f" style="margin:0"><label>Centro de trabajo (dirección completa)</label><input id="alt-centro" placeholder="Ej: C/ Gran Vía 10, 28013 Madrid"></div>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+            +'<div class="f" style="margin:0"><label>Teletrabajo</label><select id="alt-teletrabajo"><option value="">—</option><option>No</option><option>Sí, parcial</option><option>Sí, total</option></select></div>'
+            +'<div class="f" style="margin:0"><label>Formación obligatoria para el puesto</label><input id="alt-formacion" placeholder="Ej: PRL, manipulación alimentos..."></div>'
+          +'</div>'
+        +'</div>'
+      +'</div>'
+
+      // ── SECCIÓN SALARIO DETALLADO (colapsable) ──
+      +'<div style="border:.5px solid var(--border);border-radius:8px;overflow:hidden">'
+        +'<button type="button" onclick="toggleAltaSection(\'sec-salario\')" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border:none;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">'
+          +'<span>Salario detallado</span><span id="sec-salario-icon" style="font-size:12px">＋</span>'
+        +'</button>'
+        +'<div id="sec-salario" style="display:none;padding:14px;display:none;gap:10px;flex-direction:column">'
+          +'<div class="f" style="margin:0"><label>Salario base y complementos</label><input id="alt-salario-base" placeholder="Ej: Base 1.200 € + plus convenio 150 € · o «Según convenio»"></div>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+            +'<div class="f" style="margin:0"><label>Periodicidad de pago</label><select id="alt-periodicidad"><option value="">—</option><option>Mensual</option><option>Quincenal</option><option>Otra</option></select></div>'
+            +'<div class="f" style="margin:0"><label>Forma de pago</label><select id="alt-forma-pago"><option value="">—</option><option>Transferencia</option><option>Efectivo</option><option>Otra</option></select></div>'
+          +'</div>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+            +'<div class="f" style="margin:0"><label>Retribución variable</label><select id="alt-ret-variable"><option value="">—</option><option>No</option><option>Sí</option></select></div>'
+            +'<div class="f" style="margin:0"><label>Detalle retribución variable</label><input id="alt-ret-variable-desc" placeholder="Ej: Comisión 5% sobre ventas..."></div>'
+          +'</div>'
+          +'<div class="f" style="margin:0"><label>Retribución en especie / dietas / kilometraje</label><input id="alt-ret-especie" placeholder="Ej: Vehículo, móvil, vales de comida..."></div>'
+        +'</div>'
+      +'</div>'
+
+      // ── SECCIÓN CONTRATO DETALLADO (colapsable) ──
+      +'<div style="border:.5px solid var(--border);border-radius:8px;overflow:hidden">'
+        +'<button type="button" onclick="toggleAltaSection(\'sec-contrato2\')" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border:none;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">'
+          +'<span>Contrato — datos adicionales</span><span id="sec-contrato2-icon" style="font-size:12px">＋</span>'
+        +'</button>'
+        +'<div id="sec-contrato2" style="display:none;padding:14px;display:none;gap:10px;flex-direction:column">'
+          +'<div class="f" style="margin:0"><label>Período de prueba</label><select id="alt-prueba"><option value="">—</option><option>No</option><option>Sí, según convenio</option><option>Sí, 15 días</option><option>Sí, 1 mes</option><option>Sí, 2 meses</option><option>Sí, 3 meses</option><option>Sí, 6 meses</option></select></div>'
+          +'<div class="f" style="margin:0"><label>Causa contrato temporal (solo temporales)</label><input id="alt-causa-temp" placeholder="Ej: Incremento de pedidos campaña navideña..."></div>'
+          +'<div class="f" style="margin:0"><label>Periodos actividad / inactividad (solo fijos discontinuos)</label><input id="alt-periodos-fd" placeholder="Ej: Activo jun–sep, inactivo oct–may..."></div>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+            +'<div class="f" style="margin:0"><label>Trabajo nocturno / turnos</label><select id="alt-nocturno"><option value="">—</option><option>No</option><option>Nocturno</option><option>A turnos</option></select></div>'
+            +'<div class="f" style="margin:0"><label>Horas extraordinarias</label><select id="alt-horas-extra"><option value="">—</option><option>No previstas</option><option>Según convenio</option><option>Se pagan</option><option>Se compensan con descanso</option></select></div>'
+          +'</div>'
+          +'<div class="f" style="margin:0"><label>Vacaciones</label><select id="alt-vacaciones"><option value="">—</option><option>Según convenio</option><option>30 días naturales</option><option>22 días laborables</option><option>Otro</option></select></div>'
+        +'</div>'
+      +'</div>'
+
       +'<button type="button" onclick="saveNuevaAlta()" style="align-self:start;margin-top:4px;padding:10px 20px;background:var(--black);color:#fff;border:.5px solid var(--black);border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer;letter-spacing:.3px;font-weight:500">+ Crear alta y generar link</button>'
     +'</div>'
     +'<div class="sec-t" style="margin-bottom:.75rem">Altas registradas</div>'
     +'<div id="altas-list">'+listHtml+'</div>';
 }
 
+function toggleAltaSection(id){
+  var el=document.getElementById(id);if(!el)return;
+  var icon=document.getElementById(id+'-icon');
+  var open=el.style.display==='none'||el.style.display==='';
+  el.style.display=open?'flex':'none';
+  if(icon)icon.textContent=open?'－':'＋';
+}
 function toggleAltasHelp(){
   var p=document.getElementById('altas-help-panel');if(!p)return;
   var open=p.style.display==='none';
@@ -9210,10 +9294,41 @@ async function saveNuevaAlta(){
     descripcion_funciones:v('funciones')||null,
     salario_bruto_anual:v('salario')||null,
     num_pagas:v('pagas')||null,
+    // campos empresa
+    ccc:v('ccc')||null,
+    convenio_colectivo:v('convenio')||null,
+    mutua_ss:v('mutua')||null,
+    plan_igualdad:v('plan-igualdad')||null,
+    protocolo_acoso:v('protocolo-acoso')||null,
+    politica_conciliacion:v('conciliacion')||null,
+    lgtbi_medidas:v('lgtbi')||null,
+    mejoras_ss:v('mejoras-ss')||null,
+    sistemas_algoritmicos:v('sistemas-alg')||null,
+    // lugar y puesto
+    centro_trabajo:v('centro')||null,
+    teletrabajo:v('teletrabajo')||null,
+    formacion_obligatoria:v('formacion')||null,
+    // salario detallado
+    salario_base_complementos:v('salario-base')||null,
+    periodicidad_pago:v('periodicidad')||null,
+    forma_pago:v('forma-pago')||null,
+    retribucion_variable:v('ret-variable')||null,
+    retribucion_especie:v('ret-especie')||null,
+    // contrato adicional
+    periodo_prueba:v('prueba')||null,
+    causa_temporal:v('causa-temp')||null,
+    periodos_fijo_discontinuo:v('periodos-fd')||null,
+    trabajo_nocturno:v('nocturno')||null,
+    horas_extra:v('horas-extra')||null,
+    vacaciones:v('vacaciones')||null,
     status:'pendiente'};
   const{error}=await sb.from('hor_altas').insert(row);
   if(error){alert('Error: '+error.message);return;}
-  ['puesto','contrato','jornada','horario','fecha-alta','fecha-baja','obs','categoria','funciones','salario','pagas'].forEach(function(id){var el=$('alt-'+id);if(el)el.value='';});
+  ['puesto','contrato','jornada','horario','fecha-alta','fecha-baja','obs','categoria','funciones','salario','pagas',
+   'ccc','convenio','mutua','plan-igualdad','protocolo-acoso','conciliacion','lgtbi','mejoras-ss','sistemas-alg',
+   'centro','teletrabajo','formacion','salario-base','periodicidad','forma-pago','ret-variable','ret-variable-desc','ret-especie',
+   'prueba','causa-temp','periodos-fd','nocturno','horas-extra','vacaciones'
+  ].forEach(function(id){var el=$('alt-'+id);if(el)el.value='';});
   ['L','M','X','J','V','S','D'].forEach(function(d){var ck=document.getElementById('alt-ck-'+d);if(ck){ck.checked=false;}var ei=document.getElementById('alt-e-'+d);if(ei){ei.value='09:00';ei.disabled=true;ei.style.opacity='.35';}var si=document.getElementById('alt-s-'+d);if(si){si.value='17:00';si.disabled=true;si.style.opacity='.35';}});
   var p=document.getElementById('alt-horario-preview');if(p)p.textContent='Seleccioná los días y asigná horario a cada uno';
   await loadAltas();
