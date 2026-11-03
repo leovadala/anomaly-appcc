@@ -7,25 +7,29 @@ echo.
 
 cd /d C:\Users\leova\Desktop\ANOMALY\ANOMALY-APP
 
-echo [1/4] Git add...
+echo [1/5] Sincronizando con GitHub (git pull)...
+git pull
+if %ERRORLEVEL% NEQ 0 (echo ERROR en git pull & pause & exit /b)
+
+echo [2/5] Git add...
 git add -A
 if %ERRORLEVEL% NEQ 0 (echo ERROR en git add & pause & exit /b)
 
-echo [2/4] Git commit...
+echo [3/5] Git commit...
 git commit -m "deploy" 2>&1
-echo (si dice nothing to commit esta bien, continua)
+echo (si dice nothing to commit, esta bien, continua)
 
-echo [3/4] Git push...
+echo [4/5] Git push...
 git push
 if %ERRORLEVEL% NEQ 0 (echo ERROR en git push & pause & exit /b)
 
-echo [4/4] Vercel deploy...
+echo [5/5] Vercel deploy a produccion...
 npx vercel@latest --prod --yes 2>&1
+if %ERRORLEVEL% NEQ 0 (echo ERROR en vercel deploy & pause & exit /b)
 
 echo.
 echo ========================================
-echo RECORDA: copiar la URL del deploy arriba
-echo y correr:
-echo npx vercel@latest alias set [URL] anomaly-appcc.vercel.app
+echo  DEPLOY COMPLETADO
+echo  URL: https://anomaly-appcc.vercel.app
 echo ========================================
 pause
