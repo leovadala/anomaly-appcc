@@ -2374,7 +2374,7 @@ const CAT_ALIASES={'bebida':'Bebidas','bebidas':'Bebidas','cafeteria':'Cafeterí
 function normalizeCat(c){if(!c)return'Sin categoría';const t=c.trim();const lo=t.toLowerCase();if(CAT_ALIASES[lo])return CAT_ALIASES[lo];const m=CONTEO_CATS.find(x=>x.toLowerCase()===lo);return m||t;}
 const CONTEO_CONT_DEFAULT={Helado:'plastico',Topping:'cubeta'};
 const FESTIVOS_VAL={'03-19':true,'06-24':true,'10-09':true};
-const FESTIVOS_MOVING={'2025-04-17':true,'2025-04-18':true,'2026-04-02':true,'2026-04-03':true};
+const FESTIVOS_MOVING={'2025-04-18':true,'2025-04-21':true,'2026-04-03':true,'2026-04-06':true,'2026-04-16':true,'2026-06-23':true};
 const HOR_PRESETS=['OFF','10A18','11A17','12A20','15A23','16A24','17A1','18A24','18A23','P'];
 const HOR_PANELS=['grilla','empleados','vacaciones','resumen','liquidar'];
 let horCurrentWeekOffset=0;
@@ -8752,6 +8752,25 @@ async function loadFichaAsistencia(nombre){
     const ausDelDia=ausData.filter(a=>a.fecha===dayStr);
     dayRows.push({dayStr,inHora,egHora,pausaMin,horasH,tard,olvido,pausaExc,extra,ausDelDia,schedIn,schedEg,schedH});
   });
+  // Add all remaining days of month: OFF, ausencia, or libre
+  const _daysInMo=new Date(yr,mo,0).getDate();
+  for(let _di2=1;_di2<=_daysInMo;_di2++){
+    const _ds2=`${val}-${String(_di2).padStart(2,'0')}`;
+    if(byDay[_ds2])continue;
+    const _dD2=new Date(_ds2+'T12:00:00Z');
+    const _dw2=_dD2.getDay();
+    const _mn2=new Date(_dD2);_mn2.setDate(_dD2.getDate()-(_dw2===0?6:_dw2-1));
+    const _wk2=_mn2.getFullYear()+'-W'+String(_mn2.getDate()).padStart(2,'0')+String(_mn2.getMonth()).padStart(2,'0');
+    const _t2=((_empSched[_wk2]||{})[_dw2===0?6:_dw2-1]||'').toUpperCase();
+    const _ausD2=ausData.filter(a=>a.fecha===_ds2);
+    const _isFest2=esFestivo(_dD2);
+    const _tm2=_t2.match(/^(\d+)A(\d+)/i);
+    const _sIn2=_tm2?String(parseInt(_tm2[1])).padStart(2,'0')+':00':null;
+    const _sEg2=_tm2?(()=>{let e=parseInt(_tm2[2]);if(e<parseInt(_tm2[1]))e+=24;return String(e%24).padStart(2,'0')+':00'})():null;
+    const _rType2=_ausD2.length>0?'ausencia':_t2==='OFF'?'off':'libre';
+    dayRows.push({dayStr:_ds2,rowType:_rType2,inHora:'—',egHora:'—',pausaMin:0,horasH:0,tard:0,olvido:false,pausaExc:0,extra:0,ausDelDia:_ausD2,schedIn:_sIn2,schedEg:_sEg2,schedH:0,isFest:_isFest2});
+  }
+  dayRows.sort((a,b)=>a.dayStr.localeCompare(b.dayStr));
   window._fichaAsistData={nombre,val,dayRows,emp,minPausa};
   // Cards
   const cardStyle='background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:10px 8px;text-align:center';
@@ -8779,18 +8798,47 @@ async function loadFichaAsistencia(nombre){
         <th style="text-align:left;padding:4px 5px;color:var(--hint);font-weight:400">Notas</th>
       </tr></thead><tbody>
       ${dayRows.map(r=>{
+        const _dDate=new Date(r.dayStr+'T12:00:00Z');
+        const _dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+        const _label=_dias[_dDate.getDay()]+' '+r.dayStr.split('-').join('/').slice(5);
+        const _festDot=r.isFest?'<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#b8860b;margin-left:4px;vertical-align:middle"></span>':'';
+        if(r.rowType==='libre'){
+          const _entC=r.schedIn?`<div style="font-size:8px;color:var(--muted)">Asig: ${r.schedIn}</div>`:'—';
+          const _egC=r.schedEg?`<div style="font-size:8px;color:var(--muted)">Asig: ${r.schedEg}</div>`:'—';
+          return`<tr style="border-bottom:.5px solid var(--border)${r.isFest?';background:#fffbe6':''}">
+            <td style="padding:5px 5px;white-space:nowrap;color:#ccc">${_label}${_festDot}</td>
+            <td style="text-align:center;padding:5px 5px">${_entC}</td>
+            <td style="text-align:center;padding:5px 5px">${_egC}</td>
+            <td style="text-align:center;padding:5px 5px;color:#ddd">—</td>
+            <td style="text-align:center;padding:5px 5px;color:#ddd">—</td>
+            <td style="text-align:center;padding:5px 5px;color:#ddd">—</td>
+            <td style="padding:5px 5px"></td>
+          </tr>`;
+        }
+        if(r.rowType==='off'||r.rowType==='ausencia'){
+          const _bg=r.rowType==='off'?'#f8f8f8':'#f0faf5';
+          const _badges=r.rowType==='off'
+            ?'<span style="background:#e8e8e8;color:#666;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:600">OFF</span>'
+            :r.ausDelDia.map(a=>{const _c=a.tipo.toLowerCase().includes('vacac')?'#1a7a4a':a.tipo.toLowerCase().includes('baja')?'#b33':'#1a5276';const _b=a.tipo.toLowerCase().includes('vacac')?'#d4edda':a.tipo.toLowerCase().includes('baja')?'#fdecea':'#eaf4fb';return`<span style="background:${_b};color:${_c};padding:2px 7px;border-radius:8px;font-size:9px;font-weight:600">${a.tipo}</span>`;}).join(' ');
+          return`<tr style="border-bottom:.5px solid var(--border);background:${_bg}">
+            <td style="padding:5px 5px;white-space:nowrap;color:#999">${_label}${_festDot}</td>
+            <td style="text-align:center;padding:5px 5px;color:#ccc">—</td>
+            <td style="text-align:center;padding:5px 5px;color:#ccc">—</td>
+            <td style="text-align:center;padding:5px 5px;color:#ccc">—</td>
+            <td style="text-align:center;padding:5px 5px;color:#ccc">—</td>
+            <td style="text-align:center;padding:5px 5px;color:#ccc">—</td>
+            <td style="padding:5px 5px">${_badges}</td>
+          </tr>`;
+        }
         const flags=[];
         if(r.tard>0)flags.push(`<span style="background:#fdecea;color:#b33;padding:1px 5px;border-radius:8px;font-size:8px">+${r.tard}m tard.</span>`);
         if(r.olvido)flags.push('<span style="background:#fef3e0;color:#e67e22;padding:1px 5px;border-radius:8px;font-size:8px">olvido egreso</span>');
         if(r.pausaExc>0)flags.push(`<span style="background:#f5eef8;color:#9b59b6;padding:1px 5px;border-radius:8px;font-size:8px">pausa +${r.pausaExc}m</span>`);
         r.ausDelDia.forEach(a=>flags.push(`<span style="background:#eaf4fb;color:#1a5276;padding:1px 5px;border-radius:8px;font-size:8px">${a.tipo}</span>`));
-        const dDate=new Date(r.dayStr+'T12:00:00Z');
-        const dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-        const label=dias[dDate.getDay()]+' '+r.dayStr.split('-').slice(1).join('/');
         const extraStr=r.extra>0?`<span style="color:#2980b9;font-weight:600">+${r.extra.toFixed(1)}h</span>`:'—';
         const pausaStr=r.pausaMin>0?r.pausaMin+'m':'—';
-        return`<tr style="border-bottom:.5px solid var(--border)">
-          <td style="padding:5px 5px;white-space:nowrap">${label}</td>
+        return`<tr style="border-bottom:.5px solid var(--border)${r.isFest?';background:#fffbe6':''}">
+          <td style="padding:5px 5px;white-space:nowrap">${_label}${_festDot}</td>
           <td style="text-align:center;padding:5px 5px${r.tard>0?';color:#b33;font-weight:600':''}">${r.schedIn?`<div style="font-size:8px;color:var(--muted)">Asig: ${r.schedIn}</div>`:''}${r.inHora}</td>
           <td style="text-align:center;padding:5px 5px${r.olvido?';color:#e67e22':''}">${r.schedEg?`<div style="font-size:8px;color:var(--muted)">Asig: ${r.schedEg}</div>`:''}${r.egHora}</td>
           <td style="text-align:center;padding:5px 5px;color:${r.pausaExc>0?'#9b59b6':'var(--muted)'}">${pausaStr}</td>
