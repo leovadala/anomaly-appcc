@@ -8071,6 +8071,10 @@ async function renderEmpHoy(){
 function initFichajeMonitor(){
   if(window._fichaMonTimer)clearInterval(window._fichaMonTimer);
   if(!window._fichaMonShown)window._fichaMonShown=new Set();
+  // Solicitar permiso de notificaciones nativas (una sola vez, requiere gesto de usuario)
+  if('Notification' in window&&Notification.permission==='default'){
+    Notification.requestPermission().catch(()=>{});
+  }
   _runFichaMonitor(); // run immediately on tab open
   window._fichaMonTimer=setInterval(_runFichaMonitor,60000);
 }
@@ -8203,6 +8207,13 @@ function _showFichaAlerta(tipo,nombre,planEnd,mins,maxMins,errMsg){
   +'</div>';
   document.body.appendChild(ov);
   if(autodismiss)setTimeout(()=>{const e=document.getElementById(alertId);if(e)e.remove();},30000);
+  // Notificación nativa del browser (funciona con la tab en segundo plano)
+  if('Notification' in window&&Notification.permission==='granted'){
+    const bodyText=body.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+    const n=new Notification('ANOMALY · '+title,{body:bodyText,icon:'/favicon.ico',tag:alertId});
+    if(autodismiss)setTimeout(()=>n.close(),30000);
+    n.onclick=()=>{window.focus();n.close();};
+  }
 }
 
 // ── Ficha individual ────────────────────────────────────────────────
