@@ -1311,8 +1311,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   <div id="emp-panel-fichaje" style="display:none">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
       <p style="font-size:11px;color:var(--muted);margin:0;flex:1">Tablet: <code id="emp-fichaje-url" style="background:var(--surface);padding:2px 6px;font-size:10px"></code></p>
-      <button class="btn-s" onclick="exportFichajesCSV()" style="flex-shrink:0">↓ CSV</button>
+      <button class="btn-s" onclick="exportFichajesPDF()" style="flex-shrink:0">↓ PDF</button>
     </div>
+    <div id="notif-status-bar" style="display:none;align-items:center;gap:8px;margin-bottom:10px;padding:7px 10px;border-radius:5px;font-size:11px;font-family:var(--font)"></div>
     <button class="btn" onclick="openFichaje()" style="width:100%;font-size:13px;padding:16px;letter-spacing:2px">⏱ ABRIR KIOSKO DE FICHAJE</button>
     <div style="margin-top:1.5rem" id="emp-fichaje-hoy">
       <div class="sec-t" style="margin-bottom:.6rem">Fichajes de hoy</div>
@@ -8071,12 +8072,35 @@ async function renderEmpHoy(){
 function initFichajeMonitor(){
   if(window._fichaMonTimer)clearInterval(window._fichaMonTimer);
   if(!window._fichaMonShown)window._fichaMonShown=new Set();
-  // Solicitar permiso de notificaciones nativas (una sola vez, requiere gesto de usuario)
+  // Solicitar permiso de notificaciones nativas
+  _updateNotifStatusBar();
   if('Notification' in window&&Notification.permission==='default'){
-    Notification.requestPermission().catch(()=>{});
+    Notification.requestPermission().then(()=>_updateNotifStatusBar()).catch(()=>{});
   }
   _runFichaMonitor(); // run immediately on tab open
   window._fichaMonTimer=setInterval(_runFichaMonitor,60000);
+}
+function _updateNotifStatusBar(){
+  const bar=document.getElementById('notif-status-bar');if(!bar)return;
+  if(!('Notification' in window)){
+    bar.style.display='flex';bar.style.background='#fff3cd';bar.style.color='#856404';
+    bar.style.border='.5px solid #ffc107';
+    bar.innerHTML='⚠️ Tu navegador no soporta notificaciones nativas.';return;
+  }
+  const p=Notification.permission;
+  if(p==='granted'){
+    bar.style.display='flex';bar.style.background='#d4edda';bar.style.color='#155724';
+    bar.style.border='.5px solid #28a745';
+    bar.innerHTML='🔔 Notificaciones activas — recibirás alertas aunque la pestaña esté en segundo plano.';
+  } else if(p==='denied'){
+    bar.style.display='flex';bar.style.background='#fdecea';bar.style.color='#b71c1c';
+    bar.style.border='.5px solid #e53935';
+    bar.innerHTML='🔕 Notificaciones bloqueadas. Para activarlas: haz clic en el candado de la barra de dirección → Notificaciones → Permitir, y recarga la página.';
+  } else {
+    bar.style.display='flex';bar.style.background='#e8eaf6';bar.style.color='#3949ab';
+    bar.style.border='.5px solid #7986cb';
+    bar.innerHTML='🔔 <span style="flex:1">Activá las notificaciones para recibir alertas en segundo plano.</span><button onclick="Notification.requestPermission().then(()=>_updateNotifStatusBar())" style="padding:3px 10px;font-size:10px;border:.5px solid #3949ab;background:transparent;color:#3949ab;cursor:pointer;border-radius:3px;font-family:var(--font);flex-shrink:0">Permitir</button>';
+  }
 }
 function _runFichaMonitor(){
   if(!_empFichajeHoy||!_empFichajeHoy.length)return;
@@ -8527,6 +8551,47 @@ async function exportFichajesCSV(){
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
   a.download=`fichajes_${new Date().toISOString().split('T')[0]}.csv`;
   document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+
+async function exportFichajesPDF(){
+  const{data,error}=await sb.from('fichajes').select('*').order('timestamp',{ascending:true});
+  if(error||!data||!data.length){alert('Sin fichajes para exportar');return;}
+  const hoy=new Date().toLocaleDateString('es-ES',{timeZone:TZ_SPAIN,day:'2-digit',month:'2-digit',year:'numeric'});
+  const tipos={'entrada':'🟢 Entrada','salida':'🔴 Salida','pausa':'🟡 Pausa','vuelta':'🔵 Vuelta'};
+  const estados={'activo':'','corregido':'✏️','pendiente':'⏳'};
+  const rows=data.map(f=>{
+    const dt=new Date(f.timestamp);
+    const fecha=dt.toLocaleDateString('es-ES',{timeZone:TZ_SPAIN,day:'2-digit',month:'2-digit',year:'numeric'});
+    const hora=dt.toLocaleTimeString('es-ES',{timeZone:TZ_SPAIN,hour:'2-digit',minute:'2-digit'});
+    const tard=f.tardanza_min>0?`<span style="color:#c0392b;font-size:10px">+${f.tardanza_min}m</span>`:'';
+    const est=estados[f.estado]||'';
+    return`<tr style="border-bottom:.5px solid #e0e0e0">
+      <td style="padding:6px 10px;font-size:12px">${f.empleado_nombre||''}</td>
+      <td style="padding:6px 10px;font-size:12px">${tipos[f.tipo]||f.tipo||''}</td>
+      <td style="padding:6px 10px;font-size:12px">${fecha}</td>
+      <td style="padding:6px 10px;font-size:12px">${hora} ${tard}</td>
+      <td style="padding:6px 10px;font-size:12px;color:${f.estado==='corregido'?'#8e44ad':'inherit'}">${est} ${f.estado||'activo'}</td>
+      <td style="padding:6px 10px;font-size:11px;color:#777;max-width:160px;word-break:break-word">${f.motivo_correccion||''}</td>
+    </tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Fichajes · ANOMALY</title>
+  <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;padding:28px;color:#111}
+  h1{font-size:18px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px}
+  .sub{font-size:11px;color:#777;margin-bottom:20px}
+  table{width:100%;border-collapse:collapse}
+  th{padding:7px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase;background:#111;color:#fff;text-align:left}
+  tr:nth-child(even){background:#f8f8f8}
+  @media print{body{padding:14px}h1{font-size:14px}}
+  </style></head><body>
+  <h1>Fichajes · ANOMALY</h1>
+  <div class="sub">Exportado el ${hoy} · ${data.length} registros</div>
+  <table><thead><tr>
+    <th>Empleado</th><th>Tipo</th><th>Fecha</th><th>Hora</th><th>Estado</th><th>Motivo corrección</th>
+  </tr></thead><tbody>${rows}</tbody></table>
+  </body></html>`;
+  const win=window.open('','_blank','width=1000,height=700');
+  win.document.write(html);win.document.close();win.focus();
+  setTimeout(()=>{win.print();},600);
 }
 
 function renderEmpIntegrantes(){
