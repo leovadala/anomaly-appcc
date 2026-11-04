@@ -8503,6 +8503,18 @@ function closeEmpFicha(){
   $('emp-ficha-modal').style.display='none';
 }
 
+function _openPdfWindow(html){
+  const isMobile=window.innerWidth<768||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  if(isMobile){
+    const ov=$('pdf-mobile-overlay'),ifr=$('pdf-mobile-iframe');
+    if(!ov||!ifr)return;
+    ifr.srcdoc=html;ov.style.display='flex';return;
+  }
+  const win=window.open('','_blank','width=1000,height=720');
+  if(!win){alert('El navegador bloqueó la ventana emergente. Permití ventanas emergentes para esta página.');return;}
+  win.document.write(html);win.document.close();win.focus();
+  setTimeout(()=>{win.print();},600);
+}
 function requireAdminPin(cb){
   window._adminPinCb=cb;
   const inp=$('admin-pin-input');
@@ -8613,9 +8625,7 @@ async function exportFichajesPDF(){
     <th>Empleado</th><th>Tipo</th><th>Fecha</th><th>Hora</th><th>Estado</th><th>Motivo corrección</th>
   </tr></thead><tbody>${rows}</tbody></table>
   </body></html>`;
-  const win=window.open('','_blank','width=1000,height=700');
-  win.document.write(html);win.document.close();win.focus();
-  setTimeout(()=>{win.print();},600);
+  _openPdfWindow(html);
 }
 
 function renderEmpIntegrantes(){
@@ -9030,9 +9040,7 @@ tr:last-child td{border-bottom:none}
 <tbody>${rows}</tbody></table>
 <p class="foot">Generado: ${new Date().toLocaleString('es-ES')} · ANOMALY</p>
 </body></html>`;
-  const win=window.open('','_blank','width=960,height=720');
-  win.document.write(html);win.document.close();win.focus();
-  setTimeout(()=>{win.print();},600);
+  _openPdfWindow(html);
 }
 function exportAsistenciaCSV(nombre){
   const d=window._fichaAsistData;if(!d||d.nombre!==nombre){alert('Cargá primero el período');return;}
@@ -11635,6 +11643,16 @@ function _setupTempTouchDrag(){
     <div class="fk-result-time" id="fk-res-time"></div>
     <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:16px">Próximo empleado en 3 segundos…</div>
   </div>
+</div>
+<div id="pdf-mobile-overlay" style="display:none;position:fixed;inset:0;z-index:5500;flex-direction:column;background:#1a1a1a">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;flex-shrink:0;gap:8px">
+    <span style="color:#fff;font-size:11px;letter-spacing:.5px;opacity:.7">Vista previa</span>
+    <div style="display:flex;gap:8px">
+      <button onclick="var f=$('pdf-mobile-iframe');if(f&&f.contentWindow)f.contentWindow.print()" style="padding:6px 14px;background:#fff;color:#111;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;font-family:var(--font)">Imprimir / PDF</button>
+      <button onclick="$('pdf-mobile-overlay').style.display='none';$('pdf-mobile-iframe').srcdoc=''" style="padding:6px 14px;background:transparent;color:#fff;border:.5px solid rgba(255,255,255,.4);border-radius:4px;font-size:11px;cursor:pointer;font-family:var(--font)">✕ Cerrar</button>
+    </div>
+  </div>
+  <iframe id="pdf-mobile-iframe" style="flex:1;border:none;width:100%;background:#fff;display:block"></iframe>
 </div>
 <div id="admin-pin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:4000;align-items:center;justify-content:center">
   <div style="background:var(--bg);width:290px;padding:1.6rem 1.4rem 1.4rem;border-radius:8px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.3)">
