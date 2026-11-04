@@ -8408,7 +8408,7 @@ async function openEmpFicha(nombre){
     <div id="ft-ausencias" style="display:none">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
         <select id="ficha-asist-mes" onchange="loadFichaAsistencia('${nombre}')" style="font-size:11px;border:.5px solid var(--border);border-radius:6px;padding:5px 8px;background:var(--surface);color:var(--text);font-family:var(--font)"></select>
-        <button onclick="exportAsistenciaCSV('${nombre}')" style="font-size:10px;padding:5px 12px;background:var(--black,#111);color:var(--bg,#fff);border:none;border-radius:6px;cursor:pointer;font-family:var(--font);letter-spacing:.5px">↓ Exportar CSV</button>
+        <button onclick="exportAsistenciaPDF('${nombre}')" style="font-size:10px;padding:5px 12px;background:var(--black,#111);color:var(--bg,#fff);border:none;border-radius:6px;cursor:pointer;font-family:var(--font);letter-spacing:.5px">↓ Exportar PDF</button>
         <button class="btn-s" onclick="openAusenciaModal('${nombre}')" style="margin-left:auto">+ Ausencia / tardanza</button>
       </div>
       <div id="ficha-asist-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;margin-bottom:14px"></div>
@@ -8871,6 +8871,69 @@ async function loadFichaAsistencia(nombre){
         </tr>`).join('')}
         </tbody></table>`:'';
   }
+}
+function exportAsistenciaPDF(nombre){
+  const d=window._fichaAsistData;if(!d||d.nombre!==nombre){alert('Cargá primero el período');return;}
+  const moNom=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const[yr,mo]=d.val.split('-').map(Number);
+  const mesNom=moNom[mo-1]+' '+yr;
+  let totH=0,totTard=0,totExtra=0,totPausaExc=0,totOlvidos=0,totNoctH=0,totFestivos=0;
+  d.dayRows.forEach(r=>{
+    totH+=r.horasH||0;if((r.tard||0)>0)totTard++;totExtra+=r.extra||0;
+    totPausaExc+=r.pausaExc||0;if(r.olvido)totOlvidos++;
+    totNoctH+=r.noctH||0;if(r.isFest&&r.inHora&&r.inHora!=='—')totFestivos++;
+  });
+  const diaSemana=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const rows=d.dayRows.map(r=>{
+    const dw=new Date(r.dayStr+'T12:00:00Z').getDay();
+    const bgRow=r.rowType==='off'?'#f5f5f5':r.rowType==='ausencia'?'#e8f5e9':'#fff';
+    const nota=r.rowType==='off'?'<span style="background:#555;color:#fff;border-radius:3px;padding:1px 5px;font-size:9px">OFF</span>':
+      (r.ausDelDia&&r.ausDelDia.length>0?`<span style="background:#27ae60;color:#fff;border-radius:3px;padding:1px 5px;font-size:9px">${r.ausDelDia[0].tipo}</span>`:'');
+    const extraStr=(r.extra||0)>0?`<span style="color:#2980b9">+${(r.extra||0).toFixed(1)}h</span>`:'';
+    const tardStr=(r.tard||0)>0?`<span style="color:#b33">+${r.tard}min</span>`:'';
+    return `<tr style="background:${bgRow}">
+      <td>${diaSemana[dw]} ${r.dayStr.slice(5)}</td>
+      <td>${r.inHora}</td><td>${r.egHora}</td>
+      <td>${r.pausaMin||0}min</td>
+      <td>${(r.horasH||0).toFixed(2)}h</td>
+      <td>${extraStr}</td><td>${tardStr}</td>
+      <td>${r.olvido?'<span style="color:#e67e22">SI</span>':''}</td>
+      <td>${nota}</td>
+    </tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Asistencia ${nombre} ${mesNom}</title>
+<style>
+*{box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;padding:28px 32px;color:#111;margin:0}
+h1{font-size:18px;margin:0 0 2px}h2{font-size:11px;color:#777;font-weight:400;margin:0 0 16px}
+.cards{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.card{border:1px solid #ddd;border-radius:7px;padding:9px 14px;text-align:center;min-width:88px}
+.cv{font-size:16px;font-weight:700;line-height:1.1}.cl{font-size:9px;color:#999;margin-top:3px;letter-spacing:.3px}
+table{width:100%;border-collapse:collapse}
+th{background:#111;color:#fff;padding:5px 7px;text-align:left;font-size:9px;letter-spacing:.5px;text-transform:uppercase}
+td{padding:4px 7px;border-bottom:.5px solid #eee;font-size:10px}
+tr:last-child td{border-bottom:none}
+.foot{color:#bbb;font-size:9px;margin-top:14px}
+@media print{body{padding:12px 16px}@page{margin:1cm}}
+</style></head><body>
+<h1>${d.emp?d.emp.nombre||nombre:nombre}</h1>
+<h2>Reporte de Asistencia — ${mesNom}</h2>
+<div class="cards">
+  <div class="card"><div class="cv">${totH.toFixed(1)}h</div><div class="cl">Horas trabajadas</div></div>
+  <div class="card"><div class="cv" style="color:${totTard>0?'#b33':'#27ae60'}">${totTard}</div><div class="cl">Tardanzas</div></div>
+  <div class="card"><div class="cv">${totOlvidos}</div><div class="cl">Olvidos egreso</div></div>
+  <div class="card"><div class="cv">${totPausaExc}m</div><div class="cl">Pausa excedida</div></div>
+  <div class="card"><div class="cv" style="color:${totExtra>0?'#2980b9':'#aaa'}">${totExtra.toFixed(1)}h</div><div class="cl">Horas extras</div></div>
+  <div class="card"><div class="cv" style="color:${totNoctH>0?'#8e44ad':'#aaa'}">${totNoctH.toFixed(1)}h</div><div class="cl">Horas nocturnas</div></div>
+  <div class="card"><div class="cv" style="color:${totFestivos>0?'#e67e22':'#aaa'}">${totFestivos}</div><div class="cl">Días festivos</div></div>
+</div>
+<table><thead><tr><th>Día</th><th>Entrada</th><th>Salida</th><th>Pausa</th><th>Hs trabajadas</th><th>Extras</th><th>Tardanza</th><th>Olvido</th><th>Nota</th></tr></thead>
+<tbody>${rows}</tbody></table>
+<p class="foot">Generado: ${new Date().toLocaleString('es-ES')} · ANOMALY</p>
+</body></html>`;
+  const win=window.open('','_blank','width=960,height=720');
+  win.document.write(html);win.document.close();win.focus();
+  setTimeout(()=>{win.print();},600);
 }
 function exportAsistenciaCSV(nombre){
   const d=window._fichaAsistData;if(!d||d.nombre!==nombre){alert('Cargá primero el período');return;}
