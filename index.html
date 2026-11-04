@@ -8512,7 +8512,8 @@ function requireAdminPin(cb){
 }
 function confirmAdminPin(){
   const entered=($('admin-pin-input').value||'').trim();
-  const pin=(localStorage.getItem('admin_pin')||'1234');
+  const pin=pinFinanzas||'';
+  if(!pin){alert('PIN Finanzas no configurado. Configuralo en Ajustes → PIN Finanzas.');closeAdminPin();return;}
   if(entered===pin){
     $('admin-pin-modal').style.display='none';
     if(window._adminPinCb){window._adminPinCb();window._adminPinCb=null;}
@@ -11639,7 +11640,7 @@ function _setupTempTouchDrag(){
   <div style="background:var(--bg);width:290px;padding:1.6rem 1.4rem 1.4rem;border-radius:8px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.3)">
     <div style="font-size:22px;margin-bottom:.4rem">🔒</div>
     <div style="font-size:12px;font-weight:600;color:var(--black);margin-bottom:4px">Acceso de administrador</div>
-    <div style="font-size:9px;color:var(--hint);margin-bottom:1.2rem">Ingresá el PIN para continuar</div>
+    <div style="font-size:9px;color:var(--hint);margin-bottom:1.2rem">Ingresá el PIN Finanzas para continuar</div>
     <input type="password" id="admin-pin-input" maxlength="6" autocomplete="off" placeholder="• • • •" onkeydown="if(event.key==='Enter')confirmAdminPin()" style="width:100%;box-sizing:border-box;padding:10px 8px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);font-size:20px;text-align:center;letter-spacing:10px;border-radius:4px;outline:none">
     <div id="admin-pin-err" style="display:none;font-size:9px;color:#c0392b;margin-top:6px">PIN incorrecto. Intentá de nuevo.</div>
     <div style="display:flex;gap:8px;margin-top:1.1rem">
