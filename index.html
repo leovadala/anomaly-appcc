@@ -8357,7 +8357,7 @@ async function openEmpFicha(nombre){
         if(!days.length)return '<div style="color:var(--hint);padding:.5rem">Sin fichajes registrados</div>';
         const corrBtn=(f)=>{
           window._fcData['fc'+f.id]=[f.id,f.timestamp,f.tipo,nombre,f.empleado_nombre||nombre];
-          return '<button onclick="(function(el){var d=window._fcData[el.dataset.k];openFichajeCorrection(d[0],d[1],d[2],d[3],d[4])})(this)" data-k="fc'+f.id+'" style="font-size:8px;color:var(--muted);background:transparent;border:.5px solid var(--border);cursor:pointer;padding:1px 5px;border-radius:2px;display:block;margin-top:2px">Corregir</button>';
+          return '<button onclick="(function(el){var d=window._fcData[el.dataset.k];requireAdminPin(function(){openFichajeCorrection(d[0],d[1],d[2],d[3],d[4])})})(this)" data-k="fc'+f.id+'" style="font-size:8px;color:var(--muted);background:transparent;border:.5px solid var(--border);cursor:pointer;padding:1px 5px;border-radius:2px;display:block;margin-top:2px">Corregir</button>';
         };
         const fmtH=(f)=>new Date(f.timestamp).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN});
         // Helper: compute day metrics
@@ -8503,6 +8503,29 @@ function closeEmpFicha(){
   $('emp-ficha-modal').style.display='none';
 }
 
+function requireAdminPin(cb){
+  window._adminPinCb=cb;
+  const inp=$('admin-pin-input');
+  if(inp){inp.value='';$('admin-pin-err').style.display='none';}
+  $('admin-pin-modal').style.display='flex';
+  setTimeout(()=>{if(inp)inp.focus();},80);
+}
+function confirmAdminPin(){
+  const entered=($('admin-pin-input').value||'').trim();
+  const pin=(localStorage.getItem('admin_pin')||'1234');
+  if(entered===pin){
+    $('admin-pin-modal').style.display='none';
+    if(window._adminPinCb){window._adminPinCb();window._adminPinCb=null;}
+  }else{
+    $('admin-pin-err').style.display='block';
+    $('admin-pin-input').value='';
+    $('admin-pin-input').focus();
+  }
+}
+function closeAdminPin(){
+  $('admin-pin-modal').style.display='none';
+  window._adminPinCb=null;
+}
 function openFichajeCorrection(fid,ts,tipo,nombre,empNombre){
   $('correc-fid').value=fid;
   $('correc-nombre').value=empNombre||nombre;
@@ -11610,6 +11633,19 @@ function _setupTempTouchDrag(){
     <div class="fk-result-tipo" id="fk-res-tipo"></div>
     <div class="fk-result-time" id="fk-res-time"></div>
     <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:16px">Próximo empleado en 3 segundos…</div>
+  </div>
+</div>
+<div id="admin-pin-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:4000;align-items:center;justify-content:center">
+  <div style="background:var(--bg);width:290px;padding:1.6rem 1.4rem 1.4rem;border-radius:8px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+    <div style="font-size:22px;margin-bottom:.4rem">🔒</div>
+    <div style="font-size:12px;font-weight:600;color:var(--black);margin-bottom:4px">Acceso de administrador</div>
+    <div style="font-size:9px;color:var(--hint);margin-bottom:1.2rem">Ingresá el PIN para continuar</div>
+    <input type="password" id="admin-pin-input" maxlength="6" autocomplete="off" placeholder="• • • •" onkeydown="if(event.key==='Enter')confirmAdminPin()" style="width:100%;box-sizing:border-box;padding:10px 8px;border:.5px solid var(--border);background:var(--surface);font-family:var(--font);font-size:20px;text-align:center;letter-spacing:10px;border-radius:4px;outline:none">
+    <div id="admin-pin-err" style="display:none;font-size:9px;color:#c0392b;margin-top:6px">PIN incorrecto. Intentá de nuevo.</div>
+    <div style="display:flex;gap:8px;margin-top:1.1rem">
+      <button onclick="closeAdminPin()" style="flex:1;padding:7px;border:.5px solid var(--border);background:transparent;font-family:var(--font);font-size:11px;cursor:pointer;border-radius:3px;color:var(--muted)">Cancelar</button>
+      <button onclick="confirmAdminPin()" style="flex:1;padding:7px;border:none;background:var(--black);color:#fff;font-family:var(--font);font-size:11px;cursor:pointer;border-radius:3px;font-weight:600">Confirmar</button>
+    </div>
   </div>
 </div>
 <div id="ficha-correc-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.72);z-index:3000;overflow-y:auto" onclick="if(event.target===this)$('ficha-correc-modal').style.display='none'">
