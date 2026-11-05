@@ -3355,17 +3355,45 @@ async function renderTempHistorial(){
     return`<div style="border:.5px solid ${alerts.length?'#c0392b':'var(--border)'};border-radius:4px;padding:10px 12px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:8px"><span style="font-size:12px;font-weight:500">${r.fecha} · ${(r.hora||'').slice(0,5)}</span><span style="font-size:10px;color:var(--muted)">${r.turno} · ${r.responsable}</span>${alerts.length?'<span style="font-size:9px;color:#c0392b;font-weight:700">⚠ ALERTA</span>':''}<button type="button" onclick="deleteTempRecord('${r.id}',this)" style="background:none;border:.5px solid var(--border);border-radius:3px;cursor:pointer;font-size:9px;color:var(--muted);padding:2px 7px;letter-spacing:.5px;font-family:var(--font);margin-left:auto">Eliminar</button></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${grid}</div>${r.incidencia?`<div style="margin-top:8px;font-size:11px;color:var(--muted);border-top:.5px solid var(--border);padding-top:6px">Incidencia: ${r.incidencia}</div>`:''}</div>`;
   }).join('');
 }
-function exportTempCSV(){
+function exportTempPDF(){
   const data=window._tempHisData;if(!data||!data.length){alert('Sin datos para exportar');return;}
   const activeSensors=tempSensors.filter(s=>s.enabled!==false);
-  const cols=['fecha','hora','turno','responsable',...activeSensors.map(s=>s.id),'incidencia'];
-  const hdr=['Fecha','Hora','Turno','Responsable',...activeSensors.map(s=>s.label),'Incidencia'];
-  let csv=hdr.join(',')+'\n';
-  data.forEach(r=>{csv+=cols.map((c,i)=>{const si=activeSensors[i-4];const v=si&&si.custom?(r.extras&&r.extras[c]!=null?r.extras[c]:null):r[c];return v!=null?String(v).replace(/,/g,';'):'';}).join(',')+'\n';});
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob);const link=document.createElement('a');
-  link.href=url;link.download=`temperaturas_${$('temp-his-año').value}-${String($('temp-his-mes').value).padStart(2,'0')}.csv`;
-  link.click();URL.revokeObjectURL(url);
+  const mesNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const mesVal=$('temp-his-mes').value,añoVal=$('temp-his-año').value;
+  const mesNom=mesNames[(parseInt(mesVal,10)-1)]||mesVal;
+  const rows=data.map(r=>{
+    const alerts=activeSensors.filter(s=>{const v=s.custom?(r.extras&&r.extras[s.id]!=null?r.extras[s.id]:null):r[s.id];return v!=null&&(v<s.min||v>s.max);});
+    const sensorCells=activeSensors.map(s=>{
+      const v=s.custom?(r.extras&&r.extras[s.id]!=null?r.extras[s.id]:null):r[s.id];
+      const out=v!=null&&(v<s.min||v>s.max);
+      const disp=v!=null?((v<0?'−':'+')+Math.abs(v).toFixed(1)+'°'):'—';
+      return`<td style="padding:5px 8px;text-align:center;vertical-align:top;border:1px solid #ddd"><div style="font-size:9px;color:#888;margin-bottom:2px">${s.label}</div><div style="font-weight:600;font-size:12px;color:${out?'#c0392b':s.neg?'#2266bb':'#1a7a3d'}">${disp}</div>${out?'<div style="font-size:8px;color:#c0392b">⚠</div>':''}</td>`;
+    }).join('');
+    const alertBg=alerts.length?'#fff5f5':'#fff';
+    const alertBorder=alerts.length?'2px solid #c0392b':'1px solid #ddd';
+    return`<tr style="background:${alertBg}"><td colspan="${activeSensors.length+1}" style="padding:0;border:${alertBorder};border-radius:4px">
+      <table style="width:100%;border-collapse:collapse"><tr>
+        <td style="padding:6px 10px;border-bottom:1px solid #eee;background:#fafafa" colspan="${activeSensors.length+1}">
+          <span style="font-weight:600;font-size:12px">${r.fecha} · ${(r.hora||'').slice(0,5)}</span>
+          <span style="color:#666;font-size:11px;margin-left:12px">${r.turno||''} · ${r.responsable||''}</span>
+          ${alerts.length?'<span style="color:#c0392b;font-weight:700;font-size:10px;margin-left:12px">⚠ ALERTA</span>':''}
+        </td>
+      </tr><tr>${sensorCells}</tr>
+      ${r.incidencia?`<tr><td colspan="${activeSensors.length+1}" style="padding:5px 10px;font-size:10px;color:#666;border-top:1px solid #eee">Incidencia: ${r.incidencia}</td></tr>`:''}
+      </table>
+    </td></tr><tr><td colspan="${activeSensors.length+1}" style="height:8px"></td></tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Temperaturas ${mesNom} ${añoVal}</title>
+  <style>body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#222}@media print{body{padding:10px}button{display:none!important}}</style>
+  </head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #222">
+    <div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:2px">Control de Temperaturas</div>
+    <div style="font-size:20px;font-weight:700">${mesNom} ${añoVal}</div></div>
+    <div style="font-size:10px;color:#aaa">${data.length} registro${data.length!==1?'s':''}</div>
+  </div>
+  <table style="width:100%;border-collapse:separate;border-spacing:0 0">${rows}</table>
+  </body></html>`;
+  _openPdfWindow(html);
 }
 
 let _dpBtn=null;
@@ -11548,7 +11576,7 @@ function _setupTempTouchDrag(){
         <div class="f"><label>Mes</label><select id="temp-his-mes" onchange="renderTempHistorial()"></select></div>
         <div class="f"><label>Año</label><select id="temp-his-año" onchange="renderTempHistorial()"></select></div>
       </div>
-      <button type="button" onclick="exportTempCSV()" style="margin-bottom:12px;padding:6px 14px;border:.5px solid var(--border);background:transparent;font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:3px">↓ Exportar CSV</button>
+      <button type="button" onclick="exportTempPDF()" style="margin-bottom:12px;padding:6px 14px;border:.5px solid var(--border);background:transparent;font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:3px">↓ Exportar PDF</button>
       <div id="temp-historial-list"></div>
     </div>
     <!-- Config overlay -->
