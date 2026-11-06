@@ -158,6 +158,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .hor-maintab{flex:1;padding:10px 6px;border:none;border-bottom:2px solid transparent;background:transparent;font-family:var(--font);font-size:10px;font-weight:400;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:all .2s;margin-bottom:-1px}
 .hor-maintab:hover{color:var(--black)}
 .hor-maintab.on{color:var(--black);font-weight:500;border-bottom-color:var(--black)}
+.cata-chip{font-size:9px;font-family:var(--font);letter-spacing:.8px;text-transform:uppercase;padding:4px 10px;border:.5px solid var(--border);border-radius:20px;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
+.cata-chip.active{background:var(--black);color:#fff;border-color:var(--black)}
+.cata-chip:hover:not(.active){border-color:var(--black);color:var(--black)}
+.tarea-card{border:.5px solid var(--border);border-radius:6px;padding:12px 14px;margin-bottom:8px;transition:all .15s;position:relative}
+.tarea-card:hover{border-color:var(--black)}
+.tarea-card.inactiva{opacity:.5}
+.prio-dot{display:inline-block;width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.tarea-badge{display:inline-block;font-size:8px;letter-spacing:.8px;text-transform:uppercase;padding:2px 7px;border-radius:10px;font-family:var(--font)}
 .hor-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px}
 .hor-week{font-size:13px;font-weight:500;color:var(--black);letter-spacing:.3px}
 .hor-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1rem}
@@ -1052,6 +1060,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   <button class="hor-maintab on" id="cfg-tab-equipo"   onclick="cfgTab('equipo')">Equipo</button>
   <button class="hor-maintab"    id="cfg-tab-sabores"  onclick="cfgTab('sabores')">Sabores</button>
   <button class="hor-maintab"    id="cfg-tab-local"    onclick="cfgTab('local')">Local</button>
+  <button class="hor-maintab"    id="cfg-tab-tareas"   onclick="cfgTab('tareas')">Tareas</button>
 </div>
 
 <!-- Equipo -->
@@ -1084,6 +1093,42 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <div class="note" id="pin-fin-err" style="display:none;color:#b33;margin-top:4px">PIN actual incorrecto</div>
 </div>
 </div>
+</div>
+
+<!-- Catálogo de Tareas -->
+<div id="cfg-panel-tareas" style="display:none">
+
+  <!-- Top bar -->
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+    <div style="flex:1;min-width:140px;position:relative">
+      <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);pointer-events:none">⌕</span>
+      <input id="cata-search" placeholder="Buscar tarea…" oninput="renderCatalogTareas()" style="width:100%;box-sizing:border-box;font-size:11px;padding:7px 10px 7px 26px;border:.5px solid var(--border);border-radius:4px;background:var(--bg);color:var(--black);font-family:var(--font)">
+    </div>
+    <button onclick="openTareaModal()" style="flex-shrink:0;font-size:11px;font-weight:500;letter-spacing:1.5px;padding:7px 16px;background:var(--black);color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:var(--font);text-transform:uppercase">+ Nueva tarea</button>
+  </div>
+
+  <!-- Filter chips -->
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px">
+    <span style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;align-self:center;margin-right:2px">Turno</span>
+    <button id="cata-f-turno-todos"    onclick="setCataFilter('turno','todos')"    class="cata-chip active">Todos</button>
+    <button id="cata-f-turno-apertura" onclick="setCataFilter('turno','apertura')" class="cata-chip">Apertura</button>
+    <button id="cata-f-turno-cierre"   onclick="setCataFilter('turno','cierre')"   class="cata-chip">Cierre</button>
+    <span style="width:1px;background:var(--border);margin:0 4px;align-self:stretch"></span>
+    <span style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;align-self:center;margin-right:2px">Prioridad</span>
+    <button id="cata-f-prio-todos"  onclick="setCataFilter('prio','todos')"  class="cata-chip active">Todas</button>
+    <button id="cata-f-prio-alta"   onclick="setCataFilter('prio','alta')"   class="cata-chip">Alta</button>
+    <button id="cata-f-prio-media"  onclick="setCataFilter('prio','media')"  class="cata-chip">Media</button>
+    <button id="cata-f-prio-baja"   onclick="setCataFilter('prio','baja')"   class="cata-chip">Baja</button>
+    <span style="width:1px;background:var(--border);margin:0 4px;align-self:stretch"></span>
+    <button id="cata-f-inac" onclick="toggleCataInactivas()" class="cata-chip" style="font-size:9px">+ Inactivas</button>
+  </div>
+
+  <!-- Stats row -->
+  <div id="cata-stats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+
+  <!-- Task list -->
+  <div id="cata-list"></div>
+
 </div>
 
 </div>
@@ -3506,10 +3551,11 @@ function logout(){currentUser='';_finUnlocked=false;document.querySelectorAll('.
 function renderTeamSelect(){$('ob-user').innerHTML='<option value="">Seleccionar...</option>'+team.map(n=>`<option>${n.nombre}</option>`).join('')}
 
 function cfgTab(tab){
-  ['equipo','sabores','local'].forEach(t=>{
+  ['equipo','sabores','local','tareas'].forEach(t=>{
     $('cfg-panel-'+t).style.display=t===tab?'block':'none';
     const btn=$('cfg-tab-'+t);if(btn)btn.classList.toggle('on',t===tab);
   });
+  if(tab==='tareas')initCatalogTareas();
 }
 function openTeamModal(title){
   $('team-modal-title').textContent=title||'Nuevo integrante';
@@ -11096,6 +11142,172 @@ function _setupTempTouchDrag(){
   });
 }
 
+// ── CATÁLOGO DE TAREAS ───────────────────────────────────────────
+let _catalogData=[],_catalogFiltroTurno='todos',_catalogFiltroPrioridad='todos',_catalogMostrarInactivas=false,_editingTareaId=null;
+const PRIO_COLOR={alta:'#c0392b',media:'#E09419',baja:'#1a7a3d'};
+const PRIO_BG={alta:'#fdf0ef',media:'#fdf6eb',baja:'#edf8f1'};
+const TURNO_BADGE={apertura:{bg:'#e8f0fb',color:'#2255aa'},cierre:{bg:'#f3eefb',color:'#6633aa'},ambos:{bg:'#f0f0f0',color:'#555'}};
+const TIPO_BADGE={fija:{bg:'#f0f0f0',color:'#555'},puntual:{bg:'#e8f0fb',color:'#2255aa'},programada:{bg:'#fdf6eb',color:'#8a5a00'}};
+
+async function initCatalogTareas(){
+  const{data}=await sb.from('checklist_tareas').select('*').order('prioridad').order('turno').order('orden');
+  _catalogData=data||[];
+  _renderCataStats();
+  renderCatalogTareas();
+}
+
+function setCataFilter(type,val){
+  if(type==='turno'){
+    _catalogFiltroTurno=val;
+    ['todos','apertura','cierre'].forEach(v=>$('cata-f-turno-'+v)?.classList.toggle('active',v===val));
+  }else if(type==='prio'){
+    _catalogFiltroPrioridad=val;
+    ['todos','alta','media','baja'].forEach(v=>$('cata-f-prio-'+v)?.classList.toggle('active',v===val));
+  }
+  renderCatalogTareas();
+}
+
+function toggleCataInactivas(){
+  _catalogMostrarInactivas=!_catalogMostrarInactivas;
+  const btn=$('cata-f-inac');if(btn)btn.classList.toggle('active',_catalogMostrarInactivas);
+  renderCatalogTareas();
+}
+
+function _renderCataStats(){
+  const el=$('cata-stats');if(!el)return;
+  const activas=_catalogData.filter(t=>t.activo);
+  const alta=activas.filter(t=>t.prioridad==='alta').length;
+  const prog=activas.filter(t=>t.tipo==='programada').length;
+  const puntual=activas.filter(t=>t.tipo==='puntual').length;
+  el.innerHTML=[
+    {label:'Total activas',val:activas.length,color:'var(--black)'},
+    {label:'Prioridad alta',val:alta,color:'#c0392b'},
+    {label:'Programadas',val:prog,color:'#8a5a00'},
+    {label:'Puntuales',val:puntual,color:'#2255aa'},
+  ].map(s=>`<div style="background:var(--border);border-radius:4px;padding:7px 12px;text-align:center;min-width:70px"><div style="font-size:18px;font-weight:600;color:${s.color};line-height:1">${s.val}</div><div style="font-size:9px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-top:2px">${s.label}</div></div>`).join('');
+}
+
+function renderCatalogTareas(){
+  const search=($('cata-search')?.value||'').toLowerCase().trim();
+  let items=_catalogData.filter(t=>{
+    if(!_catalogMostrarInactivas&&!t.activo)return false;
+    if(_catalogFiltroTurno!=='todos'&&t.turno!==_catalogFiltroTurno&&t.turno!=='ambos')return false;
+    if(_catalogFiltroPrioridad!=='todos'&&t.prioridad!==_catalogFiltroPrioridad)return false;
+    if(search&&!t.nombre.toLowerCase().includes(search)&&!(t.categoria||'').toLowerCase().includes(search)&&!(t.responsable||'').toLowerCase().includes(search))return false;
+    return true;
+  });
+  const el=$('cata-list');if(!el)return;
+  if(!items.length){el.innerHTML=`<div style="text-align:center;padding:2rem 0;color:var(--muted);font-size:12px">${_catalogData.length?'Sin tareas con estos filtros.':'Sin tareas en el catálogo. Creá la primera.'}</div>`;return;}
+  // Group by categoria
+  const grupos={};items.forEach(t=>{const g=t.categoria||'General';if(!grupos[g])grupos[g]=[];grupos[g].push(t);});
+  el.innerHTML=Object.entries(grupos).map(([grupo,tareas])=>{
+    const cards=tareas.map(t=>{
+      const pCol=PRIO_COLOR[t.prioridad]||'#888';
+      const tBadge=TURNO_BADGE[t.turno]||TURNO_BADGE.ambos;
+      const tipBadge=TIPO_BADGE[t.tipo]||TIPO_BADGE.fija;
+      const extra=[];
+      if(t.responsable)extra.push(`<span style="font-size:9px;color:var(--muted)">👤 ${t.responsable}</span>`);
+      if(t.hora)extra.push(`<span style="font-size:9px;color:var(--muted)">🕐 ${t.hora}</span>`);
+      if(t.fecha_especifica)extra.push(`<span style="font-size:9px;color:#8a5a00">📅 ${t.fecha_especifica}</span>`);
+      return`<div class="tarea-card${t.activo?'':' inactiva'}">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <div class="prio-dot" style="background:${pCol}" title="Prioridad ${t.prioridad}"></div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+              <span style="font-size:12px;font-weight:500;color:${t.activo?'var(--black)':'var(--muted)'}">${t.nombre}</span>
+              <span class="tarea-badge" style="background:${tBadge.bg};color:${tBadge.color}">${t.turno}</span>
+              <span class="tarea-badge" style="background:${tipBadge.bg};color:${tipBadge.color}">${t.tipo}</span>
+              ${!t.activo?'<span class="tarea-badge" style="background:#f0f0f0;color:#aaa">inactiva</span>':''}
+              ${t.vinculo?'<span class="tarea-badge" style="background:#e8f0fb;color:#2255aa">°C vinculada</span>':''}
+            </div>
+            ${t.descripcion?`<div style="font-size:10px;color:var(--muted);margin-bottom:4px;line-height:1.4">${t.descripcion}</div>`:''}
+            ${extra.length?`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:3px">${extra.join('')}</div>`:''}
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+            <button onclick="openTareaModal('${t.id}')" style="font-size:9px;padding:3px 10px;border:.5px solid var(--border);background:transparent;cursor:pointer;border-radius:3px;color:var(--muted);font-family:var(--font)">Editar</button>
+            <button onclick="_toggleActivaTarea('${t.id}',${t.activo})" style="font-size:9px;padding:3px 8px;border:.5px solid var(--border);background:transparent;cursor:pointer;border-radius:3px;color:var(--muted);font-family:var(--font)">${t.activo?'✕':'✓'}</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    return`<div style="margin-bottom:16px"><div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;padding-left:2px">${grupo}</div>${cards}</div>`;
+  }).join('');
+}
+
+async function _toggleActivaTarea(id,activo){
+  await sb.from('checklist_tareas').update({activo:!activo}).eq('id',id);
+  const idx=_catalogData.findIndex(t=>t.id===id);if(idx!==-1)_catalogData[idx].activo=!activo;
+  _renderCataStats();renderCatalogTareas();
+}
+
+function openTareaModal(id){
+  _editingTareaId=id||null;
+  const tarea=id?_catalogData.find(t=>t.id===id):null;
+  $('tarea-modal-title').textContent=tarea?'Editar tarea':'Nueva tarea';
+  $('tarea-m-nombre').value=tarea?.nombre||'';
+  $('tarea-m-desc').value=tarea?.descripcion||'';
+  $('tarea-m-turno').value=tarea?.turno||'apertura';
+  $('tarea-m-tipo').value=tarea?.tipo||'fija';
+  $('tarea-m-prio').value=tarea?.prioridad||'media';
+  $('tarea-m-cat').value=tarea?.categoria||'';
+  $('tarea-m-resp').value=tarea?.responsable||'';
+  $('tarea-m-hora').value=tarea?.hora||'';
+  $('tarea-m-fecha').value=tarea?.fecha_especifica||'';
+  $('tarea-m-orden').value=tarea?.orden??99;
+  $('tarea-m-vinculo').value=tarea?.vinculo||'';
+  $('tarea-m-activo').checked=tarea?tarea.activo:true;
+  _toggleFechaCampo();
+  $('tarea-m-err').style.display='none';
+  $('tarea-m-del').style.display=tarea?'block':'none';
+  $('tarea-modal').style.display='flex';
+  setTimeout(()=>$('tarea-m-nombre').focus(),80);
+}
+
+function closeTareaModal(){$('tarea-modal').style.display='none';}
+
+function _toggleFechaCampo(){
+  const tipo=$('tarea-m-tipo').value;
+  const row=$('tarea-m-fecha-row');if(row)row.style.display=tipo==='programada'?'block':'none';
+}
+
+async function saveTarea(){
+  const nombre=($('tarea-m-nombre').value||'').trim();
+  if(!nombre){$('tarea-m-err').textContent='El nombre es obligatorio.';$('tarea-m-err').style.display='block';return;}
+  const payload={
+    nombre,
+    descripcion:($('tarea-m-desc').value||'').trim()||null,
+    turno:$('tarea-m-turno').value,
+    tipo:$('tarea-m-tipo').value,
+    prioridad:$('tarea-m-prio').value,
+    categoria:($('tarea-m-cat').value||'').trim()||null,
+    responsable:($('tarea-m-resp').value||'').trim()||null,
+    hora:($('tarea-m-hora').value||'').trim()||null,
+    fecha_especifica:($('tarea-m-fecha').value||'')||null,
+    orden:parseInt($('tarea-m-orden').value||'99',10),
+    vinculo:($('tarea-m-vinculo').value||'')||null,
+    activo:$('tarea-m-activo').checked,
+  };
+  let error;
+  if(_editingTareaId){
+    const res=await sb.from('checklist_tareas').update(payload).eq('id',_editingTareaId);
+    error=res.error;
+    if(!error){const idx=_catalogData.findIndex(t=>t.id===_editingTareaId);if(idx!==-1)_catalogData[idx]={..._catalogData[idx],...payload,id:_editingTareaId};}
+  }else{
+    const res=await sb.from('checklist_tareas').insert(payload).select().maybeSingle();
+    error=res.error;if(!error&&res.data)_catalogData.push(res.data);
+  }
+  if(error){$('tarea-m-err').textContent='Error: '+error.message;$('tarea-m-err').style.display='block';return;}
+  closeTareaModal();_renderCataStats();renderCatalogTareas();
+}
+
+async function deleteTareaFromModal(){
+  if(!_editingTareaId)return;
+  if(!confirm('¿Eliminar esta tarea del catálogo? Esta acción no se puede deshacer.'))return;
+  await sb.from('checklist_tareas').delete().eq('id',_editingTareaId);
+  _catalogData=_catalogData.filter(t=>t.id!==_editingTareaId);
+  closeTareaModal();_renderCataStats();renderCatalogTareas();
+}
+
 // ── CHECKLIST DE APERTURA Y CIERRE ───────────────────────────────
 function getTodaySpain(){return new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];}
 
@@ -12075,6 +12287,118 @@ async function saveChecklistHorarios(){
       </div>
       <button onclick="submitAltaPublic()" style="width:100%;padding:14px;background:#1a1a1a;color:#fff;border:none;border-radius:4px;font-size:11px;font-weight:500;letter-spacing:3px;text-transform:uppercase;cursor:pointer;font-family:inherit">Enviar datos</button>
       <p style="font-size:9px;color:#aaa;text-align:center;margin-top:16px;line-height:1.6">PROTECCI&Oacute;N DE DATOS: Sus datos ser&aacute;n tratados por WORDCREAM SL con la finalidad de gestionar su relaci&oacute;n laboral, conforme al RGPD 2016/679 y la LOPD 3/2018.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── TAREA MODAL (crear/editar) ── -->
+<div class="ocr-modal" id="tarea-modal" style="display:none;align-items:flex-start;padding-top:5vh" onclick="if(event.target===this)closeTareaModal()">
+  <div style="background:var(--bg);border-radius:8px;width:100%;max-width:480px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;margin:0 auto">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:.5px solid var(--border);flex-shrink:0">
+      <span id="tarea-modal-title" style="font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase">Nueva tarea</span>
+      <button onclick="closeTareaModal()" style="font-size:16px;background:none;border:none;cursor:pointer;color:var(--muted);padding:0;font-family:var(--font)">✕</button>
+    </div>
+    <!-- Body -->
+    <div style="overflow-y:auto;padding:16px 18px;flex:1">
+
+      <!-- Nombre -->
+      <div class="f">
+        <label>Nombre de la tarea <span style="color:#c0392b">*</span></label>
+        <input id="tarea-m-nombre" placeholder="Ej: Verificar temperatura vitrinas" style="font-size:12px">
+      </div>
+
+      <!-- Descripción -->
+      <div class="f">
+        <label>Descripción</label>
+        <textarea id="tarea-m-desc" placeholder="Instrucciones o detalle adicional…" rows="2" style="width:100%;box-sizing:border-box;font-size:11px;padding:7px 10px;border:.5px solid var(--border);border-radius:4px;background:var(--bg);color:var(--black);font-family:var(--font);resize:vertical"></textarea>
+      </div>
+
+      <!-- Fila: Turno + Tipo -->
+      <div class="r2">
+        <div class="f">
+          <label>Turno</label>
+          <select id="tarea-m-turno" style="font-size:11px">
+            <option value="apertura">Apertura</option>
+            <option value="cierre">Cierre</option>
+            <option value="ambos">Ambos</option>
+          </select>
+        </div>
+        <div class="f">
+          <label>Tipo</label>
+          <select id="tarea-m-tipo" onchange="_toggleFechaCampo()" style="font-size:11px">
+            <option value="fija">Fija (diaria)</option>
+            <option value="puntual">Puntual</option>
+            <option value="programada">Programada</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Fila: Prioridad + Categoría -->
+      <div class="r2">
+        <div class="f">
+          <label>Prioridad</label>
+          <select id="tarea-m-prio" style="font-size:11px">
+            <option value="alta">🔴 Alta</option>
+            <option value="media" selected>🟡 Media</option>
+            <option value="baja">🟢 Baja</option>
+          </select>
+        </div>
+        <div class="f">
+          <label>Categoría</label>
+          <input id="tarea-m-cat" placeholder="Ej: Limpieza, Caja…" style="font-size:11px">
+        </div>
+      </div>
+
+      <!-- Fila: Responsable + Hora sugerida -->
+      <div class="r2">
+        <div class="f">
+          <label>Responsable</label>
+          <input id="tarea-m-resp" placeholder="Nombre o rol" style="font-size:11px">
+        </div>
+        <div class="f">
+          <label>Hora sugerida</label>
+          <input id="tarea-m-hora" type="time" style="font-size:11px">
+        </div>
+      </div>
+
+      <!-- Fecha específica (solo si tipo=programada) -->
+      <div id="tarea-m-fecha-row" class="f" style="display:none">
+        <label>Fecha programada</label>
+        <input id="tarea-m-fecha" type="date" style="font-size:11px">
+      </div>
+
+      <!-- Fila: Orden + Vínculo -->
+      <div class="r2">
+        <div class="f">
+          <label>Orden</label>
+          <input id="tarea-m-orden" type="number" value="99" min="0" style="font-size:11px">
+        </div>
+        <div class="f">
+          <label>Vínculo especial</label>
+          <select id="tarea-m-vinculo" style="font-size:11px">
+            <option value="">Ninguno</option>
+            <option value="temperatura">Temperatura (auto)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Activo toggle -->
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px;padding-top:12px;border-top:.5px solid var(--border)">
+        <input id="tarea-m-activo" type="checkbox" checked style="width:16px;height:16px;cursor:pointer">
+        <label for="tarea-m-activo" style="font-size:11px;color:var(--black);cursor:pointer;user-select:none">Tarea activa (aparece en el checklist del turno)</label>
+      </div>
+
+      <!-- Error -->
+      <div id="tarea-m-err" style="display:none;color:#c0392b;font-size:10px;margin-top:10px;padding:7px 10px;background:#fdf0ef;border-radius:4px"></div>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding:12px 18px 16px;border-top:.5px solid var(--border);display:flex;gap:8px;flex-shrink:0">
+      <button id="tarea-m-del" onclick="deleteTareaFromModal()" style="font-size:10px;padding:9px 14px;border:.5px solid #c0392b;background:transparent;color:#c0392b;border-radius:4px;cursor:pointer;font-family:var(--font)">Eliminar</button>
+      <div style="flex:1"></div>
+      <button onclick="closeTareaModal()" style="font-size:10px;padding:9px 16px;border:.5px solid var(--border);background:transparent;color:var(--muted);border-radius:4px;cursor:pointer;font-family:var(--font)">Cancelar</button>
+      <button onclick="saveTarea()" style="font-size:10px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;padding:9px 20px;background:var(--black);color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:var(--font)">Guardar</button>
     </div>
   </div>
 </div>
