@@ -364,6 +364,22 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
       <div class="tc-sub" id="tur-nov-sub">hoy</div>
     </div>
   </div>
+  <!-- Checklist widget -->
+  <div id="chk-alerta-banner" style="display:none;align-items:center;padding:7px 12px;background:#fdf6eb;border:.5px solid #EF9F27;border-radius:4px;font-size:11px;margin-bottom:8px;gap:6px;flex-wrap:wrap;color:#8a5a00"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px">
+    <div id="tur-chk-apertura" class="tur-card t-pend" onclick="openChecklistModal('apertura')">
+      <div class="tc-ico" style="font-size:14px">☑</div>
+      <div class="tc-lbl">Apertura</div>
+      <div class="tc-val chk-estado">—</div>
+      <div class="tc-sub chk-info">pendiente</div>
+    </div>
+    <div id="tur-chk-cierre" class="tur-card t-pend" onclick="openChecklistModal('cierre')">
+      <div class="tc-ico" style="font-size:14px">☑</div>
+      <div class="tc-lbl">Cierre</div>
+      <div class="tc-val chk-estado">—</div>
+      <div class="tc-sub chk-info">pendiente</div>
+    </div>
+  </div>
   <button type="button" onclick="openFichaje()" style="width:100%;padding:14px;border:.5px solid var(--black);background:transparent;color:var(--black);font-family:var(--font);font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;margin-bottom:14px;transition:all .18s" onmouseover="this.style.background='var(--black)';this.style.color='var(--bg)'" onmouseout="this.style.background='transparent';this.style.color='var(--black)'">Fichar</button>
   <div style="width:100%;margin:2px 0 12px;display:flex;align-items:center;gap:10px">
     <span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);white-space:nowrap">Egreso rápido</span>
@@ -2366,6 +2382,8 @@ let _aipItems=[];
 let currentSabIngr=[];
 let currentIngr=[];
 let pinSupervisor='0000',pinFinanzas=null,_finUnlocked=false,_empSupUnlocked=false,_fichaEmpNombre='';
+let checklistAlertaApertura='11:30',checklistAlertaCierre='23:30';
+let _checklistTareas=[],_checklistRegistroActual=null,_checklistTurnoActual='apertura';
 let horLocal={};  // {dayIdx:{a:'12:00',c:'00:00'}}
 // ─── Horarios module globals ───
 const FESTIVOS_ES={'01-01':true,'01-06':true,'05-01':true,'08-15':true,'10-12':true,'11-01':true,'12-06':true,'12-08':true,'12-25':true};
@@ -2410,7 +2428,7 @@ async function loadAll(){
   PP=(pp.data||[]).map(r=>({id:r.id,proveedor_id:r.proveedor_id,ref:r.ref||'',descripcion:r.descripcion,ultimo_precio:r.ultimo_precio,ultima_fecha:r.ultima_fecha}));
   H=(h.data||[]).map(r=>({id:r.id,fecha:r.fecha,hora:(r.hora||'').slice(0,5),responsable:r.responsable,producto:r.producto,ingredientes:r.ingredientes||'',lote_prov:r.lote_proveedor||'',proveedor:r.proveedor||'',cant:r.cantidad_pesada||'',rehe:r.doc_rehe||'',obs:r.observaciones||'',pcc1:{t:r.pcc1_temp,m:r.pcc1_tiempo},roh1:{t:r.roh1_temp,v:r.roh1_vida_util||'',m:r.roh1_tiempo||''},roh3:{t:r.roh3_temp,m:r.roh3_tiempo||''},lote:r.lote_final||'',baldes:r.baldes,kg:r.kg??r.peso_real,roh4:{i:r.roh4_identificacion||'',c:r.roh4_cantidad||''},roh5:{c:r.roh5_camara||'',t:r.roh5_temp,m:r.roh5_tiempo,e:(r.roh5_hora_entrada||'').slice(0,5),s:(r.roh5_hora_salida||'').slice(0,5)},litros:r.litros_final,pac:r.nro_pac||'',temps:{a1:r.temp_armario_1,a2:r.temp_armario_2,a3:r.temp_armario_3,p1:r.temp_pozzetti_1,p2:r.temp_pozzetti_2,p3:r.temp_pozzetti_3},ver:{e:r.verificacion_etapa||'',d:r.verificacion_descripcion||'',r:r.verificacion_resultado||''}}));
   sabores=(sab.data||[]).map(r=>({id:r.id,nombre:r.nombre,codigo:r.codigo,activo:r.activo,ingredientes:r.ingredientes||[],peso_teorico:r.peso_teorico||null}));
-  const cfgData=cfg.data||[];const pinRow=cfgData.find(r=>r.key==='pin_supervisor');if(pinRow)pinSupervisor=pinRow.value;const finRow=cfgData.find(r=>r.key==='pin_finanzas');if(finRow)pinFinanzas=finRow.value;const oaiRow=cfgData.find(r=>r.key==='openai_key');if(oaiRow)OPENAI_KEY=oaiRow.value;const hlRow=cfgData.find(r=>r.key==='horario_local');if(hlRow){try{horLocal=JSON.parse(hlRow.value)||{}}catch(e){horLocal={}}};
+  const cfgData=cfg.data||[];const pinRow=cfgData.find(r=>r.key==='pin_supervisor');if(pinRow)pinSupervisor=pinRow.value;const finRow=cfgData.find(r=>r.key==='pin_finanzas');if(finRow)pinFinanzas=finRow.value;const oaiRow=cfgData.find(r=>r.key==='openai_key');if(oaiRow)OPENAI_KEY=oaiRow.value;const hlRow=cfgData.find(r=>r.key==='horario_local');if(hlRow){try{horLocal=JSON.parse(hlRow.value)||{}}catch(e){horLocal={}}};const chkApRow=cfgData.find(r=>r.key==='checklist_alerta_apertura');if(chkApRow)checklistAlertaApertura=chkApRow.value;const chkCiRow=cfgData.find(r=>r.key==='checklist_alerta_cierre');if(chkCiRow)checklistAlertaCierre=chkCiRow.value;;
   renderTeamSelect();renderTeam();rRH();rPL();renderSabores();renderSaborSelect();
 }
 loadAll().then(()=>{setTimeout(initTurno,200);renderQuickBtns();});
@@ -2537,7 +2555,7 @@ function initTurno(){
   const dy=['domingo','lunes','martes','mi\u00e9rcoles','jueves','viernes','s\u00e1bado'];
   const mo=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   $('tur-date').textContent='Turno \u00b7 '+dy[n.getDay()]+' '+n.getDate()+' '+mo[n.getMonth()]+' '+n.getFullYear();
-  loadTurnoFichaje();loadTurnoCaja();loadTurnoTemp();loadTurnoNovedades();
+  loadTurnoFichaje();loadTurnoCaja();loadTurnoTemp();loadTurnoNovedades();loadTurnoChecklist();setTimeout(checkChecklistAlerta,2000);
 }
 async function loadTurnoFichaje(){
   // Usar hora Alicante para el corte de día + ventana 28h para turnos nocturnos
@@ -3328,6 +3346,7 @@ async function guardarTemp(){
   if(error){if(btn){btn.textContent='Guardar Registro';btn.disabled=false;btn.style.background='transparent';btn.style.color='var(--black)';btn.style.borderColor='var(--black)';}alert('Error al guardar: '+error.message);return;}
   if(btn){btn.textContent='✓ Guardado';btn.style.background='#1a7a3d';btn.style.color='#fff';btn.style.borderColor='#1a7a3d';}
   loadTurnoTemp();
+  _marcarItemTemperaturaCompleto();
   setTimeout(()=>closeTempModal(),1800);
 }
 function initTempHisFilters(){
@@ -11077,6 +11096,293 @@ function _setupTempTouchDrag(){
   });
 }
 
+// ── CHECKLIST DE APERTURA Y CIERRE ───────────────────────────────
+function getTodaySpain(){return new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0];}
+
+async function loadTurnoChecklist(){
+  const today=getTodaySpain();
+  const{data}=await sb.from('checklist_registros').select('turno,estado,responsable,completado_at,items').eq('fecha',today);
+  const ap=(data||[]).find(r=>r.turno==='apertura');
+  const ci=(data||[]).find(r=>r.turno==='cierre');
+  _updateChecklistWidget('apertura',ap);
+  _updateChecklistWidget('cierre',ci);
+}
+
+function _updateChecklistWidget(turno,registro){
+  const el=$('tur-chk-'+turno);if(!el)return;
+  const estadoEl=el.querySelector('.chk-estado'),infoEl=el.querySelector('.chk-info');
+  if(!registro){
+    el.className='tur-card t-pend';
+    if(estadoEl)estadoEl.textContent='—';if(infoEl)infoEl.textContent='pendiente';
+  }else if(registro.estado==='completo'){
+    el.className='tur-card t-ok';
+    if(estadoEl)estadoEl.textContent='✓';
+    const hora=registro.completado_at?(registro.completado_at.slice(11,16)):'';
+    if(infoEl)infoEl.textContent=(registro.responsable||'')+(hora?' · '+hora:'');
+  }else{
+    const items=registro.items||[];const done=items.filter(i=>i.completado).length;const total=items.length;
+    el.className='tur-card t-warn';
+    if(estadoEl)estadoEl.textContent=done+'/'+total;
+    if(infoEl)infoEl.textContent='en curso';
+  }
+}
+
+async function openChecklistModal(turnoInicial){
+  _checklistTurnoActual=turnoInicial||'apertura';
+  const{data}=await sb.from('checklist_tareas').select('*').eq('activo',true).order('turno').order('orden');
+  _checklistTareas=data||[];
+  $('checklist-modal').style.display='flex';
+  _setChecklistTab(_checklistTurnoActual);
+  await _loadChecklistRegistro(_checklistTurnoActual);
+  renderChecklistTab(_checklistTurnoActual);
+}
+
+function closeChecklistModal(){
+  $('checklist-modal').style.display='none';
+  _checklistRegistroActual=null;
+  loadTurnoChecklist();
+}
+
+function _setChecklistTab(turno){
+  ['apertura','cierre','historial','cfg'].forEach(t=>{
+    const btn=$('chk-tab-'+t);if(!btn)return;
+    btn.style.borderBottomColor=t===turno?'var(--black)':'transparent';
+    btn.style.color=t===turno?'var(--black)':'var(--muted)';
+  });
+  ['chk-pane-turno','chk-pane-historial','chk-pane-cfg'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});
+  if(turno==='apertura'||turno==='cierre'){const p=$('chk-pane-turno');if(p)p.style.display='block';}
+  else if(turno==='historial'){const p=$('chk-pane-historial');if(p)p.style.display='block';initChecklistHistorial();}
+  else if(turno==='cfg'){const p=$('chk-pane-cfg');if(p)p.style.display='block';renderChecklistCatalogo();}
+}
+
+async function switchChecklistTab(turno){
+  _checklistTurnoActual=turno;
+  _setChecklistTab(turno);
+  if(turno==='apertura'||turno==='cierre'){
+    await _loadChecklistRegistro(turno);
+    renderChecklistTab(turno);
+  }
+}
+
+async function _loadChecklistRegistro(turno){
+  const today=getTodaySpain();
+  const{data}=await sb.from('checklist_registros').select('*').eq('fecha',today).eq('turno',turno).maybeSingle();
+  _checklistRegistroActual=data||null;
+}
+
+function renderChecklistTab(turno){
+  const tareas=_checklistTareas.filter(t=>t.turno===turno||t.turno==='ambos');
+  const registro=_checklistRegistroActual;
+  const items=registro?(registro.items||[]):[];
+  const el=$('chk-items-list');if(!el)return;
+  const title=$('chk-turno-title');if(title)title.textContent=turno==='apertura'?'Apertura':'Cierre';
+  if(!tareas.length){el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:1rem 0">Sin tareas configuradas.</div>';return;}
+  const doneCount=items.filter(i=>i.completado).length;
+  const total=tareas.length;const pct=total?Math.round(doneCount/total*100):0;
+  const progEl=$('chk-progress');
+  if(progEl)progEl.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:10px;color:var(--muted)">${doneCount} de ${total} completados</span><span style="font-size:10px;font-weight:600;color:${pct===100?'#1a7a3d':'var(--black)'}">${pct}%</span></div><div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${pct===100?'#1a7a3d':'var(--black)'};transition:width .3s"></div></div>`;
+  el.innerHTML=tareas.map(tarea=>{
+    const item=items.find(i=>i.tarea_id===tarea.id);
+    const done=item&&item.completado;
+    const isTemp=tarea.vinculo==='temperatura';
+    return`<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:.5px solid var(--border)">
+      <div onclick="toggleChecklistItem('${tarea.id}')" style="flex-shrink:0;width:20px;height:20px;border-radius:50%;border:1.5px solid ${done?'#1a7a3d':'var(--border)'};background:${done?'#1a7a3d':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;margin-top:1px">${done?'<span style="color:#fff;font-size:10px;line-height:1">✓</span>':''}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:${done?'400':'500'};color:${done?'var(--muted)':'var(--black)'};text-decoration:${done?'line-through':'none'}">${tarea.nombre}</div>
+        ${done&&item.completado_por?`<div style="font-size:9px;color:var(--hint);margin-top:2px">${item.completado_por} · ${(item.completado_at||'').slice(11,16)}</div>`:''}
+      </div>
+      ${isTemp?`<button onclick="openTempModal()" style="flex-shrink:0;font-size:9px;padding:3px 8px;border:.5px solid var(--border);background:transparent;border-radius:3px;cursor:pointer;color:var(--muted);font-family:var(--font)">°C</button>`:''}
+    </div>`;
+  }).join('');
+  const finBtn=$('chk-finalizar-btn');
+  if(finBtn){
+    if(registro&&registro.estado==='completo'){finBtn.textContent='✓ Turno completado';finBtn.disabled=true;finBtn.style.opacity='.5';}
+    else if(pct===100){finBtn.textContent='Finalizar turno';finBtn.disabled=false;finBtn.style.opacity='1';}
+    else{finBtn.textContent=`Marcar ${doneCount}/${total} — Finalizar`;finBtn.disabled=false;finBtn.style.opacity='1';}
+  }
+}
+
+async function toggleChecklistItem(tareaId){
+  if(!currentUser){alert('Ingresá primero para registrar');return;}
+  const today=getTodaySpain();const turno=_checklistTurnoActual;
+  let registro=_checklistRegistroActual;
+  if(!registro){
+    const tareas=_checklistTareas.filter(t=>t.turno===turno||t.turno==='ambos');
+    const initItems=tareas.map(t=>({tarea_id:t.id,nombre:t.nombre,completado:false,completado_por:null,completado_at:null}));
+    const{data,error}=await sb.from('checklist_registros').insert({fecha:today,turno,responsable:currentUser,estado:'pendiente',items:initItems}).select().maybeSingle();
+    if(error){alert('Error: '+error.message);return;}
+    registro=data;_checklistRegistroActual=registro;
+  }
+  const items=[...(registro.items||[])];
+  const tarea=_checklistTareas.find(t=>t.id===tareaId);
+  const idx=items.findIndex(i=>i.tarea_id===tareaId);
+  if(idx===-1){
+    items.push({tarea_id:tareaId,nombre:tarea?.nombre||'',completado:true,completado_por:currentUser,completado_at:new Date().toISOString()});
+  }else{
+    const nowDone=!items[idx].completado;
+    items[idx]={...items[idx],completado:nowDone,completado_por:nowDone?currentUser:null,completado_at:nowDone?new Date().toISOString():null};
+  }
+  const tareas=_checklistTareas.filter(t=>t.turno===turno||t.turno==='ambos');
+  const done=items.filter(i=>i.completado).length;
+  const estado=done===0?'pendiente':done===tareas.length?'completo':'parcial';
+  const{data,error}=await sb.from('checklist_registros').update({items,estado,completado_at:estado==='completo'?new Date().toISOString():null}).eq('id',registro.id).select().maybeSingle();
+  if(error){alert('Error: '+error.message);return;}
+  _checklistRegistroActual=data;
+  renderChecklistTab(turno);
+}
+
+async function finalizarChecklist(){
+  if(!currentUser){alert('Ingresá primero');return;}
+  if(!_checklistRegistroActual){alert('Iniciá el checklist marcando alguna tarea');return;}
+  const{error}=await sb.from('checklist_registros').update({estado:'completo',completado_at:new Date().toISOString()}).eq('id',_checklistRegistroActual.id);
+  if(error){alert('Error: '+error.message);return;}
+  _checklistRegistroActual={..._checklistRegistroActual,estado:'completo',completado_at:new Date().toISOString()};
+  renderChecklistTab(_checklistTurnoActual);
+  loadTurnoChecklist();
+}
+
+function _marcarItemTemperaturaCompleto(){
+  if(!_checklistRegistroActual||!_checklistRegistroActual.id)return;
+  const turno=_checklistTurnoActual;
+  const tempTarea=_checklistTareas.find(t=>t.vinculo==='temperatura'&&(t.turno===turno||t.turno==='ambos'));
+  if(!tempTarea)return;
+  const items=[...(_checklistRegistroActual.items||[])];
+  const idx=items.findIndex(i=>i.tarea_id===tempTarea.id);
+  if(idx!==-1&&items[idx].completado)return;
+  if(idx===-1)items.push({tarea_id:tempTarea.id,nombre:tempTarea.nombre,completado:true,completado_por:currentUser||'sistema',completado_at:new Date().toISOString()});
+  else items[idx]={...items[idx],completado:true,completado_por:currentUser||'sistema',completado_at:new Date().toISOString()};
+  const tareas=_checklistTareas.filter(t=>t.turno===turno||t.turno==='ambos');
+  const done=items.filter(i=>i.completado).length;
+  const estado=done===tareas.length?'completo':'parcial';
+  sb.from('checklist_registros').update({items,estado}).eq('id',_checklistRegistroActual.id).then(({data})=>{
+    if(data){_checklistRegistroActual={..._checklistRegistroActual,items,estado};}
+    loadTurnoChecklist();
+    renderChecklistTab(turno);
+  });
+}
+
+async function checkChecklistAlerta(){
+  const now=new Date();
+  const timeStr=now.toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[1].slice(0,5);
+  const today=getTodaySpain();
+  const checks=[{turno:'apertura',limit:checklistAlertaApertura},{turno:'cierre',limit:checklistAlertaCierre}];
+  for(const{turno,limit}of checks){
+    if(timeStr>=limit){
+      const{data}=await sb.from('checklist_registros').select('estado').eq('fecha',today).eq('turno',turno).maybeSingle();
+      if(!data||data.estado!=='completo'){_showChecklistAlerta(turno);return;}
+    }
+  }
+}
+
+function _showChecklistAlerta(turno){
+  const el=$('chk-alerta-banner');if(!el)return;
+  el.innerHTML=`⚠ Checklist de <strong style="margin:0 3px">${turno}</strong> pendiente — ¿todo está operativo?
+    <button onclick="openChecklistModal('${turno}');$('chk-alerta-banner').style.display='none'" style="margin-left:8px;padding:3px 10px;background:var(--black);color:#fff;border:none;border-radius:3px;font-size:10px;cursor:pointer;font-family:var(--font)">Ver checklist</button>
+    <button onclick="$('chk-alerta-banner').style.display='none'" style="margin-left:4px;padding:3px 8px;background:transparent;color:var(--muted);border:.5px solid var(--border);border-radius:3px;font-size:10px;cursor:pointer;font-family:var(--font)">✕</button>`;
+  el.style.display='flex';
+}
+
+async function initChecklistHistorial(){
+  const mesEl=$('chk-his-mes'),añoEl=$('chk-his-año');
+  if(!mesEl||!añoEl)return;
+  if(!mesEl.options.length){
+    ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].forEach((m,i)=>{const o=document.createElement('option');o.value=i+1;o.textContent=m;mesEl.appendChild(o);});
+    const now=new Date();for(let y=now.getFullYear();y>=2024;y--){const o=document.createElement('option');o.value=y;o.textContent=y;añoEl.appendChild(o);}
+    mesEl.value=now.getMonth()+1;añoEl.value=now.getFullYear();
+  }
+  renderChecklistHistorial();
+}
+
+async function renderChecklistHistorial(){
+  const mes=String($('chk-his-mes').value).padStart(2,'0'),año=$('chk-his-año').value;
+  const from=`${año}-${mes}-01`,lastDay=new Date(año,$('chk-his-mes').value,0).getDate(),to=`${año}-${mes}-${String(lastDay).padStart(2,'0')}`;
+  const el=$('chk-his-list');el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:.5rem 0">Cargando…</div>';
+  const{data}=await sb.from('checklist_registros').select('*').gte('fecha',from).lte('fecha',to).order('fecha',{ascending:false}).order('turno',{ascending:true});
+  window._checklistHisData=data||[];
+  if(!data||!data.length){el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:.5rem 0">Sin registros para este período.</div>';return;}
+  const byDate={};data.forEach(r=>{if(!byDate[r.fecha])byDate[r.fecha]=[];byDate[r.fecha].push(r);});
+  el.innerHTML=Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).map(fecha=>{
+    const cards=byDate[fecha].map(r=>{
+      const items=r.items||[];const done=items.filter(i=>i.completado).length;const total=items.length;const pct=total?Math.round(done/total*100):0;
+      const col=r.estado==='completo'?'#1a7a3d':r.estado==='parcial'?'#c47a00':'#c0392b';
+      const incomp=items.filter(i=>!i.completado).map(i=>i.nombre);
+      return`<div style="margin-bottom:6px;border:.5px solid ${r.estado==='completo'?'#5DCAA5':'var(--border)'};border-radius:4px;padding:8px 10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:4px">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:${col}">${r.turno}</span>
+          <span style="font-size:10px;color:var(--muted)">${r.responsable}</span>
+          <span style="font-size:10px;font-weight:600;color:${col}">${done}/${total}</span>
+        </div>
+        <div style="height:2px;background:var(--border);border-radius:1px;overflow:hidden;margin-bottom:4px"><div style="height:100%;width:${pct}%;background:${col}"></div></div>
+        ${incomp.length?`<div style="font-size:9px;color:#c0392b;margin-top:3px">Pendientes: ${incomp.join(', ')}</div>`:''}
+        ${r.completado_at?`<div style="font-size:9px;color:var(--hint);margin-top:2px">Completado: ${r.completado_at.slice(11,16)}</div>`:''}
+      </div>`;
+    }).join('');
+    return`<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:1px;margin-bottom:5px">${fecha}</div>${cards}</div>`;
+  }).join('');
+}
+
+function exportChecklistPDF(){
+  const data=window._checklistHisData;if(!data||!data.length){alert('Sin datos para exportar');return;}
+  const mesNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const mesVal=$('chk-his-mes').value,añoVal=$('chk-his-año').value;
+  const mesNom=mesNames[parseInt(mesVal,10)-1]||mesVal;
+  const rows=data.map(r=>{
+    const items=r.items||[];const done=items.filter(i=>i.completado).length;const total=items.length;
+    const col=r.estado==='completo'?'#1a7a3d':r.estado==='parcial'?'#c47a00':'#c0392b';
+    const itemsHtml=items.map(i=>`<tr><td style="padding:3px 8px;border-bottom:1px solid #eee">${i.nombre}</td><td style="padding:3px 8px;border-bottom:1px solid #eee;text-align:center;color:${i.completado?'#1a7a3d':'#c0392b'};font-weight:600">${i.completado?'✓':'✗'}</td><td style="padding:3px 8px;border-bottom:1px solid #eee;font-size:10px;color:#666">${i.completado_por||''}</td><td style="padding:3px 8px;border-bottom:1px solid #eee;font-size:10px;color:#666">${(i.completado_at||'').slice(11,16)}</td></tr>`).join('');
+    return`<div style="margin-bottom:14px;border:1px solid #ddd;border-radius:4px;overflow:hidden"><div style="background:#fafafa;padding:7px 12px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center"><span style="font-weight:600">${r.fecha} · ${r.turno.toUpperCase()}</span><span style="color:${col};font-weight:600">${r.estado} · ${done}/${total}</span><span style="color:#666;font-size:11px">${r.responsable}</span></div><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:#f5f5f5"><th style="padding:4px 8px;text-align:left;font-size:9px;color:#888">Tarea</th><th style="padding:4px 8px;width:50px;font-size:9px;color:#888">OK</th><th style="padding:4px 8px;width:100px;font-size:9px;color:#888">Responsable</th><th style="padding:4px 8px;width:60px;font-size:9px;color:#888">Hora</th></tr></thead><tbody>${itemsHtml}</tbody></table></div>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Checklist ${mesNom} ${añoVal}</title><style>body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#222}@media print{button{display:none!important}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #222"><div><div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:2px">Checklist Apertura & Cierre</div><div style="font-size:20px;font-weight:700">${mesNom} ${añoVal}</div></div><div style="font-size:10px;color:#aaa">${data.length} registro${data.length!==1?'s':''}</div></div>${rows}</body></html>`;
+  _openPdfWindow(html);
+}
+
+async function renderChecklistCatalogo(){
+  const el=$('chk-cfg-list');if(!el)return;
+  const{data}=await sb.from('checklist_tareas').select('*').order('turno').order('orden');
+  const tareas=data||[];
+  if(!tareas.length){el.innerHTML='<div style="color:var(--muted);font-size:12px">Sin tareas en el catálogo.</div>';return;}
+  const grupos={apertura:tareas.filter(t=>t.turno==='apertura'),cierre:tareas.filter(t=>t.turno==='cierre'),ambos:tareas.filter(t=>t.turno==='ambos')};
+  el.innerHTML=Object.entries(grupos).filter(([,v])=>v.length).map(([grupo,items])=>
+    `<div style="margin-bottom:14px"><div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${grupo}</div>`+
+    items.map(t=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--border)">
+      <span style="flex:1;font-size:12px;color:${t.activo?'var(--black)':'var(--muted)'};text-decoration:${t.activo?'none':'line-through'}">${t.nombre}${t.vinculo?' <span style="font-size:9px;color:#2266bb">°C</span>':''}</span>
+      <button onclick="toggleTareaActivaChecklist('${t.id}',${t.activo})" style="font-size:9px;padding:2px 7px;border:.5px solid var(--border);background:transparent;cursor:pointer;border-radius:3px;color:var(--muted);font-family:var(--font)">${t.activo?'Ocultar':'Activar'}</button>
+      <button onclick="deleteTareaChecklist('${t.id}')" style="font-size:9px;padding:2px 7px;border:.5px solid #c0392b;background:transparent;cursor:pointer;border-radius:3px;color:#c0392b;font-family:var(--font)">✕</button>
+    </div>`).join('')+'</div>'
+  ).join('');
+}
+
+async function toggleTareaActivaChecklist(id,activo){
+  await sb.from('checklist_tareas').update({activo:!activo}).eq('id',id);
+  renderChecklistCatalogo();
+}
+
+async function deleteTareaChecklist(id){
+  if(!confirm('¿Eliminar esta tarea del catálogo?'))return;
+  await sb.from('checklist_tareas').delete().eq('id',id);
+  renderChecklistCatalogo();
+}
+
+async function addTareaChecklist(){
+  const nombre=($('chk-nueva-nombre').value||'').trim();
+  const turno=$('chk-nueva-turno').value;
+  if(!nombre){alert('Ingresá el nombre de la tarea');return;}
+  const orden=parseInt($('chk-nueva-orden').value||'99',10);
+  const{error}=await sb.from('checklist_tareas').insert({nombre,turno,orden,activo:true});
+  if(error){alert('Error: '+error.message);return;}
+  $('chk-nueva-nombre').value='';$('chk-nueva-orden').value='';
+  renderChecklistCatalogo();
+}
+
+async function saveChecklistHorarios(){
+  const ap=($('chk-cfg-ap').value||'').trim(),ci=($('chk-cfg-ci').value||'').trim();
+  if(!ap||!ci){alert('Ingresá los dos horarios');return;}
+  const{error}=await sb.from('config').upsert([{key:'checklist_alerta_apertura',value:ap},{key:'checklist_alerta_cierre',value:ci}]);
+  if(error){alert('Error: '+error.message);return;}
+  checklistAlertaApertura=ap;checklistAlertaCierre=ci;
+  const ok=$('chk-cfg-ok');if(ok){ok.style.display='block';setTimeout(()=>ok.style.display='none',2000);}
+}
+
 </script>
 
 <!-- TURNO MODALS -->
@@ -11772,5 +12078,72 @@ function _setupTempTouchDrag(){
     </div>
   </div>
 </div>
+
+<!-- ── CHECKLIST MODAL ── -->
+<div class="ocr-modal" id="checklist-modal" style="display:none;align-items:center" onclick="if(event.target===this)closeChecklistModal()">
+  <div style="background:var(--bg);border-radius:8px;width:100%;max-width:520px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 0;flex-shrink:0">
+      <span style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted)">CHECKLIST</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="switchChecklistTab('cfg')" style="font-size:14px;background:none;border:none;cursor:pointer;color:var(--muted);padding:0 2px;font-family:var(--font)">⚙</button>
+        <button onclick="closeChecklistModal()" style="font-size:16px;background:none;border:none;cursor:pointer;color:var(--muted);padding:0;font-family:var(--font)">✕</button>
+      </div>
+    </div>
+    <!-- Tabs -->
+    <div style="display:flex;border-bottom:.5px solid var(--border);padding:0 16px;margin-top:10px;flex-shrink:0">
+      <button id="chk-tab-apertura" onclick="switchChecklistTab('apertura')" style="font-size:11px;padding:8px 12px;border:none;border-bottom:2px solid var(--black);background:transparent;cursor:pointer;color:var(--black);font-family:var(--font);font-weight:500">Apertura</button>
+      <button id="chk-tab-cierre" onclick="switchChecklistTab('cierre')" style="font-size:11px;padding:8px 12px;border:none;border-bottom:2px solid transparent;background:transparent;cursor:pointer;color:var(--muted);font-family:var(--font)">Cierre</button>
+      <button id="chk-tab-historial" onclick="switchChecklistTab('historial')" style="font-size:11px;padding:8px 12px;border:none;border-bottom:2px solid transparent;background:transparent;cursor:pointer;color:var(--muted);font-family:var(--font)">Historial</button>
+    </div>
+    <!-- Pane: Turno (apertura/cierre) -->
+    <div id="chk-pane-turno" style="display:block;overflow-y:auto;padding:12px 16px 16px;flex:1">
+      <div id="chk-turno-title" style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;color:var(--black)">Apertura</div>
+      <div id="chk-progress" style="margin-bottom:10px"></div>
+      <div id="chk-items-list"></div>
+      <button id="chk-finalizar-btn" onclick="finalizarChecklist()" style="width:100%;margin-top:14px;padding:11px;background:var(--black);color:#fff;border:none;border-radius:4px;font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:var(--font)">Finalizar turno</button>
+    </div>
+    <!-- Pane: Historial -->
+    <div id="chk-pane-historial" style="display:none;overflow-y:auto;padding:12px 16px 16px;flex:1">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <select id="chk-his-mes" onchange="renderChecklistHistorial()" style="font-size:11px;padding:5px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--bg);color:var(--black);font-family:var(--font)"></select>
+        <select id="chk-his-año" onchange="renderChecklistHistorial()" style="font-size:11px;padding:5px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--bg);color:var(--black);font-family:var(--font)"></select>
+        <button onclick="exportChecklistPDF()" style="margin-left:auto;font-size:10px;padding:5px 12px;background:var(--black);color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:var(--font)">↓ Exportar PDF</button>
+      </div>
+      <div id="chk-his-list"></div>
+    </div>
+    <!-- Pane: Config -->
+    <div id="chk-pane-cfg" style="display:none;overflow-y:auto;padding:12px 16px 16px;flex:1">
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Agregar tarea</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+        <input id="chk-nueva-nombre" placeholder="Nombre de la tarea" style="flex:2;min-width:130px;font-size:11px;padding:7px 10px;border:.5px solid var(--border);border-radius:4px;background:var(--bg);color:var(--black);font-family:var(--font)">
+        <select id="chk-nueva-turno" style="font-size:11px;padding:7px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--bg);color:var(--black);font-family:var(--font)">
+          <option value="apertura">Apertura</option>
+          <option value="cierre">Cierre</option>
+          <option value="ambos">Ambos</option>
+        </select>
+        <input id="chk-nueva-orden" placeholder="Orden" type="number" style="width:60px;font-size:11px;padding:7px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--bg);color:var(--black);font-family:var(--font)">
+        <button onclick="addTareaChecklist()" style="font-size:10px;padding:7px 14px;background:var(--black);color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:var(--font)">Agregar</button>
+      </div>
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Catálogo</div>
+      <div id="chk-cfg-list"></div>
+      <div style="margin-top:18px;padding-top:14px;border-top:.5px solid var(--border)">
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Horarios de alerta</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <label style="font-size:11px;color:var(--muted)">Apertura</label>
+          <input id="chk-cfg-ap" type="time" style="font-size:11px;padding:5px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--bg);color:var(--black);font-family:var(--font)">
+          <label style="font-size:11px;color:var(--muted)">Cierre</label>
+          <input id="chk-cfg-ci" type="time" style="font-size:11px;padding:5px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--bg);color:var(--black);font-family:var(--font)">
+          <button onclick="saveChecklistHorarios()" style="font-size:10px;padding:5px 14px;background:var(--black);color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:var(--font)">Guardar</button>
+          <span id="chk-cfg-ok" style="display:none;font-size:10px;color:#1a7a3d">✓ Guardado</span>
+        </div>
+        <script>
+          (function(){var ap=$('chk-cfg-ap'),ci=$('chk-cfg-ci');if(ap)ap.value=checklistAlertaApertura||'11:30';if(ci)ci.value=checklistAlertaCierre||'23:30';})();
+        </script>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
