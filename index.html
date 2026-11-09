@@ -166,6 +166,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 .tarea-card.inactiva{opacity:.5}
 .prio-dot{display:inline-block;width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:3px}
 .tarea-badge{display:inline-block;font-size:8px;letter-spacing:.8px;text-transform:uppercase;padding:2px 7px;border-radius:10px;font-family:var(--font)}
+.manual-seccion{border:.5px solid var(--border);border-radius:6px;margin-bottom:6px;overflow:hidden}
+.manual-sec-hdr{padding:11px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background .15s}
+.manual-sec-hdr:hover{background:var(--surface)}
+.manual-sec-body{padding:0 14px 14px;display:none;font-size:12.5px;line-height:1.65;color:var(--black)}
+.manual-sec-body.open{display:block}
+.manual-sec-body h3{font-size:12px;font-weight:600;margin:12px 0 4px;letter-spacing:.3px}
+.manual-sec-body ul,.manual-sec-body ol{padding-left:18px;margin:4px 0 8px}
+.manual-sec-body li{margin-bottom:4px}
+.manual-sec-body table{width:100%;border-collapse:collapse}
+.manual-sec-body td{padding:6px 8px;border-bottom:.5px solid var(--border)}
+.firma-canvas-wrap{border:.5px solid var(--border);border-radius:6px;background:#fff;overflow:hidden}
+#manual-firma-canvas{display:block;width:100%;cursor:crosshair;touch-action:none}
 .hor-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px}
 .hor-week{font-size:13px;font-weight:500;color:var(--black);letter-spacing:.3px}
 .hor-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1rem}
@@ -8414,6 +8426,7 @@ async function openEmpFicha(nombre){
       <button class="emp-ficha-tab" onclick="empFichaTab(this,'ft-resumen')">Resumen</button>
       <button class="emp-ficha-tab" onclick="empFichaTab(this,'ft-vacaciones')">Vacaciones</button>
       <button class="emp-ficha-tab" onclick="empFichaTab(this,'ft-liquidacion')">Liquidación</button>
+      <button class="emp-ficha-tab" onclick="empFichaTab(this,'ft-manual');_loadManualFichaTab(_fichaEmpNombre)">Manual</button>
     </div>
     <!-- DATOS -->
     <div id="ft-datos">
@@ -8588,6 +8601,9 @@ async function openEmpFicha(nombre){
         <select id="ficha-liq-mes" onchange="loadFichaLiquidacion('${nombre}')" style="font-size:11px;border:.5px solid var(--border);border-radius:6px;padding:5px 8px;background:var(--surface);color:var(--text);font-family:var(--font)"></select>
       </div>
       <div id="ficha-liq-content" style="font-size:11px;color:var(--hint)">Seleccioná un mes</div>
+    </div>
+    <div id="ft-manual" style="display:none;padding:4px 0">
+      <div style="color:var(--hint);font-size:11px;padding:1rem 0">Cargando…</div>
     </div>
   `;
 }
@@ -8837,7 +8853,7 @@ async function confirmDeleteIntegrante(){
 function empFichaTab(btn,panelId){
   (btn.closest('#emp-ficha-modal')||btn.closest('.view')).querySelectorAll('.emp-ficha-tab').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  ['ft-datos','ft-horas','ft-ausencias','ft-eval','ft-resumen','ft-vacaciones','ft-liquidacion'].forEach(id=>{
+  ['ft-datos','ft-horas','ft-ausencias','ft-eval','ft-resumen','ft-vacaciones','ft-liquidacion','ft-manual'].forEach(id=>{
     const el=$(id);if(el)el.style.display=id===panelId?'block':'none';
   });
   if(panelId==='ft-ausencias')initFichaAsistencia();
@@ -11595,6 +11611,174 @@ async function saveChecklistHorarios(){
   const ok=$('chk-cfg-ok');if(ok){ok.style.display='block';setTimeout(()=>ok.style.display='none',2000);}
 }
 
+// ── MANUAL DE CONDUCTA Y PROCEDIMIENTOS ─────────────────────────────
+const MANUAL_V='1.0';
+const MANUAL_SECCIONES_DEFAULT=[
+  {id:'01',titulo:'Bienvenida al equipo',contenido:`<p>Bienvenido/a a ANOMALY. Este manual es tu guía desde el primer día: contiene todo lo que necesitás para trabajar bien, sentirte cómodo/a y entender qué esperamos de vos y qué podés esperar de nosotros.</p><p>Leelo con calma. Si algo no te queda claro, preguntá. Acá no hay preguntas tontas.</p>`},
+  {id:'02',titulo:'Identidad y valores',contenido:`<h3>Misión</h3><p>Crear experiencias memorables a través de productos de calidad excepcional, elaborados con ingredientes cuidados, servidos por un equipo que sabe lo que tiene entre manos y se enorgullece de eso.</p><h3>Visión</h3><p>Ser el referente local de helado artesanal y café de especialidad: el lugar al que la gente vuelve porque sabe que el estándar no baja.</p><h3>Valores</h3><ul><li><strong>Calidad sin concesiones</strong> — El producto es nuestra mejor tarjeta de presentación.</li><li><strong>Honestidad</strong> — Con los clientes, con el equipo y con nosotros mismos.</li><li><strong>Responsabilidad</strong> — Cada persona es dueña de su turno y sus tareas.</li><li><strong>Cuidado</strong> — Por el producto, por el local, por el cliente y por los compañeros.</li><li><strong>Mejora continua</strong> — Siempre hay algo que aprender o hacer mejor.</li><li><strong>Respeto</strong> — El clima de trabajo lo construimos todos.</li></ul>`},
+  {id:'03',titulo:'Código de conducta',contenido:`<h3>Con los clientes</h3><ul><li>Saludo genuino al entrar. Presencia, contacto visual, energía positiva.</li><li>Paciencia siempre. Un cliente indeciso merece la misma atención que el que ya sabe lo que quiere.</li><li>Conocé lo que vendés: ingredientes, alérgenos, proceso. Si no sabés, buscá. No inventes.</li><li>Ante una queja: escuchá, agradecé el feedback, buscá solución. Nunca te pongas a la defensiva.</li></ul><h3>Con los compañeros</h3><ul><li>Comunicación directa, respetuosa y sin segundas intenciones.</li><li>Si terminaste tu tarea, preguntá en qué podés ayudar.</li><li>Los conflictos se hablan de frente o se escalan al responsable. No se comentan con el resto.</li><li>No se habla mal de compañeros frente a clientes, nunca.</li></ul><h3>Teléfono personal</h3><p>El teléfono se usa fuera del horario de servicio activo. Durante el turno, el foco es el trabajo.</p><h3>Conductas inaceptables</h3><ul><li>Discriminación, acoso o violencia de cualquier tipo.</li><li>Consumo de alcohol o sustancias en el trabajo.</li><li>Manipulación del sistema de fichaje propio o ajeno.</li><li>Sustracciones o uso sin autorización de productos o dinero.</li></ul>`},
+  {id:'04',titulo:'Presentación personal y uniforme',contenido:`<ul><li>Uniforme limpio, en buen estado y completo al inicio de cada turno.</li><li>Cabello recogido o cubierto al trabajar con producto o en elaboración.</li><li>Uñas cortas y limpias. Sin esmalte en zonas de manipulación de alimento.</li><li>Sin joyas o accesorios que puedan caer en el producto.</li><li>Higiene personal impecable.</li></ul><p>El uniforme se entrega al incorporarse. Mantenerlo en condiciones es tu responsabilidad. Se devuelve al finalizar la relación laboral.</p>`},
+  {id:'05',titulo:'Puntualidad, asistencia y fichaje',contenido:`<p>Llegar a tiempo es llegar con margen para ponerte el uniforme, revisar las novedades y estar listo/a cuando arranca el servicio.</p><h3>Fichaje</h3><ul><li>Fichás al llegar, antes de comenzar cualquier tarea.</li><li>Fichás al salir, después de entregar el turno.</li><li>No fichás por otro compañero, ni le pedís a nadie que fiche por vos.</li><li>Si tuviste un error en el fichaje, reportalo al responsable ese mismo día.</li></ul><h3>Ausencias</h3><ul><li>Ausencia prevista: comunicalo con la mayor antelación posible.</li><li>Baja médica: notificá el mismo día, antes del inicio de tu turno.</li></ul>`},
+  {id:'06',titulo:'Procedimientos operativos',contenido:`<h3>Checklist de Apertura</h3><p>Obligatorio y se completa en la app ANOMALY antes del inicio del servicio. Incluye: temperaturas, equipos de café, stock de barra, mise en place, fondo de caja, etiquetado y novedades.</p><h3>Checklist de Cierre</h3><p>Obligatorio antes de abandonar el local. Incluye: limpieza completa, cobertura y refrigeración de productos, verificación de temperaturas, cierre de máquinas, recuento de caja y registro en la app.</p><h3>Productos</h3><ul><li>Seguís siempre las fichas técnicas. No se improvisa ni modifica una receta sin autorización.</li><li>Todos los ingredientes etiquetados: nombre, fecha de apertura, fecha de caducidad.</li><li>Principio FIFO: primero en entrar, primero en salir.</li><li>Producto que no cumple estándar se retira de inmediato.</li></ul>`},
+  {id:'07',titulo:'Control de temperaturas',contenido:`<p>El control de temperaturas es una obligación legal y una medida crítica de seguridad alimentaria. Se registra en la app ANOMALY al menos una vez por turno.</p><table><tr><td><strong>Vitrinas de helado</strong></td><td style="text-align:right">-11°C a -14°C</td></tr><tr><td><strong>Cámara de refrigeración</strong></td><td style="text-align:right">0°C a +4°C</td></tr><tr><td><strong>Cámara de congelación</strong></td><td style="text-align:right">-18°C o inferior</td></tr></table><p style="margin-top:10px">Si una cámara está fuera de rango: notificá al responsable, evaluá si el producto puede mantenerse de forma segura. No cerrés el incidente hasta que el responsable lo valide.</p>`},
+  {id:'08',titulo:'Atención al cliente',contenido:`<p>El cliente no viene solo a comprar: viene a vivir algo. Tu rol es de anfitrión/a.</p><h3>Flujo de atención</h3><ol><li><strong>Bienvenida</strong> — Saludo genuino al entrar.</li><li><strong>Escucha activa</strong> — Dejá que hable. No interrumpas para vender.</li><li><strong>Recomendación</strong> — Ofrecé una recomendación cuando corresponda, sin presionar.</li><li><strong>Proceso</strong> — Si hay espera, comunicala.</li><li><strong>Entrega</strong> — La presentación importa. El producto llega como fue diseñado.</li><li><strong>Despedida</strong> — El "gracias, hasta pronto" cierra la experiencia.</li></ol><h3>Alérgenos</h3><p>Nunca minimices una consulta sobre alérgenos. Verificá en la ficha del producto. Informá riesgos de contaminación cruzada. Nunca digás "seguro no pasa nada" sin verificar.</p>`},
+  {id:'09',titulo:'Higiene y seguridad alimentaria',contenido:`<p>Operamos bajo el Reglamento (CE) 852/2004 y el sistema APPCC.</p><h3>Higiene personal</h3><ul><li>Lavado de manos: al entrar, después del baño, antes de manipular alimentos, después de residuos. Mínimo 20 segundos con agua y jabón.</li><li>No trabajar con heridas abiertas en manos sin guante.</li><li>Síntomas gastrointestinales = no podés manipular alimentos.</li></ul><h3>Manipulación</h3><ul><li>No mezclar utensilios de productos crudos y elaborados.</li><li>No probar con el mismo utensilio que se usa para servir.</li><li>La cadena de frío nunca se rompe.</li></ul><h3>Limpieza y desinfección</h3><p>Limpieza (eliminar suciedad) + desinfección (eliminar microorganismos) = dos pasos distintos, siempre en ese orden. Superficies de contacto con alimento: inicio del turno, entre elaboraciones y al cierre.</p>`},
+  {id:'10',titulo:'Comunicación interna',contenido:`<h3>App ANOMALY</h3><p>La app es la herramienta central del equipo: fichaje, checklists, control de temperaturas, novedades y horarios. Accedés con tu PIN personal — no lo compartas.</p><h3>Novedades del turno</h3><p>Al inicio: revisás las novedades del turno anterior. Es parte del traspaso y es obligatorio. Al cierre: el responsable registra incidencias, faltante de stock y cambios operativos para el siguiente turno.</p><h3>Canales</h3><ul><li>Operativo en turno: comunicación directa.</li><li>Cambios de turno: por el canal de equipo, confirmados por el responsable.</li><li>Incidencias o temas sensibles: directamente con el responsable.</li></ul>`},
+  {id:'11',titulo:'Gestión de incidencias',contenido:`<ol><li><strong>Evaluar</strong> — ¿Es urgente? ¿Pone en riesgo a alguien, al producto o al servicio?</li><li><strong>Actuar</strong> — Si podés resolverlo dentro de tu alcance, hacelo. Si no, escalá inmediatamente.</li><li><strong>Comunicar</strong> — Avisá al responsable aunque ya lo hayas resuelto.</li><li><strong>Registrar</strong> — En la app: qué pasó, cuándo, cómo se resolvió.</li></ol><h3>Equipos</h3><p>No intentes reparar un equipo sin conocimiento ni autorización. Desconectalo de forma segura si presenta riesgo y notificá al responsable de inmediato.</p><h3>Accidentes laborales</h3><p>Cualquier accidente, aunque sea leve, debe comunicarse al responsable y registrarse.</p>`},
+  {id:'12',titulo:'Derechos, responsabilidades y normativa',contenido:`<h3>Tus derechos</h3><ul><li>A conocer tus condiciones de trabajo antes de empezar.</li><li>A un entorno de trabajo seguro, digno y libre de acoso.</li><li>A los descansos que corresponden según tu jornada.</li><li>A formación suficiente para realizar tu trabajo con seguridad.</li><li>A reportar una situación irregular sin represalias.</li></ul><h3>Marco legal</h3><p><strong>Protección de datos:</strong> RGPD (UE 2016/679) y LOPD 3/2018 — los datos del equipo y de clientes son confidenciales.</p><p><strong>Prevención de riesgos laborales:</strong> Ley 31/1995 — tenés derecho a conocer los riesgos de tu puesto y las medidas preventivas.</p>`},
+  {id:'13',titulo:'Situaciones de emergencia',contenido:`<h3>Incendio</h3><ul><li>No arriesgar la vida para salvar el local. Llamar al 112.</li><li>Evacuar a clientes y personal por la salida más cercana.</li></ul><h3>Corte de suministro</h3><ul><li>Eléctrico: revisar cuadro. Si no se restaura, llamar al responsable. Prioridad: mantener la cadena de frío.</li><li>Agua: cierre provisional. No se puede manipular alimentos sin agua corriente.</li></ul><h3>Accidente con cliente</h3><ul><li>Si es grave: llamar al 112.</li><li>Registrar el incidente con todo el detalle posible.</li><li>No firmar ni asumir responsabilidades sin consultar al responsable.</li></ul><p style="background:#f5f5f5;padding:10px;border-radius:4px;margin-top:12px"><strong>Contactos de emergencia:</strong> Emergencias 112 · Urgencias médicas 061 · Bomberos 080 · Policía 091</p>`}
+];
+
+let _manualEmpNombre='',_manualFirmaCtx=null,_manualFirmaDibujando=false,_manualFirmaLastX=0,_manualFirmaLastY=0;
+
+async function _loadManualFichaTab(nombre){
+  const el=$('ft-manual');if(!el)return;
+  el.innerHTML='<div style="color:var(--hint);font-size:11px;padding:1rem 0">Cargando…</div>';
+  const{data:firma}=await sb.from('manual_firmas').select('fecha_firma').eq('empleado_nombre',nombre).eq('manual_version',MANUAL_V).maybeSingle();
+  const fechaTxt=firma?new Date(firma.fecha_firma).toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'}):'';
+  const statusHtml=firma
+    ?`<div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:#edf8f1;border:.5px solid #1a7a3d;border-radius:6px;margin-bottom:14px"><span style="color:#1a7a3d;font-size:11px;font-weight:600">✓ Manual firmado</span><span style="font-size:10px;color:#1a7a3d">${fechaTxt}</span></div>`
+    :`<div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:#fdf6eb;border:.5px solid #E09419;border-radius:6px;margin-bottom:14px"><span style="color:#8a5a00;font-size:11px;font-weight:600">⚠ Pendiente de firma</span></div>`;
+  const nm=nombre.replace(/'/g,"\\'");
+  el.innerHTML=`${statusHtml}
+    <p style="font-size:11px;color:var(--muted);margin:0 0 14px">Manual de Conducta y Procedimientos · Versión ${MANUAL_V}</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="openManualModal('${nm}')" style="padding:8px 18px;background:var(--black);color:#fff;border:none;border-radius:4px;font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer">${firma?'Ver y descargar PDF':'Leer y firmar'}</button>
+    </div>`;
+}
+
+async function openManualModal(nombre){
+  _manualEmpNombre=nombre;
+  $('manual-modal').style.display='flex';
+  $('manual-modal-empleado').textContent=nombre;
+  $('manual-secciones').innerHTML='<div style="color:var(--hint);font-size:11px;padding:1rem">Cargando…</div>';
+  $('manual-firma-area').innerHTML='';
+  const[manualRes,firmaRes]=await Promise.all([
+    sb.from('manuales').select('secciones').eq('version',MANUAL_V).maybeSingle(),
+    sb.from('manual_firmas').select('firma_imagen,fecha_firma').eq('empleado_nombre',nombre).eq('manual_version',MANUAL_V).maybeSingle()
+  ]);
+  let secciones=(manualRes.data&&manualRes.data.secciones)||null;
+  if(!secciones||!secciones.length){
+    await sb.from('manuales').upsert({version:MANUAL_V,secciones:MANUAL_SECCIONES_DEFAULT},{onConflict:'version'});
+    secciones=MANUAL_SECCIONES_DEFAULT;
+  }
+  $('manual-secciones').innerHTML=secciones.map((s,i)=>`
+    <div class="manual-seccion">
+      <div class="manual-sec-hdr" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.msec-chev').style.transform=this.nextElementSibling.classList.contains('open')?'rotate(90deg)':''">
+        <div>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-right:8px">${s.id}</span>
+          <span style="font-size:13px;font-weight:500">${s.titulo}</span>
+        </div>
+        <span class="msec-chev" style="font-size:14px;color:var(--muted);transition:transform .2s;display:inline-block">›</span>
+      </div>
+      <div class="manual-sec-body${i===0?' open':''}">${s.contenido}</div>
+    </div>`).join('');
+  const firma=firmaRes.data;
+  if(firma){
+    const fechaFmt=new Date(firma.fecha_firma).toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'});
+    $('manual-firma-area').innerHTML=`
+      <div style="border-top:.5px solid var(--border);padding-top:16px;margin-top:12px">
+        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Firma registrada</div>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <img src="${firma.firma_imagen}" style="height:60px;border:.5px solid var(--border);border-radius:4px;background:#fff;padding:4px">
+          <div>
+            <div style="font-size:12px;font-weight:500">${nombre}</div>
+            <div style="font-size:10px;color:var(--muted)">Firmado el ${fechaFmt}</div>
+          </div>
+        </div>
+        <button onclick="_descargarManualPDF('${nombre.replace(/'/g,"\\'")}')" style="margin-top:14px;padding:9px 20px;background:var(--black);color:#fff;border:none;border-radius:4px;font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer">⬇ Descargar PDF firmado</button>
+      </div>`;
+  } else {
+    $('manual-firma-area').innerHTML=`
+      <div style="border-top:.5px solid var(--border);padding-top:16px;margin-top:12px">
+        <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Firma del empleado/a</div>
+        <p style="font-size:11px;color:var(--muted);margin:0 0 10px">Dibujá tu firma en el recuadro. Al firmar confirmás que has leído y aceptás el contenido de este manual.</p>
+        <div class="firma-canvas-wrap">
+          <canvas id="manual-firma-canvas" width="560" height="150"></canvas>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button onclick="clearManualCanvas()" style="padding:7px 14px;background:transparent;color:var(--black);border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:10px;letter-spacing:.8px;text-transform:uppercase;cursor:pointer">Borrar</button>
+          <button onclick="guardarFirmaManual()" style="padding:7px 20px;background:var(--black);color:#fff;border:none;border-radius:4px;font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Firmar y descargar PDF</button>
+        </div>
+      </div>`;
+    setTimeout(()=>_initManualCanvas(),80);
+  }
+}
+
+function closeManualModal(){$('manual-modal').style.display='none';}
+
+function _initManualCanvas(){
+  const canvas=$('manual-firma-canvas');if(!canvas)return;
+  canvas.width=canvas.offsetWidth||560;
+  _manualFirmaCtx=canvas.getContext('2d');
+  _manualFirmaCtx.strokeStyle='#1a1a1a';_manualFirmaCtx.lineWidth=2.5;_manualFirmaCtx.lineCap='round';_manualFirmaCtx.lineJoin='round';
+  const getPos=(e)=>{const r=canvas.getBoundingClientRect(),t=e.touches?e.touches[0]:e;return{x:(t.clientX-r.left)*(canvas.width/r.width),y:(t.clientY-r.top)*(canvas.height/r.height)};};
+  canvas.onmousedown=canvas.ontouchstart=(e)=>{e.preventDefault();_manualFirmaDibujando=true;const p=getPos(e);_manualFirmaLastX=p.x;_manualFirmaLastY=p.y;_manualFirmaCtx.beginPath();_manualFirmaCtx.moveTo(p.x,p.y);};
+  canvas.onmousemove=canvas.ontouchmove=(e)=>{e.preventDefault();if(!_manualFirmaDibujando)return;const p=getPos(e);_manualFirmaCtx.lineTo(p.x,p.y);_manualFirmaCtx.stroke();_manualFirmaCtx.beginPath();_manualFirmaCtx.moveTo(p.x,p.y);};
+  canvas.onmouseup=canvas.onmouseleave=canvas.ontouchend=()=>{_manualFirmaDibujando=false;};
+}
+
+function clearManualCanvas(){
+  const c=$('manual-firma-canvas');if(!c||!_manualFirmaCtx)return;
+  _manualFirmaCtx.clearRect(0,0,c.width,c.height);
+}
+
+async function guardarFirmaManual(){
+  const canvas=$('manual-firma-canvas');if(!canvas)return;
+  const pd=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+  if(!pd.some(v=>v!==0)){showToast('Dibujá tu firma antes de continuar');return;}
+  const firmaImg=canvas.toDataURL('image/png');
+  const fechaFirma=new Date().toISOString();
+  const{error}=await sb.from('manual_firmas').upsert({empleado_nombre:_manualEmpNombre,manual_version:MANUAL_V,firma_imagen:firmaImg,fecha_firma:fechaFirma},{onConflict:'empleado_nombre,manual_version'});
+  if(error){showToast('Error al guardar firma: '+error.message);return;}
+  showToast('✓ Firma guardada correctamente');
+  _descargarManualPDF(_manualEmpNombre);
+  setTimeout(()=>openManualModal(_manualEmpNombre),700);
+}
+
+async function _descargarManualPDF(nombre){
+  const[seccRes,firmaRes]=await Promise.all([
+    sb.from('manuales').select('secciones').eq('version',MANUAL_V).maybeSingle(),
+    sb.from('manual_firmas').select('firma_imagen,fecha_firma').eq('empleado_nombre',nombre).eq('manual_version',MANUAL_V).maybeSingle()
+  ]);
+  const secciones=(seccRes.data&&seccRes.data.secciones)||MANUAL_SECCIONES_DEFAULT;
+  const firma=firmaRes.data;
+  const fechaFmt=firma?new Date(firma.fecha_firma).toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'}):'';
+  const seccionesHtml=secciones.map(s=>`<div class="seccion"><h2>${s.id} &nbsp;&nbsp;${s.titulo}</h2><div class="sec-body">${s.contenido}</div></div>`).join('');
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>ANOMALY — Manual de Conducta</title>
+  <style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;margin:0;padding:40px 48px}
+  .portada{text-align:center;padding:60px 0 40px;border-bottom:1px solid #ddd;margin-bottom:40px}
+  .portada h1{font-size:30px;letter-spacing:4px;text-transform:uppercase;margin:0 0 8px}
+  .portada p{color:#888;font-size:11px;letter-spacing:1px;margin:4px 0}
+  .seccion{margin-bottom:24px;page-break-inside:avoid}
+  h2{font-size:14px;border-bottom:.5px solid #e0e0e0;padding-bottom:6px;margin:20px 0 10px;letter-spacing:.5px;text-transform:uppercase}
+  h3{font-size:13px;margin:12px 0 5px;color:#333}
+  p,li{margin:3px 0 7px;line-height:1.65}ul,ol{padding-left:20px}
+  table{width:100%;border-collapse:collapse;margin:10px 0}td{padding:7px 10px;border-bottom:.5px solid #eee;font-size:12px}
+  .firma-block{margin-top:50px;padding:20px 0;border-top:1px solid #ddd;display:flex;align-items:center;gap:20px;page-break-inside:avoid}
+  .firma-img{max-width:200px;border:.5px solid #ccc;padding:4px;border-radius:4px}
+  .firma-info p{margin:3px 0;font-size:12px;color:#555}.firma-info strong{color:#1a1a1a;font-size:13px}
+  @media print{body{padding:20px}@page{margin:1.5cm;size:A4}h2{page-break-after:avoid}}</style></head><body>
+  <div class="portada"><h1>ANOMALY</h1>
+    <p style="font-size:14px;font-style:italic;color:#666;margin-bottom:16px">Gelato &amp; Specialty Coffee</p>
+    <p style="font-size:16px;font-weight:600;letter-spacing:2px;text-transform:uppercase">Manual de Conducta y Procedimientos</p>
+    <p>Versión ${MANUAL_V} &nbsp;·&nbsp; Documento interno confidencial</p>
+  </div>
+  ${seccionesHtml}
+  ${firma?`<div class="firma-block"><img class="firma-img" src="${firma.firma_imagen}">
+    <div class="firma-info"><strong>${nombre}</strong>
+      <p>Firmado el ${fechaFmt}</p>
+      <p>He leído y acepto el contenido de este Manual de Conducta y Procedimientos.</p>
+      <p style="font-size:10px;color:#aaa">Manual v${MANUAL_V} · ANOMALY Gelato &amp; Specialty Coffee</p>
+    </div></div>`
+    :`<div style="margin-top:50px;padding-top:20px;border-top:1px solid #ddd">
+    <p><strong>${nombre}</strong></p>
+    <div style="border:.5px solid #ccc;height:70px;width:220px;margin:12px 0;border-radius:4px"></div>
+    <p style="font-size:11px;color:#888">Firma &nbsp;·&nbsp; Fecha: _______________</p></div>`}
+  </body></html>`;
+  _openPdfWindow(html);
+}
+
 </script>
 
 <!-- TURNO MODALS -->
@@ -12465,6 +12649,22 @@ async function saveChecklistHorarios(){
           (function(){var ap=$('chk-cfg-ap'),ci=$('chk-cfg-ci');if(ap)ap.value=checklistAlertaApertura||'11:30';if(ci)ci.value=checklistAlertaCierre||'23:30';})();
         </script>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="ocr-modal" id="manual-modal" style="display:none;align-items:flex-start;padding:1rem" onclick="if(event.target===this)closeManualModal()">
+  <div style="background:var(--bg);width:100%;max-width:620px;margin:0 auto;border-radius:8px;overflow:hidden;max-height:94vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:.5px solid var(--border);flex-shrink:0">
+      <div>
+        <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">ANOMALY · Manual v1.0</div>
+        <div style="font-size:13px;font-weight:600;margin-top:2px" id="manual-modal-empleado"></div>
+      </div>
+      <button onclick="closeManualModal()" style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:0;line-height:1">✕</button>
+    </div>
+    <div style="overflow-y:auto;padding:16px 18px;flex:1">
+      <div id="manual-secciones"></div>
+      <div id="manual-firma-area"></div>
     </div>
   </div>
 </div>
