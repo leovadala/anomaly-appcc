@@ -11630,6 +11630,76 @@ const MANUAL_SECCIONES_DEFAULT=[
 ];
 
 let _manualEmpNombre='',_manualFirmaCtx=null,_manualFirmaDibujando=false,_manualFirmaLastX=0,_manualFirmaLastY=0;
+let _manualSecciones=null,_manualEditando=false,_manualSeccionesEdit=null;
+
+function toggleManualEdit(){
+  _manualEditando=!_manualEditando;
+  const btn=$('manual-edit-btn');
+  if(_manualEditando){
+    btn.textContent='✕ Cancelar';
+    btn.style.borderColor='var(--black)';
+    _renderManualEditor();
+  } else {
+    btn.textContent='✎ Editar';
+    btn.style.borderColor='var(--border)';
+    _manualSeccionesEdit=null;
+    openManualModal(_manualEmpNombre);
+  }
+}
+
+function _renderManualEditor(){
+  const secciones=_manualSeccionesEdit||JSON.parse(JSON.stringify(_manualSecciones||MANUAL_SECCIONES_DEFAULT));
+  _manualSeccionesEdit=secciones;
+  $('manual-secciones').innerHTML=`
+    <div style="margin-bottom:14px;padding:10px 12px;background:#fdf6eb;border:.5px solid #E09419;border-radius:6px;font-size:11px;color:#8a5a00">
+      Modo edición — Los cambios se aplican a todos los empleados.
+    </div>
+    ${secciones.map((s,i)=>`
+      <div class="manual-seccion" style="margin-bottom:10px">
+        <div style="padding:10px 12px;background:var(--surface);border-radius:6px 6px 0 0;display:flex;gap:8px;align-items:center">
+          <input value="${s.id}" oninput="_manualSeccionesEdit[${i}].id=this.value"
+            style="width:36px;padding:4px 6px;border:.5px solid var(--border);border-radius:3px;font-family:var(--font);font-size:11px;text-align:center">
+          <input value="${s.titulo.replace(/"/g,'&quot;')}" oninput="_manualSeccionesEdit[${i}].titulo=this.value"
+            style="flex:1;padding:4px 8px;border:.5px solid var(--border);border-radius:3px;font-family:var(--font);font-size:12px;font-weight:500">
+          <button onclick="_manualDeleteSeccion(${i})" style="background:transparent;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px" title="Eliminar sección">✕</button>
+        </div>
+        <textarea rows="6" oninput="_manualSeccionesEdit[${i}].contenido=this.value"
+          style="width:100%;box-sizing:border-box;padding:10px 12px;border:.5px solid var(--border);border-top:none;border-radius:0 0 6px 6px;font-family:monospace;font-size:11px;line-height:1.5;resize:vertical"
+          >${s.contenido.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+      </div>`).join('')}
+    <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
+      <button onclick="_manualAddSeccion()" style="padding:7px 14px;background:transparent;color:var(--black);border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:10px;letter-spacing:.8px;text-transform:uppercase;cursor:pointer">+ Sección</button>
+      <button onclick="_manualGuardarEdicion()" style="padding:7px 20px;background:var(--black);color:#fff;border:none;border-radius:4px;font-family:var(--font);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer">Guardar cambios</button>
+    </div>`;
+  $('manual-firma-area').innerHTML='';
+}
+
+function _manualDeleteSeccion(i){
+  _manualSeccionesEdit.splice(i,1);
+  _renderManualEditor();
+}
+
+function _manualAddSeccion(){
+  const n=_manualSeccionesEdit.length+1;
+  _manualSeccionesEdit.push({id:String(n).padStart(2,'0'),titulo:'Nueva sección',contenido:'<p>Contenido de la sección.</p>'});
+  _renderManualEditor();
+  setTimeout(()=>{const els=$('manual-secciones').querySelectorAll('.manual-seccion');const last=els[els.length-1];if(last)last.scrollIntoView({behavior:'smooth'});},50);
+}
+
+async function _manualGuardarEdicion(){
+  // Decode HTML entities back to actual HTML in the contenido fields (textareas encode < and >)
+  const secciones=_manualSeccionesEdit.map(s=>({
+    id:s.id,
+    titulo:s.titulo,
+    contenido:s.contenido.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&')
+  }));
+  const{error}=await sb.from('manuales').upsert({version:MANUAL_V,secciones},{onConflict:'version'});
+  if(error){showToast('Error al guardar: '+error.message);return;}
+  showToast('✓ Manual actualizado');
+  _manualEditando=false;
+  _manualSeccionesEdit=null;
+  openManualModal(_manualEmpNombre);
+}
 
 async function _loadManualFichaTab(nombre){
   const el=$('ft-manual');if(!el)return;
@@ -11649,10 +11719,13 @@ async function _loadManualFichaTab(nombre){
 
 async function openManualModal(nombre){
   _manualEmpNombre=nombre;
+  _manualEditando=false;
   $('manual-modal').style.display='flex';
   $('manual-modal-empleado').textContent=nombre;
   $('manual-secciones').innerHTML='<div style="color:var(--hint);font-size:11px;padding:1rem">Cargando…</div>';
   $('manual-firma-area').innerHTML='';
+  const editBtn=$('manual-edit-btn');
+  if(editBtn){editBtn.style.display=currentUserEsEncargado()?'block':'none';editBtn.textContent='✎ Editar';editBtn.style.borderColor='var(--border)';}
   const[manualRes,firmaRes]=await Promise.all([
     sb.from('manuales').select('secciones').eq('version',MANUAL_V).maybeSingle(),
     sb.from('manual_firmas').select('firma_imagen,fecha_firma').eq('empleado_nombre',nombre).eq('manual_version',MANUAL_V).maybeSingle()
@@ -11662,6 +11735,7 @@ async function openManualModal(nombre){
     await sb.from('manuales').upsert({version:MANUAL_V,secciones:MANUAL_SECCIONES_DEFAULT},{onConflict:'version'});
     secciones=MANUAL_SECCIONES_DEFAULT;
   }
+  _manualSecciones=secciones;
   $('manual-secciones').innerHTML=secciones.map((s,i)=>`
     <div class="manual-seccion">
       <div class="manual-sec-hdr" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.msec-chev').style.transform=this.nextElementSibling.classList.contains('open')?'rotate(90deg)':''">
@@ -12660,7 +12734,10 @@ async function _descargarManualPDF(nombre){
         <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">ANOMALY · Manual v1.0</div>
         <div style="font-size:13px;font-weight:600;margin-top:2px" id="manual-modal-empleado"></div>
       </div>
-      <button onclick="closeManualModal()" style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:0;line-height:1">✕</button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button id="manual-edit-btn" onclick="toggleManualEdit()" style="display:none;padding:5px 12px;background:transparent;color:var(--black);border:.5px solid var(--border);border-radius:4px;font-family:var(--font);font-size:9px;letter-spacing:.8px;text-transform:uppercase;cursor:pointer">✎ Editar</button>
+        <button onclick="closeManualModal()" style="background:transparent;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:0;line-height:1">✕</button>
+      </div>
     </div>
     <div style="overflow-y:auto;padding:16px 18px;flex:1">
       <div id="manual-secciones"></div>
