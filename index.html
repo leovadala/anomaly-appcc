@@ -473,6 +473,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <button onclick="go(9)">Inventario</button>
 <button onclick="go(10)">Finanzas</button>
 <button onclick="go(11)">Equipo</button>
+<button onclick="go(12)">Manual</button>
 <button onclick="openVacModal()">Vacaciones</button>
 <button onclick="openAyudaModal()">Ayuda</button>
 </div>
@@ -1405,6 +1406,22 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   <!-- Ficha individual -->
   <div id="emp-ficha-panel" style="display:none"></div>
 </div>
+</div><!-- v11 -->
+
+<!-- V12: MANUAL -->
+<div class="view" id="v12">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+    <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">Manual de Conducta y Procedimientos</div>
+    <div style="display:flex;gap:6px">
+      <button class="btn-s" id="manual-view-edit-btn" onclick="openManualEditorView()" style="font-size:9px;letter-spacing:1px">Editar</button>
+    </div>
+  </div>
+  <!-- Estado de firmas -->
+  <div id="manual-firmas-estado" style="margin-bottom:1.2rem"></div>
+  <!-- Contenido del manual -->
+  <div id="manual-view-content" style="font-size:12px;color:var(--hint)">Cargando…</div>
+</div>
+
 </div><!-- /main -->
 </div><!-- /app -->
 
@@ -3809,6 +3826,7 @@ function go(n){
   if(n===9){renderInventario();renderHistorialConteos();}
   if(n===10){if(!_finUnlocked){showFinanzasPin();return;}initFinanzas();}
   if(n===11){empSubTab('integrantes');initEmpleados();}
+  if(n===12){loadManualView();}
   window.scrollTo(0,0);
 }
 
@@ -11780,6 +11798,80 @@ async function openManualModal(nombre){
 }
 
 function closeManualModal(){$('manual-modal').style.display='none';}
+async function loadManualView(){
+  const content=$('manual-view-content');
+  const firmasEl=$('manual-firmas-estado');
+  if(!content)return;
+  content.innerHTML='<div style="color:var(--hint);font-size:11px;padding:1rem">Cargando…</div>';
+  firmasEl.innerHTML='';
+  const editBtn=$('manual-view-edit-btn');
+  if(editBtn){editBtn.style.display=currentUserEsEncargado()?'':'none';}
+  try{
+    const[manualRes,firmasRes,empleadosRes]=await Promise.all([
+      sb.from('manuales').select('secciones').eq('version',MANUAL_V).maybeSingle(),
+      sb.from('manual_firmas').select('empleado_nombre,fecha_firma').eq('manual_version',MANUAL_V),
+      sb.from('integrantes').select('nombre,activo').eq('activo',true)
+    ]);
+    const firmasList=(firmasRes.data||[]);
+    const empleados=(empleadosRes.data||[]);
+    if(empleados.length){
+      const firmados=firmasList.map(f=>f.empleado_nombre);
+      const sinFirmar=empleados.filter(e=>!firmados.includes(e.nombre));
+      const conFirma=empleados.filter(e=>firmados.includes(e.nombre));
+      firmasEl.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem">
+        <div style="flex:1;min-width:120px;padding:10px 12px;background:#edf8f1;border:.5px solid #1a7a3d;border-radius:6px">
+          <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#1a7a3d;margin-bottom:4px">✓ Firmado</div>
+          <div style="font-size:18px;font-weight:600;color:#1a7a3d">${conFirma.length}</div>
+          <div style="font-size:10px;color:#1a7a3d;margin-top:2px">${conFirma.map(e=>e.nombre).join(', ')||'—'}</div>
+        </div>
+        <div style="flex:1;min-width:120px;padding:10px 12px;background:#fef9ec;border:.5px solid #e67e22;border-radius:6px">
+          <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#e67e22;margin-bottom:4px">⚠ Pendiente</div>
+          <div style="font-size:18px;font-weight:600;color:#e67e22">${sinFirmar.length}</div>
+          <div style="font-size:10px;color:#e67e22;margin-top:2px">${sinFirmar.map(e=>e.nombre).join(', ')||'—'}</div>
+        </div>
+      </div>`;
+    }
+    let secciones=(manualRes.data&&manualRes.data.secciones)||null;
+    if(!secciones||!secciones.length){
+      await sb.from('manuales').upsert({version:MANUAL_V,secciones:MANUAL_SECCIONES_DEFAULT},{onConflict:'version'});
+      secciones=MANUAL_SECCIONES_DEFAULT;
+    }
+    content.innerHTML=`<div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:12px">Versión ${MANUAL_V}</div>`
+      +secciones.map(s=>`
+        <div style="margin-bottom:1.2rem;padding:12px 14px;border:.5px solid var(--border);border-radius:6px;background:var(--surface)">
+          <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;color:var(--black)">${s.id} · ${s.titulo}</div>
+          <div style="font-size:12px;line-height:1.6;color:var(--text)">${s.contenido}</div>
+        </div>`).join('');
+  }catch(e){
+    content.innerHTML='<div style="color:#c0392b;font-size:11px;padding:1rem">Error cargando el manual.</div>';
+  }
+}
+
+function openManualEditorView(){
+  _manualEmpNombre=currentUser||'Admin';
+  _manualEditando=false;
+  $('manual-modal').style.display='flex';
+  $('manual-modal-empleado').textContent='Editor';
+  $('manual-secciones').innerHTML='<div style="color:var(--hint);font-size:11px;padding:1rem">Cargando…</div>';
+  $('manual-firma-area').innerHTML='';
+  const editBtn=$('manual-edit-btn');
+  if(editBtn){editBtn.style.display='block';editBtn.textContent='✎ Editar';}
+  sb.from('manuales').select('secciones').eq('version',MANUAL_V).maybeSingle().then(({data})=>{
+    let secciones=(data&&data.secciones)||MANUAL_SECCIONES_DEFAULT;
+    _manualSecciones=secciones;
+    $('manual-secciones').innerHTML=secciones.map((s,i)=>`
+      <div class="manual-seccion">
+        <div class="manual-sec-hdr" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.msec-chev').style.transform=this.nextElementSibling.classList.contains('open')?'rotate(90deg)':''">
+          <div>
+            <span style="font-size:9px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-right:8px">${s.id}</span>
+            <span style="font-size:13px;font-weight:500">${s.titulo}</span>
+          </div>
+          <span class="msec-chev" style="font-size:14px;color:var(--muted);transition:transform .2s;display:inline-block">›</span>
+        </div>
+        <div class="manual-sec-body${i===0?' open':''}">${s.contenido}</div>
+      </div>`).join('');
+  });
+}
 
 function _initManualCanvas(){
   const canvas=$('manual-firma-canvas');if(!canvas)return;
