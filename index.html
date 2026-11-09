@@ -415,6 +415,39 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 </div>
 </div>
 
+<!-- Checklist PIN modal -->
+<div id="chk-pin-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.85);z-index:9100;align-items:center;justify-content:center">
+  <div style="background:var(--bg);border-radius:16px;padding:2rem 1.5rem;width:280px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+    <div id="chk-pin-turno-label" style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:.4rem">Checklist</div>
+    <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:1.8rem">Ingresá tu PIN</div>
+    <div id="chk-pin-dots" style="display:flex;gap:14px;justify-content:center;margin-bottom:2rem"></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+      <button type="button" class="pin-key" onclick="chkPinKey('1')">1</button>
+      <button type="button" class="pin-key" onclick="chkPinKey('2')">2</button>
+      <button type="button" class="pin-key" onclick="chkPinKey('3')">3</button>
+      <button type="button" class="pin-key" onclick="chkPinKey('4')">4</button>
+      <button type="button" class="pin-key" onclick="chkPinKey('5')">5</button>
+      <button type="button" class="pin-key" onclick="chkPinKey('6')">6</button>
+      <button type="button" class="pin-key" onclick="chkPinKey('7')">7</button>
+      <button type="button" class="pin-key" onclick="chkPinKey('8')">8</button>
+      <button type="button" class="pin-key" onclick="chkPinKey('9')">9</button>
+      <button type="button" class="pin-key" onclick="closeChkPinModal()" style="font-size:11px;color:var(--muted)">Cancelar</button>
+      <button type="button" class="pin-key" onclick="chkPinKey('0')">0</button>
+      <button type="button" class="pin-key" onclick="chkPinDel()" style="font-size:18px">⌫</button>
+    </div>
+    <div id="chk-pin-err" style="display:none;color:#c0392b;font-size:11px;margin-top:10px;letter-spacing:.5px">PIN incorrecto</div>
+  </div>
+</div>
+
+<!-- Checklist ya completado modal -->
+<div id="chk-done-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.7);z-index:9100;align-items:center;justify-content:center" onclick="this.style.display='none'">
+  <div style="background:var(--bg);border-radius:12px;padding:1.6rem 1.4rem;width:260px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.2)" onclick="event.stopPropagation()">
+    <div style="font-size:28px;margin-bottom:.8rem">✓</div>
+    <div id="chk-done-txt" style="font-size:12px;line-height:1.6;color:var(--text);white-space:pre-line"></div>
+    <button class="btn-s" onclick="$('chk-done-modal').style.display='none'" style="margin-top:1.2rem;font-size:9px;letter-spacing:1px">Cerrar</button>
+  </div>
+</div>
+
 <!-- App PIN modal -->
 <div id="app-pin-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.85);z-index:9000;align-items:center;justify-content:center">
   <div style="background:var(--bg);border-radius:16px;padding:2rem 1.5rem;width:280px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.18)">
@@ -2459,6 +2492,7 @@ let currentIngr=[];
 let pinSupervisor='0000',pinFinanzas=null,_finUnlocked=false,_empSupUnlocked=false,_fichaEmpNombre='';
 let checklistAlertaApertura='11:30',checklistAlertaCierre='23:30';
 let _checklistTareas=[],_checklistRegistroActual=null,_checklistTurnoActual='apertura';
+let _checklistResponsable='',_checklistPinVal='',_checklistPinTurno='';
 let horLocal={};  // {dayIdx:{a:'12:00',c:'00:00'}}
 // ─── Horarios module globals ───
 const FESTIVOS_ES={'01-01':true,'01-06':true,'05-01':true,'08-15':true,'10-12':true,'11-01':true,'12-06':true,'12-08':true,'12-25':true};
@@ -11375,13 +11409,68 @@ function _updateChecklistWidget(turno,registro){
 }
 
 async function openChecklistModal(turnoInicial){
-  _checklistTurnoActual=turnoInicial||'apertura';
-  const{data}=await sb.from('checklist_tareas').select('*').eq('activo',true).order('turno').order('orden');
-  _checklistTareas=data||[];
-  $('checklist-modal').style.display='flex';
-  _setChecklistTab(_checklistTurnoActual);
-  await _loadChecklistRegistro(_checklistTurnoActual);
-  renderChecklistTab(_checklistTurnoActual);
+  const turno=turnoInicial||'apertura';
+  // Check if already completed today
+  const today=getTodaySpain();
+  const{data:reg}=await sb.from('checklist_registros').select('estado,responsable,completado_at').eq('fecha',today).eq('turno',turno).maybeSingle();
+  if(reg&&reg.estado==='completo'){
+    const hora=reg.completado_at?reg.completado_at.slice(11,16):'';
+    _showChecklistDoneInfo(reg.responsable,hora,turno);return;
+  }
+  // Show PIN modal
+  _checklistPinTurno=turno;
+  _checklistPinVal='';
+  renderChecklistPinDots();
+  const pm=$('chk-pin-modal');
+  if(pm){
+    const lbl=$('chk-pin-turno-label');
+    if(lbl)lbl.textContent='Checklist de '+(turno==='apertura'?'Apertura':'Cierre');
+    $('chk-pin-err').style.display='none';
+    pm.style.display='flex';
+  }
+}
+
+function _showChecklistDoneInfo(responsable,hora,turno){
+  const msg=`Checklist de ${turno==='apertura'?'Apertura':'Cierre'} ya completado\npor ${responsable||'—'}${hora?' a las '+hora:''}.`;
+  // Use a styled modal if available, otherwise alert
+  const dm=$('chk-done-modal');
+  if(dm){
+    const txt=$('chk-done-txt');if(txt)txt.textContent=msg.replace('\n','\n');
+    dm.style.display='flex';
+  }else{alert(msg);}
+}
+
+function chkPinKey(d){
+  if(_checklistPinVal.length>=4)return;
+  _checklistPinVal+=d;
+  renderChecklistPinDots();
+  if(_checklistPinVal.length===4)chkPinSubmit();
+}
+function chkPinDel(){_checklistPinVal=_checklistPinVal.slice(0,-1);renderChecklistPinDots();}
+function renderChecklistPinDots(){
+  const el=$('chk-pin-dots');if(!el)return;
+  el.innerHTML=[0,1,2,3].map(i=>`<div style="width:12px;height:12px;border-radius:50%;border:1.5px solid var(--black);background:${i<_checklistPinVal.length?'var(--black)':'transparent'}"></div>`).join('');
+}
+async function chkPinSubmit(){
+  const{data}=await sb.from('team').select('nombre').eq('pin',_checklistPinVal).maybeSingle();
+  if(data?.nombre){
+    _checklistResponsable=data.nombre;
+    $('chk-pin-modal').style.display='none';
+    _checklistTurnoActual=_checklistPinTurno;
+    const{data:tareas}=await sb.from('checklist_tareas').select('*').eq('activo',true).order('turno').order('orden');
+    _checklistTareas=tareas||[];
+    $('checklist-modal').style.display='flex';
+    _setChecklistTab(_checklistTurnoActual);
+    await _loadChecklistRegistro(_checklistTurnoActual);
+    renderChecklistTab(_checklistTurnoActual);
+  }else{
+    const e=$('chk-pin-err');if(e)e.style.display='block';
+    _checklistPinVal='';renderChecklistPinDots();
+  }
+}
+function closeChkPinModal(){
+  $('chk-pin-modal').style.display='none';
+  _checklistPinVal='';
 }
 
 function closeChecklistModal(){
@@ -11450,13 +11539,13 @@ function renderChecklistTab(turno){
 }
 
 async function toggleChecklistItem(tareaId){
-  if(!currentUser){alert('Ingresá primero para registrar');return;}
+  if(!_checklistResponsable){alert('PIN no verificado');return;}
   const today=getTodaySpain();const turno=_checklistTurnoActual;
   let registro=_checklistRegistroActual;
   if(!registro){
     const tareas=_checklistTareas.filter(t=>t.turno===turno||t.turno==='ambos');
     const initItems=tareas.map(t=>({tarea_id:t.id,nombre:t.nombre,completado:false,completado_por:null,completado_at:null}));
-    const{data,error}=await sb.from('checklist_registros').insert({fecha:today,turno,responsable:currentUser,estado:'pendiente',items:initItems}).select().maybeSingle();
+    const{data,error}=await sb.from('checklist_registros').insert({fecha:today,turno,responsable:_checklistResponsable,estado:'pendiente',items:initItems}).select().maybeSingle();
     if(error){alert('Error: '+error.message);return;}
     registro=data;_checklistRegistroActual=registro;
   }
@@ -11464,10 +11553,10 @@ async function toggleChecklistItem(tareaId){
   const tarea=_checklistTareas.find(t=>t.id===tareaId);
   const idx=items.findIndex(i=>i.tarea_id===tareaId);
   if(idx===-1){
-    items.push({tarea_id:tareaId,nombre:tarea?.nombre||'',completado:true,completado_por:currentUser,completado_at:new Date().toISOString()});
+    items.push({tarea_id:tareaId,nombre:tarea?.nombre||'',completado:true,completado_por:_checklistResponsable,completado_at:new Date().toISOString()});
   }else{
     const nowDone=!items[idx].completado;
-    items[idx]={...items[idx],completado:nowDone,completado_por:nowDone?currentUser:null,completado_at:nowDone?new Date().toISOString():null};
+    items[idx]={...items[idx],completado:nowDone,completado_por:nowDone?_checklistResponsable:null,completado_at:nowDone?new Date().toISOString():null};
   }
   const tareas=_checklistTareas.filter(t=>t.turno===turno||t.turno==='ambos');
   const done=items.filter(i=>i.completado).length;
@@ -11479,7 +11568,7 @@ async function toggleChecklistItem(tareaId){
 }
 
 async function finalizarChecklist(){
-  if(!currentUser){alert('Ingresá primero');return;}
+  if(!_checklistResponsable){alert('PIN no verificado');return;}
   if(!_checklistRegistroActual){alert('Iniciá el checklist marcando alguna tarea');return;}
   const{error}=await sb.from('checklist_registros').update({estado:'completo',completado_at:new Date().toISOString()}).eq('id',_checklistRegistroActual.id);
   if(error){alert('Error: '+error.message);return;}
