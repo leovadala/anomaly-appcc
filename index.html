@@ -11810,7 +11810,7 @@ async function loadManualView(){
     const[manualRes,firmasRes,empleadosRes]=await Promise.all([
       sb.from('manuales').select('secciones').eq('version',MANUAL_V).maybeSingle(),
       sb.from('manual_firmas').select('empleado_nombre,fecha_firma').eq('manual_version',MANUAL_V),
-      sb.from('integrantes').select('nombre,activo').eq('activo',true)
+      sb.from('hor_empleados').select('nombre').order('nombre')
     ]);
     const firmasList=(firmasRes.data||[]);
     const empleados=(empleadosRes.data||[]);
