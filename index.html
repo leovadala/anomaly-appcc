@@ -3418,7 +3418,7 @@ function tempWizPrev(){
   if(inp){const s=_twSens[_twStep];const raw=parseFloat(inp.value)||0;tempVals[s.id]=s.neg?-Math.abs(raw):Math.abs(raw);}
   if(_twStep>0){_twStep--;_renderTwStep();}
 }
-async async function openTempModal(){
+async function openTempModal(){
   const now=new Date();
   $('temp-fecha').value=now.toISOString().slice(0,10);
   $('temp-hora').value=now.toTimeString().slice(0,5);
