@@ -506,7 +506,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
 <button onclick="go(9)">Inventario</button>
 <button onclick="go(10)">Finanzas</button>
 <button onclick="go(11)">Equipo</button>
-<button onclick="go(12)">Manual</button>
 <button onclick="openVacModal()">Vacaciones</button>
 <button onclick="openAyudaModal()">Ayuda</button>
 </div>
@@ -1402,6 +1401,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
     <button class="emp-subtab" id="empstab-fichaje" onclick="empSubTab('fichaje')">Fichaje</button>
     <button class="emp-subtab" id="empstab-planificacion" onclick="empSubTab('planificacion')">Planificación</button>
     <button class="emp-subtab" id="empstab-altas" onclick="empSubTab('altas')">Altas</button>
+    <button class="emp-subtab" id="empstab-manual" onclick="empSubTab('manual')">Manual</button>
   </div>
   <!-- Dashboard panel -->
   <div id="emp-panel-dash" style="display:none">
@@ -3861,7 +3861,7 @@ function go(n){
   if(n===9){renderInventario();renderHistorialConteos();}
   if(n===10){if(!_finUnlocked){showFinanzasPin();return;}initFinanzas();}
   if(n===11){empSubTab('integrantes');initEmpleados();}
-  if(n===12){loadManualView();}
+  if(n===12){loadManualView();const mb=$('empstab-manual');if(mb)mb.classList.add('on');}
   window.scrollTo(0,0);
 }
 
@@ -7324,10 +7324,12 @@ var _fkAmbientInterval=null;
 
 // ── Sub-tab navigation ──────────────────────────────────────────────
 function empSubTab(tab){
+  if(tab==='manual'){go(12);return;}
   ['dash','integrantes','fichaje','planificacion','altas'].forEach(t=>{
     const p=$('emp-panel-'+t);if(p)p.style.display=t===tab?'block':'none';
     const b=$('empstab-'+t);if(b)b.classList.toggle('on',t===tab);
   });
+  const manualBtn=$('empstab-manual');if(manualBtn)manualBtn.classList.remove('on');
   $('emp-ficha-panel').style.display='none';
   if(tab==='fichaje'){
     renderEmpHoy();renderEmpFichajesHistorico();initFichajeMonitor();
@@ -11926,11 +11928,11 @@ async function loadManualView(){
       await sb.from('manuales').upsert({version:MANUAL_V,secciones:MANUAL_SECCIONES_DEFAULT},{onConflict:'version'});
       secciones=MANUAL_SECCIONES_DEFAULT;
     }
-    content.innerHTML=`<div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:12px">Versión ${MANUAL_V}</div>`
+    content.innerHTML=`<div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:16px">Versión ${MANUAL_V}</div>`
       +secciones.map(s=>`
-        <div style="margin-bottom:1.2rem;padding:12px 14px;border:.5px solid var(--border);border-radius:6px;background:var(--surface)">
-          <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;color:var(--black)">${s.id} · ${s.titulo}</div>
-          <div style="font-size:12px;line-height:1.6;color:var(--text)">${s.contenido}</div>
+        <div style="margin-bottom:1.4rem;padding:20px 22px;border:.5px solid var(--border);border-radius:8px;background:var(--surface)">
+          <div style="font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;color:var(--black)">${s.id} · ${s.titulo}</div>
+          <div style="font-size:13px;line-height:1.75;color:var(--text)">${s.contenido}</div>
         </div>`).join('');
 
     // ---- Sección Firmar ----
@@ -11944,14 +11946,14 @@ async function loadManualView(){
         const opts=empleadosParaFirmar.map(e=>`<option value="${e.nombre}"${firmasNombres.includes(e.nombre)?' disabled':''}>
           ${e.nombre}${firmasNombres.includes(e.nombre)?' ✓':''}</option>`).join('');
         firmaContainer.innerHTML=`
-          <div style="margin-top:1.4rem;padding:12px 14px;border:.5px solid var(--border);border-radius:6px;background:var(--surface)">
-            <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Leer y firmar el manual</div>
+          <div style="margin-top:1.6rem;border-top:.5px solid var(--border);padding-top:1.2rem">
+            <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Firmar este manual</div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <select id="manual-firma-select" style="flex:1;min-width:140px;padding:6px 8px;border:.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:12px">
+              <select id="manual-firma-select" style="flex:1;min-width:160px;padding:7px 10px;border:.5px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:12px;font-family:var(--font)">
                 <option value="">Seleccionar empleado…</option>
                 ${opts}
               </select>
-              <button class="btn-s" onclick="abrirManualParaFirma()" style="font-size:9px;letter-spacing:1px">Ver manual / Firmar</button>
+              <button onclick="abrirManualParaFirma()" style="padding:7px 14px;border:.5px solid var(--black);border-radius:4px;background:var(--black);color:var(--bg);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;font-family:var(--font);cursor:pointer;white-space:nowrap">Ver y firmar</button>
             </div>
           </div>`;
       }
