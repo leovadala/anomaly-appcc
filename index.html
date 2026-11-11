@@ -448,6 +448,16 @@ body{font-family:var(--font);background:var(--bg);color:var(--black);-webkit-fon
   </div>
 </div>
 
+<!-- Pausa fin modal -->
+<div id="pausa-fin-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.75);z-index:9200;align-items:center;justify-content:center" onclick="this.style.display='none'">
+  <div style="background:var(--bg);border-radius:12px;padding:1.8rem 1.6rem;width:280px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.22)" onclick="event.stopPropagation()">
+    <div style="font-size:32px;margin-bottom:.8rem">▶️</div>
+    <div id="pausa-fin-nombre" style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:.4rem"></div>
+    <div id="pausa-fin-msg" style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:1.2rem"></div>
+    <button onclick="$('pausa-fin-modal').style.display='none'" style="padding:8px 28px;background:var(--black);color:var(--bg);border:none;border-radius:6px;font-size:12px;letter-spacing:.5px;cursor:pointer">OK, ya vuelvo</button>
+  </div>
+</div>
+
 <!-- App PIN modal -->
 <div id="app-pin-modal" style="display:none;position:fixed;inset:0;background:rgba(26,26,26,.85);z-index:9000;align-items:center;justify-content:center">
   <div style="background:var(--bg);border-radius:16px;padding:2rem 1.5rem;width:280px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.18)">
@@ -2493,6 +2503,39 @@ let pinSupervisor='0000',pinFinanzas=null,_finUnlocked=false,_empSupUnlocked=fal
 let checklistAlertaApertura='11:30',checklistAlertaCierre='23:30';
 let _checklistTareas=[],_checklistRegistroActual=null,_checklistTurnoActual='apertura';
 let _checklistResponsable='',_checklistPinVal='',_checklistPinTurno='';
+
+// ── Auto-pausa: timer global por empleado ─────────────────────────────────
+window._pausaAutoTimers = window._pausaAutoTimers || {};
+
+function _showPausaFinModal(nombre, minutos){
+  const m=$('pausa-fin-modal');if(!m)return;
+  $('pausa-fin-nombre').textContent=nombre;
+  $('pausa-fin-msg').textContent='Tu pausa de '+minutos+' min ha terminado. ¡Es hora de volver al puesto!';
+  m.style.display='flex';
+  // Auto-cierra a los 60 segundos si el empleado no lo ve
+  clearTimeout(m._autoClose);
+  m._autoClose=setTimeout(()=>{if(m.style.display==='flex')m.style.display='none';},60000);
+}
+
+async function _autoPausaFin(empId, nombre, pausaTs, minutos){
+  // Registrar vuelta con timestamp fijo = inicio pausa + minutos configurados
+  const returnTs=new Date(pausaTs.getTime()+minutos*60000);
+  const wk=getScheduleKey();
+  const{error}=await sb.from('fichajes').insert({
+    empleado_id:empId||null,
+    empleado_nombre:nombre,
+    tipo:'vuelta',
+    timestamp:returnTs.toISOString(),
+    semana_key:wk,
+    tardanza_min:0,
+    estado:'activo'
+  });
+  if(!error){
+    _showPausaFinModal(nombre,minutos);
+    // Refrescar card de fichaje si está visible
+    if(typeof renderFichajeCards==='function')renderFichajeCards();
+  }
+}
 let horLocal={};  // {dayIdx:{a:'12:00',c:'00:00'}}
 // ─── Horarios module globals ───
 const FESTIVOS_ES={'01-01':true,'01-06':true,'05-01':true,'08-15':true,'10-12':true,'11-01':true,'12-06':true,'12-08':true,'12-25':true};
@@ -3597,17 +3640,32 @@ function renderAppPinDots(){
 }
 async function submitAppPin(){
   const pin=_appPinVal;
+  // Primero: buscar en team (supervisores configurados manualmente)
   const{data}=await sb.from('team').select('nombre').eq('pin',pin).maybeSingle();
   if(data?.nombre){
     const m=$('app-pin-modal');if(m)m.style.display='none';
     document.removeEventListener('keydown',_appPinKbd);
     const sel=$('ob-user');if(sel)sel.value=data.nombre;
-    enterApp();
-  } else {
-    const e=$('app-pin-err');if(e)e.style.display='block';
-    _appPinVal='';
-    renderAppPinDots();
+    enterApp();return;
   }
+  // Segundo: buscar en hor_empleados por pin_fichaje (responsables de turno)
+  const{data:emp}=await sb.from('hor_empleados').select('nombre,cargo').eq('pin_fichaje',pin).maybeSingle();
+  if(emp&&/encargad|responsable|supervisor|due[ñn]/i.test(emp.cargo||'')){
+    const m=$('app-pin-modal');if(m)m.style.display='none';
+    document.removeEventListener('keydown',_appPinKbd);
+    const sel=$('ob-user');
+    if(sel){
+      // Agregar la opción si no existe (responsables de turno no están en team)
+      if(![...sel.options].some(o=>o.value===emp.nombre)){
+        const opt=document.createElement('option');opt.value=emp.nombre;opt.textContent=emp.nombre;sel.appendChild(opt);
+      }
+      sel.value=emp.nombre;
+    }
+    enterApp();return;
+  }
+  const e=$('app-pin-err');if(e)e.style.display='block';
+  _appPinVal='';
+  renderAppPinDots();
 }
 
 function enterApp(){const v=$('ob-user').value;if(!v){alert('Seleccion\u00e1 un responsable');return}currentUser=v;$('onboard').style.display='none';$('main').style.display='block';$('hdr-user').textContent=currentUser;$('ar').value=currentUser;$('af').valueAsDate=new Date();loadLastIngreso();try{localStorage.setItem('anomaly_last_login',JSON.stringify({user:v,time:new Date().toISOString()}))}catch(e){};startClock();goHome()}
@@ -8126,7 +8184,13 @@ async function renderEmpHoy(){
       else if(_cur){_cur.push(f);if(f.tipo==='egreso')_cur=null;}
     });
     // Usar solo el turno más reciente (evita mezclar ayer y hoy)
-    const actFs=_shifts.length?_shifts[_shifts.length-1]:[];
+    // Si el último turno es de ayer y ya cerró (egreso) → tratar como sin fichar hoy
+    const _lastShift=_shifts.length?_shifts[_shifts.length-1]:[];
+    const _lastShiftIn=_lastShift.find(f=>f.tipo==='ingreso');
+    const _lastShiftClosed=_lastShift.some(f=>f.tipo==='egreso');
+    const _lastShiftDay=_lastShiftIn?new Date(_lastShiftIn.timestamp).toLocaleString('sv',{timeZone:TZ_SPAIN}).split(' ')[0]:'';
+    // Solo descartamos si el turno fue de ayer (o antes) Y ya cerró; nocturno abierto sigue igual
+    const actFs=(_lastShiftDay&&_lastShiftDay!==laborDayStr&&_lastShiftClosed)?[]:_lastShift;
 
     // Determinar día/semana del turno en hora Alicante (España)
     // Si el ingreso fue ayer (turno nocturno), mostramos el horario de ayer
@@ -8159,6 +8223,16 @@ async function renderEmpHoy(){
     const completo=firstIn&&lastEg;
     const sinFichar=!hasFicha&&turno&&turno!=='OFF';
     const isAnomaly=completo&&(new Date(lastEg.timestamp)-new Date(firstIn.timestamp))<120000;
+    // Calcular minutos hasta la entrada cuando aún no fichó
+    let minsUntilStart=null;
+    if(sinFichar&&planStart){
+      const[ph,pm]=planStart.split(':').map(Number);
+      const nowSp=new Date(new Date().toLocaleString('sv',{timeZone:TZ_SPAIN}));
+      const startSp=new Date(nowSp);startSp.setHours(ph,pm,0,0);
+      let diff=Math.round((startSp-nowSp)/60000);
+      if(diff<-60)diff+=24*60; // si ya pasó más de 1h ignorar
+      if(diff>=0&&diff<=300)minsUntilStart=diff; // hasta 5h antes mostramos countdown
+    }
     const tardMin=firstIn&&firstIn.tardanza_min>0&&firstIn.tardanza_min<=120?firstIn.tardanza_min:0;
     const isNocturno=nocturnasHoras(turno)>0||noctMins>0;
     // Pausa duration
@@ -8177,7 +8251,17 @@ async function renderEmpHoy(){
     else if(completo){statusLabel='Completó';statusBg='#eafaf1';statusColor='#196f3d';}
     else if(enPausa){statusLabel='En pausa';statusBg='#fef9e7';statusColor='#9a7d0a';}
     else if(enTurno){statusLabel='En turno';statusBg='#f0f4ff';statusColor='#1a4f9f';}
-    else if(sinFichar){statusLabel='Sin fichar';statusBg='var(--bg)';statusColor='var(--hint)';}
+    else if(sinFichar){
+      if(minsUntilStart!==null&&minsUntilStart>0){
+        const hh=Math.floor(minsUntilStart/60),mm=minsUntilStart%60;
+        statusLabel='En '+(hh?hh+'h ':'')+(mm?mm+'min':'');
+        statusBg='#fef9e7';statusColor='#9a7d0a';
+      } else if(minsUntilStart===0){
+        statusLabel='¡Ahora!';statusBg='#fef3cd';statusColor='#856404';
+      } else {
+        statusLabel='Sin fichar';statusBg='var(--bg)';statusColor='var(--hint)';
+      }
+    }
     else{statusLabel='—';statusBg='var(--bg)';statusColor='var(--hint)';}
 
     const fmtT=ts=>new Date(ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',timeZone:TZ_SPAIN});
@@ -8201,7 +8285,9 @@ async function renderEmpHoy(){
         <span style="font-size:8px;font-weight:500;padding:2px 6px;background:${statusBg};color:${statusColor}">${statusLabel}</span>
       </div>
       <div style="font-size:8px;color:var(--hint);margin-bottom:2px">Grilla hoy</div>
-      <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:7px">${planStart&&planEnd?planStart+' → '+planEnd:turno==='OFF'?'Libre':(turno||'Sin turno')}</div>
+      <div style="font-size:11px;font-weight:500;color:var(--muted);margin-bottom:${sinFichar&&minsUntilStart!==null?'3':'7'}px">${planStart&&planEnd?planStart+' → '+planEnd:turno==='OFF'?'Libre':(turno||'Sin turno')}</div>
+      ${sinFichar&&minsUntilStart!==null?`<div style="font-size:8px;color:#9a7d0a;margin-bottom:7px">⏱ Próxima entrada en ${Math.floor(minsUntilStart/60)?Math.floor(minsUntilStart/60)+'h ':''}${minsUntilStart%60?minsUntilStart%60+'min':''}</div>`:''}
+      ${sinFichar&&minsUntilStart===null&&planStart?`<div style="font-size:8px;color:var(--hint);margin-bottom:7px">Aún no fichó</div>`:''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:7px">
         <div>
           <div style="font-size:8px;color:var(--hint)">Entrada</div>
@@ -9726,9 +9812,9 @@ async function fkCheckPin(){
     btnOut.style.display='inline-block';btnOut.style.transform='scale(1.08)';
     estadoText=lastTipo==='vuelta'?'▶ En turno (vuelta de pausa)':'▶ En turno';
   } else if(lastTipo==='pausa'){
-    btnVuelta.style.display='inline-block';btnVuelta.style.transform='scale(1.08)';
-    btnOut.style.display='inline-block';
-    estadoText='⏸ En pausa';
+    // Vuelta automática: no mostrar botón VUELTA; solo EGRESO si necesita salir
+    btnOut.style.display='inline-block';btnOut.style.transform='scale(1.08)';
+    estadoText='⏸ En pausa – vuelta automática';
   }
   $('fk-estado-badge').textContent=estadoText;
   $('fk-screen-pin').style.display='none';
@@ -9757,10 +9843,30 @@ async function fkRegistrar(tipo){
     timestamp:now.toISOString(),semana_key:wk,tardanza_min,estado:'activo'
   });
   if(error){alert('Error: '+error.message);return;}
+
+  // Si es pausa → arrancar timer automático de vuelta
+  if(tipo==='pausa'){
+    const minPausa=(_fkEmp.minutos_pausa||30);
+    const empId=_fkEmp.id;
+    const empNombre=nombre;
+    const pausaTs=now;
+    // Cancelar timer previo si había uno
+    if(window._pausaAutoTimers[empId])clearTimeout(window._pausaAutoTimers[empId]);
+    window._pausaAutoTimers[empId]=setTimeout(async()=>{
+      delete window._pausaAutoTimers[empId];
+      await _autoPausaFin(empId,empNombre,pausaTs,minPausa);
+    },minPausa*60000);
+  }
+  // Si regresa (vuelta/egreso) → cancelar timer pendiente
+  if((tipo==='vuelta'||tipo==='egreso')&&_fkEmp.id){
+    if(window._pausaAutoTimers[_fkEmp.id])clearTimeout(window._pausaAutoTimers[_fkEmp.id]);
+    delete window._pausaAutoTimers[_fkEmp.id];
+  }
+
   $('fk-screen-confirm').style.display='none';
   $('fk-screen-result').style.display='block';
   const icons={ingreso:'✅',pausa:'⏸',vuelta:'▶️',egreso:'🏁'};
-  const labels={ingreso:'Ingreso registrado',pausa:'Pausa registrada',vuelta:'Vuelta de pausa',egreso:'Egreso registrado'};
+  const labels={ingreso:'Ingreso registrado',pausa:'Pausa iniciada – vuelta automática en '+((_fkEmp.minutos_pausa||30))+'min',vuelta:'Vuelta de pausa',egreso:'Egreso registrado'};
   $('fk-res-icon').textContent=icons[tipo]||'✓';
   $('fk-res-name').textContent=nombre;
   $('fk-res-tipo').textContent=labels[tipo]||tipo;
