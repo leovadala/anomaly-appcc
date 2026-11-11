@@ -11562,9 +11562,17 @@ function renderChecklistPinDots(){
   el.innerHTML=[0,1,2,3].map(i=>`<div style="width:12px;height:12px;border-radius:50%;border:1.5px solid var(--black);background:${i<_checklistPinVal.length?'var(--black)':'transparent'}"></div>`).join('');
 }
 async function chkPinSubmit(){
+  // Primero: buscar en team
+  let nombreResp=null;
   const{data}=await sb.from('team').select('nombre').eq('pin',_checklistPinVal).maybeSingle();
-  if(data?.nombre){
-    _checklistResponsable=data.nombre;
+  if(data?.nombre){nombreResp=data.nombre;}
+  // Segundo: buscar en hor_empleados por pin_fichaje (responsables de turno)
+  if(!nombreResp){
+    const{data:emp}=await sb.from('hor_empleados').select('nombre,cargo').eq('pin_fichaje',_checklistPinVal).maybeSingle();
+    if(emp&&/encargad|responsable|supervisor|due[ñn]/i.test(emp.cargo||''))nombreResp=emp.nombre;
+  }
+  if(nombreResp){
+    _checklistResponsable=nombreResp;
     $('chk-pin-modal').style.display='none';
     _checklistTurnoActual=_checklistPinTurno;
     const{data:tareas}=await sb.from('checklist_tareas').select('*').eq('activo',true).order('turno').order('orden');
