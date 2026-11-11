@@ -8572,6 +8572,7 @@ async function openEmpFicha(nombre){
     <!-- DATOS -->
     <div id="ft-datos">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem">
+        <div class="f" style="grid-column:1/-1"><label>Cargo / Rol</label><select id="ficha-cargo" style="width:100%;padding:.5rem 0;border:none;border-bottom:.5px solid var(--border);font-size:14px;font-family:var(--font);background:transparent;color:var(--black);outline:none;-webkit-appearance:none;appearance:none;border-radius:0;cursor:pointer"><option value="" ${!emp.cargo?'selected':''}>Sin cargo asignado</option><option value="Colaborador/a" ${emp.cargo==='Colaborador/a'?'selected':''}>Colaborador/a</option><option value="Responsable del turno 1" ${emp.cargo==='Responsable del turno 1'?'selected':''}>Responsable del turno 1</option><option value="Responsable del turno 2" ${emp.cargo==='Responsable del turno 2'?'selected':''}>Responsable del turno 2</option><option value="Encargado/a" ${emp.cargo==='Encargado/a'?'selected':''}>Encargado/a</option><option value="Supervisor/a" ${emp.cargo==='Supervisor/a'?'selected':''}>Supervisor/a</option></select></div>
         <div class="f"><label>DNI / Documento</label><input id="ficha-dni" value="${emp.dni||''}" placeholder="—"></div>
         <div class="f"><label>Teléfono</label><input id="ficha-tel" value="${emp.telefono||''}" placeholder="—"></div>
         <div class="f"><label>Email</label><input id="ficha-email" value="${emp.email||''}" placeholder="—"></div>
@@ -9494,6 +9495,7 @@ async function saveEmpDatos(nombre){
   const emp=horEmpleados.find(e=>(e.nombre||e.name)===nombre);
   if(!emp||!emp.id){if(btn){btn.textContent='Error';btn.disabled=false;}return;}
   const fields={
+    cargo:($('ficha-cargo')||{}).value||null,
     dni:($('ficha-dni')||{}).value||null,
     telefono:($('ficha-tel')||{}).value||null,
     email:($('ficha-email')||{}).value||null,
