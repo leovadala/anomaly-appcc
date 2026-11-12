@@ -8396,9 +8396,19 @@ function _runFichaMonitor(){
       planStartH=a;planEndH=b%24;
       planEnd=String(planEndH).padStart(2,'0')+':00';
     }
-    // Alerta pausa prolongada
+    // Auto-vuelta de pausa: si el tiempo configurado ya pasó, registrar vuelta automáticamente
     if(enPausa&&lastPausa&&(emp.minutos_pausa||0)>0){
+      const minPausa=emp.minutos_pausa||30;
       const pausaDurMin=Math.round((Date.now()-new Date(lastPausa.timestamp))/60000);
+      const autoVueltaKey=nombre+'-'+laborDayStr+'-vuelta-auto-'+(lastPausa.id||'x');
+      if(pausaDurMin>=minPausa&&!window._fichaMonShown.has(autoVueltaKey)){
+        window._fichaMonShown.add(autoVueltaKey);
+        // Cancelar el setTimeout si aún está pendiente
+        if(emp.id&&window._pausaAutoTimers[emp.id]){clearTimeout(window._pausaAutoTimers[emp.id]);delete window._pausaAutoTimers[emp.id];}
+        await _autoPausaFin(emp.id,nombre,new Date(lastPausa.timestamp),minPausa);
+        return; // skip alerta prolongada ya que se registró la vuelta
+      }
+      // Alerta pausa prolongada (sólo si aún no se registró la vuelta)
       const pausaKey=nombre+'-'+laborDayStr+'-pausa-'+(lastPausa.id||'x');
       if(pausaDurMin>(emp.minutos_pausa||30)&&!window._fichaMonShown.has(pausaKey)){
         window._fichaMonShown.add(pausaKey);
