@@ -2532,8 +2532,9 @@ async function _autoPausaFin(empId, nombre, pausaTs, minutos){
   });
   if(!error){
     _showPausaFinModal(nombre,minutos);
-    // Refrescar card de fichaje si está visible
-    if(typeof renderFichajeCards==='function')renderFichajeCards();
+    // Refrescar panel completo desde Supabase para incluir la nueva vuelta
+    if(typeof renderEmpHoy==='function')renderEmpHoy();
+    else if(typeof renderFichajeCards==='function')renderFichajeCards();
   }
 }
 let horLocal={};  // {dayIdx:{a:'12:00',c:'00:00'}}
@@ -3681,7 +3682,8 @@ async function submitAppPin(){
   renderAppPinDots();
 }
 
-function enterApp(){const v=$('ob-user').value;if(!v){alert('Seleccion\u00e1 un responsable');return}currentUser=v;$('onboard').style.display='none';$('main').style.display='block';$('hdr-user').textContent=currentUser;$('ar').value=currentUser;$('af').valueAsDate=new Date();loadLastIngreso();try{localStorage.setItem('anomaly_last_login',JSON.stringify({user:v,time:new Date().toISOString()}))}catch(e){};startClock();goHome()}
+function enterApp(){const v=$('ob-user').value;if(!v){alert('Seleccion\u00e1 un responsable');return}currentUser=v;$('onboard').style.display='none';$('main').style.display='block';$('hdr-user').textContent=currentUser;$('ar').value=currentUser;$('af').valueAsDate=new Date();loadLastIngreso();try{localStorage.setItem('anomaly_last_login',JSON.stringify({user:v,time:new Date().toISOString()}))}catch(e){};startClock();// Arrancar monitor de fondo inmediatamente al iniciar sesi\u00f3n (no esperar a abrir tab Fichajes)
+setTimeout(()=>{if(typeof initFichajeMonitor==='function')initFichajeMonitor();},1500);goHome()}
 function logout(){currentUser='';_finUnlocked=false;document.querySelectorAll('.view').forEach(e=>e.classList.remove('on'));$('main').style.display='none';$('onboard').style.display='flex';$('ob-user').value='';window.scrollTo(0,0)}
 function renderTeamSelect(){$('ob-user').innerHTML='<option value="">Seleccionar...</option>'+team.map(n=>`<option>${n.nombre}</option>`).join('')}
 
