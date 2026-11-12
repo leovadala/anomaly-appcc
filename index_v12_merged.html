@@ -8157,15 +8157,8 @@ async function renderEmpHoy(){
   horEmpleados.forEach(e=>{
     const t=((horSchedules[laborWk]||{})[e.nombre]||{})[laborDayIdx]||'';
     if(!t||t==='OFF'||t==='P')return;
-    if(isAfterMidnight){
-      // Antes de las 06:00: mostrar todos los del día laboral (todos ya comenzaron)
-      conTurno.add(e.nombre);
-    } else {
-      const tm=t.match(/^(\d+)A(\d+)/i);if(!tm)return;
-      const startH=parseInt(tm[1]);
-      const hoursUntilStart=(startH-nowSpainH+24)%24;
-      if(hoursUntilStart<=2||hoursUntilStart>=22)conTurno.add(e.nombre);
-    }
+    // Mostrar todos los empleados con turno hoy, sin filtro de hora
+    conTurno.add(e.nombre);
   });
 
   // byEmpFiltered: empleados con ingreso en el día laboral (hora Alicante) o turno abierto
@@ -8246,7 +8239,7 @@ async function renderEmpHoy(){
       const startSp=new Date(nowSp);startSp.setHours(ph,pm,0,0);
       let diff=Math.round((startSp-nowSp)/60000);
       if(diff<-60)diff+=24*60; // si ya pasó más de 1h ignorar
-      if(diff>=0&&diff<=300)minsUntilStart=diff; // hasta 5h antes mostramos countdown
+      if(diff>=0&&diff<=720)minsUntilStart=diff; // hasta 12h antes mostramos countdown
     }
     const tardMin=firstIn&&firstIn.tardanza_min>0&&firstIn.tardanza_min<=120?firstIn.tardanza_min:0;
     const isNocturno=nocturnasHoras(turno)>0||noctMins>0;
